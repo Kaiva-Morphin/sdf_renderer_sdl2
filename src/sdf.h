@@ -117,7 +117,7 @@ class LineObject : public Object{
     ){
         vec3 pa = point - p1;
         vec3 ba = pa - p2;
-        double h = clamp( (double)(dot(pa,ba)/dot(ba,ba)), 0.0, 1.0 );
+        double h = glm::clamp( (double)(dot(pa,ba)/dot(ba,ba)), 0.0, 1.0 );
         ba *= h;
         return length( pa - ba ) - radius;
     }
@@ -153,13 +153,13 @@ double SampleSceneSDF(
         mindist = simple_min(dist, mindist);
     }
     
-    /*double merged_dist = sdf_smoothunion(distances[0], distances[1], 15.);
+    double merged_dist = sdf_smoothunion(distances[0], distances[1], 15.);
     merged_dist = sdf_smoothunion(merged_dist, distances[2], 15);
-    merged_dist = sdf_smoothunion(merged_dist, distances[3], 15);*/
+    merged_dist = sdf_smoothunion(merged_dist, distances[3], 15);
     //cout << distances[3] << endl;
     //mindist = sdf_smoothunion(distances[0], distances[1], 20.);
     //mindist = simple_min(distances[2], mindist);
-    return mindist;
+    return merged_dist;
 }
 
 
@@ -237,3 +237,18 @@ vec3 CalculateNormal(vec3 position, Scene * scene){
 }
 
 
+void compute_pixel(int x, int y, vec3 pos, vec3 direction, Scene * scene, vec3 sun_vector){
+    vec3 hit_point;
+    double result;
+    tie(hit_point, result) = RaySceneSDF(pos, direction, scene);
+    if (result < SDF_INF){
+        vec3 normal = CalculateNormal(hit_point, scene);
+        double dot_product = 0.1 + 0.9 * (dot(normalize(sun_vector), normal) * 0.5 + 0.5);
+        double amp = glm::clamp(dot_product, 0., 1.);
+        double c = round((amp * 255.));
+        SDL_SetRenderDrawColor(renderer, c, c, c, 255);
+        SDL_RenderDrawPoint(renderer, x, y);
+    } else {
+        //SDL_RenderDrawPoint(renderer, x, y);
+    }
+}

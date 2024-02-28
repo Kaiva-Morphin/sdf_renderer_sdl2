@@ -1,4 +1,6 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
+#include <gl/GLU.h>
 #include "cmath"
 
 #include <glm/glm.hpp>
@@ -14,6 +16,7 @@ using namespace std;
 #include <chrono>
 #include <ctime>
 
+
 #define PI 3.14159
 #define HALF_PI PI / 2.
 
@@ -21,10 +24,10 @@ int main(int argc, char ** argv)
 {
     
     Scene scene;
-    ///*
+    /*
     LineObject obj1 = LineObject{vec3{82, -30, 90}, vec3{0, -10, 0}, vec3{0, -10, 0}, 9, eye3};
     scene.objects.push_back(&obj1);/**/
-    /*
+    ///*
     SphereObject obj1 = SphereObject{vec3{82, 19, 60}, 10, eye3};
     scene.objects.push_back(&obj1);
     SphereObject obj2 = SphereObject{vec3{102, 19, 60}, 12, eye3};
@@ -69,38 +72,31 @@ int main(int argc, char ** argv)
         anglez += 0.1;
         SDL_Delay(10);
         vec3 sun_vector = sun_vec * rotmaty;
-        /*obj4.transform = rotmat;
+        obj4.transform = rotmat;
         obj1.translation_offset = vec3{0, sin(PI / 4. + angley * 3.) * 20, 0};
         obj2.translation_offset = vec3{0, sin(PI / 4. * 2. + angley * 3.) * 20, 0};
         obj3.translation_offset = vec3{0, sin(PI / 4. * 3. + angley * 3.) * 20, 0};
-        obj4.translation_offset = vec3{0, sin(PI / 4. * 4. + angley * 3.) * 20, 0};*/
-        if(false){
+        obj4.translation_offset = vec3{0, sin(PI / 4. * 4. + angley * 3.) * 20, 0};
+
+
+        
+        
+        if(true){
             auto start = std::chrono::system_clock::now();
             clear_screen(100, 100, 255); // draw sky
-            for (int x = 0; x < TARGET_WIDTH; ++x){
-                for (int y = 0; y < TARGET_HEIGHT; ++y){
+
+            //int num_threads = std::thread::hardware_concurrency(); // Get number of available threads
+            for (int x = 30; x < 140; ++x){
+                for (int y = 6; y < 92; ++y){
                     vec3 pos = vec3{x + 30, y - 30, 1};
                     vec3 direction = vec3{0, 0, 1}; // orthoganal camera
-                    vec3 hit_point;
-                    double result;
-                    tie(hit_point, result) = RaySceneSDF(pos, direction, &scene);
-                    if (result < SDF_INF){
-                        vec3 normal = CalculateNormal(hit_point, &scene);
-                        double dot_product = 0.1 + 0.9 * (dot(normalize(sun_vector), normal) * 0.5 + 0.5);
-                        double amp = clamp(dot_product, 0., 1.);
-                        double c = round((amp * 255.));
-                        SDL_SetRenderDrawColor(renderer, c, c, c, 255);
-                        SDL_RenderDrawPoint(renderer, x, y);
-                    } else {
-                        //SDL_RenderDrawPoint(renderer, x, y);
-                    }
+                    compute_pixel(x, y, pos, direction, &scene, sun_vector);
                 }
             }
-
             draw();
             auto end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
-            //cout <<  1. / elapsed_seconds.count() << "\n";
+            cout <<  1. / elapsed_seconds.count() << "\n";
         } else {
             auto start = std::chrono::system_clock::now();
             clear_screen(100, 100, 255); // draw sky
@@ -121,8 +117,6 @@ int main(int argc, char ** argv)
             
             auto end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
-
-            obj1.draw();
 
             //DrawCircle(this->position.z, this->position.x, this->radius);
             //cout <<  1. / elapsed_seconds.count() << "\n";
