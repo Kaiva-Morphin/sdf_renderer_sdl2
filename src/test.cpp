@@ -8,12 +8,18 @@ and may not be redistributed without written permission.*/
 #include <stdio.h>
 #include <string>
 
+
 //Screen dimension constants
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 
+const int TARGET_WIDTH = 240;
+const int TARGET_HEIGHT = 144;
+const int CENTERX = TARGET_WIDTH / 2;
+const int CENTERY = TARGET_HEIGHT / 2;
+
 //Starts up SDL, creates window, and initializes OpenGL
-bool init();
+bool gl_init();
 
 //Initializes matrices and clear color
 bool initGL();
@@ -32,14 +38,14 @@ void close();
 
 //The window we'll be rendering to
 SDL_Window* gWindow = NULL;
-
+SDL_Renderer *renderer;
 //OpenGL context
 SDL_GLContext gContext;
 
 //Render flag
 bool gRenderQuad = true;
 
-bool init()
+bool gl_init()
 {
 	//Initialization flag
 	bool success = true;
@@ -58,7 +64,14 @@ bool init()
 
 		//Create window
 		gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN );
-		if( gWindow == NULL )
+		renderer = SDL_CreateRenderer(gWindow, -1, SDL_RENDERER_ACCELERATED);
+        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, 0);
+        SDL_SetWindowResizable(gWindow, SDL_bool::SDL_TRUE);
+        SDL_SetHint(SDL_HINT_RENDER_LOGICAL_SIZE_MODE, 0);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_RenderSetLogicalSize(renderer, TARGET_WIDTH, TARGET_HEIGHT);
+        
+        if( gWindow == NULL )
 		{
 			printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
 			success = false;
@@ -153,9 +166,11 @@ void update()
 void render()
 {
 	//Clear color buffer
+
 	glClear( GL_COLOR_BUFFER_BIT );
 	
 	//Render quad
+
 	if( gRenderQuad )
 	{
 		glBegin( GL_QUADS );
@@ -165,6 +180,7 @@ void render()
 			glVertex2f( -0.5f, 0.5f );
 		glEnd();
 	}
+
 }
 
 void close()
@@ -180,12 +196,13 @@ void close()
 int main( int argc, char* args[] )
 {
 	//Start up SDL and create window
-	if( !init() )
+	if( !gl_init() )
 	{
 		printf( "Failed to initialize!\n" );
 	}
 	else
 	{
+        
 		//Main loop flag
 		bool quit = false;
 
@@ -214,7 +231,7 @@ int main( int argc, char* args[] )
 					handleKeys( e.text.text[ 0 ], x, y );
 				}
 			}
-
+            
 			//Render quad
 			render();
 			

@@ -16,6 +16,7 @@ using namespace std;
 #include <chrono>
 #include <ctime>
 
+#include <thread>
 
 #define PI 3.14159
 #define HALF_PI PI / 2.
@@ -42,7 +43,8 @@ int main(int argc, char ** argv)
 
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 80, 80);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-
+    SDL_Texture *buffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, TARGET_WIDTH, TARGET_HEIGHT);
+    SDL_SetTextureBlendMode(buffer, SDL_BLENDMODE_BLEND);
 
     vec3 sun_vec = vec3{1, -3, 1};
     float anglex = 0.;
@@ -70,7 +72,7 @@ int main(int argc, char ** argv)
         
         angley += 0.1;
         anglez += 0.1;
-        SDL_Delay(10);
+        //SDL_Delay(10);
         vec3 sun_vector = sun_vec * rotmaty;
         obj4.transform = rotmat;
         obj1.translation_offset = vec3{0, sin(PI / 4. + angley * 3.) * 20, 0};
@@ -85,14 +87,28 @@ int main(int argc, char ** argv)
             auto start = std::chrono::system_clock::now();
             clear_screen(100, 100, 255); // draw sky
 
-            //int num_threads = std::thread::hardware_concurrency(); // Get number of available threads
-            for (int x = 30; x < 140; ++x){
-                for (int y = 6; y < 92; ++y){
-                    vec3 pos = vec3{x + 30, y - 30, 1};
-                    vec3 direction = vec3{0, 0, 1}; // orthoganal camera
-                    compute_pixel(x, y, pos, direction, &scene, sun_vector);
-                }
+            int *pixels = NULL;
+            int pitch;
+            SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
+            SDL_LockTexture(buffer, &rect, (void **) &pixels, &pitch);
+            
+            vector<thread> threads;
+            uint32_t results[TARGET_WIDTH][TARGET_HEIGHT];
+            for (int x = 0; x < TARGET_WIDTH; ++x){
+                //for (int y = 0; y < TARGET_HEIGHT; ++y){
+                threads.push_back(thread(compute_row, x, &scene, sun_vector, results[x]));
+                    //threads.push_back(thread(threaded_pixel, x, y, &scene, sun_vector, &results[x]));
+                    //compute_row(x, &scene, sun_vector, &results[x]);
+                //}
             }
+            for (int x = 0; x < threads.size(); ++x){
+                threads[x].join();
+                for (int y = 0; y < TARGET_HEIGHT; ++y){
+                    pixels[x + y * TARGET_WIDTH] = results[x][y];
+                };
+            }
+            SDL_UnlockTexture(buffer);
+            SDL_RenderCopy(renderer, buffer, NULL, NULL);
             draw();
             auto end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
@@ -124,7 +140,7 @@ int main(int argc, char ** argv)
         }
     }
     
-
+    SDL_DestroyTexture(buffer);
     SDL_DestroyTexture(texture);
 
     cleanup();

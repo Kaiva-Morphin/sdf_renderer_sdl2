@@ -167,6 +167,7 @@ double DrawSceneTD(
     Scene * scene
 ){
     double mindist = SDF_INF;
+    
     for (size_t object_id = 0; object_id < scene->objects.size(); object_id++) {
         scene->objects[object_id]->draw();
     }
@@ -237,7 +238,7 @@ vec3 CalculateNormal(vec3 position, Scene * scene){
 }
 
 
-void compute_pixel(int x, int y, vec3 pos, vec3 direction, Scene * scene, vec3 sun_vector){
+std::tuple<int, int, int, int> compute_pixel(int x, int y, vec3 pos, vec3 direction, Scene * scene, vec3 sun_vector){
     vec3 hit_point;
     double result;
     tie(hit_point, result) = RaySceneSDF(pos, direction, scene);
@@ -246,9 +247,48 @@ void compute_pixel(int x, int y, vec3 pos, vec3 direction, Scene * scene, vec3 s
         double dot_product = 0.1 + 0.9 * (dot(normalize(sun_vector), normal) * 0.5 + 0.5);
         double amp = glm::clamp(dot_product, 0., 1.);
         double c = round((amp * 255.));
-        SDL_SetRenderDrawColor(renderer, c, c, c, 255);
-        SDL_RenderDrawPoint(renderer, x, y);
+        return std::make_tuple(c, c, c, 255);
     } else {
+        return std::make_tuple(0, 0, 0, 0);
         //SDL_RenderDrawPoint(renderer, x, y);
+    }
+}
+
+void threaded_pixel(int x, int y, Scene * scene, vec3 sun_vector, uint32_t *out){
+    vec3 pos = vec3{x + 30, y - 30, 1};
+    vec3 direction = vec3{0, 0, 1}; // orthoganal camera
+    vec3 hit_point;
+    double result;
+    tie(hit_point, result) = RaySceneSDF(pos, direction, scene);
+    if (result < SDF_INF){
+        vec3 normal = CalculateNormal(hit_point, scene);
+        double dot_product = 0.1 + 0.9 * (dot(normalize(sun_vector), normal) * 0.5 + 0.5);
+        double amp = glm::clamp(dot_product, 0., 1.);
+        double c = round((amp * 255.));
+        *out = (static_cast<uint32_t>(c) << 24) |
+                                        (static_cast<uint32_t>(c) << 16) |
+                                        (static_cast<uint32_t>(c) << 8) |
+                                        static_cast<uint32_t>(255);
+    } else {
+        *out = (static_cast<uint32_t>(0) << 24) |
+                                        (static_cast<uint32_t>(0) << 16) |
+                                        (static_cast<uint32_t>(0) << 8) |
+                                        static_cast<uint32_t>(0);
+        //SDL_RenderDrawPoint(renderer, x, y);
+    }
+}
+
+void compute_row(int x, Scene *scene, vec3 sun_vector, uint32_t *result){
+    for (int y = 0; y < TARGET_HEIGHT; ++y){
+        vec3 pos = vec3{x + 30, y - 30, 1};
+        vec3 direction = vec3{0, 0, 1}; // orthoganal camera
+        int r,g,b,a;
+
+        tie(r, g, b, a) = compute_pixel(x, y, pos, direction, scene, sun_vector);
+        //[x + y * TARGET_WIDTH]
+        result[y] = (static_cast<uint32_t>(r) << 24) |
+                                        (static_cast<uint32_t>(g) << 16) |
+                                        (static_cast<uint32_t>(b) << 8) |
+                                        static_cast<uint32_t>(a);
     }
 }
