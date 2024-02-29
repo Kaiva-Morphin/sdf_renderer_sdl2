@@ -26,6 +26,7 @@ using namespace std;
 class Object{
     public:
     vec3 position;
+    vec4 color = vec4{1, 1, 1, 1};
     vec3 translation_offset = vec3{0, 0, 0};
     mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1};
     vec3 applyRelativeTransforms(vec3 point){
@@ -115,8 +116,9 @@ class LineObject : public Object{
     double DistanceTo(
         vec3 point
     ){
-        vec3 pa = point - p1;
-        vec3 ba = pa - p2;
+        point = applyRelativeTransforms(point);
+        vec3 pa = point - position - p1;
+        vec3 ba = p2 - p1;
         double h = glm::clamp( (double)(dot(pa,ba)/dot(ba,ba)), 0.0, 1.0 );
         ba *= h;
         return length( pa - ba ) - radius;
@@ -141,25 +143,42 @@ float sdf_smoothunion(float d1, float d2, float k)
     return simple_min(d1, d2) - h*h*0.25/k;
 }
 
-double SampleSceneSDF(
+std::tuple<double, vec4> SampleSceneSDF(
     vec3 point,
     Scene * scene
 ){
     double mindist = SDF_INF;
+    vec4 res_color;
     vector<double> distances;
     for (size_t object_id = 0; object_id < scene->objects.size(); object_id++) {
         double dist = scene->objects[object_id]->DistanceTo(point);
+        vec4 color = scene->objects[object_id]->color;
         distances.push_back(dist);
-        mindist = simple_min(dist, mindist);
+        if (mindist == SDF_INF){
+            mindist = distances[object_id];
+            res_color = color;
+        } else {
+            /*
+            res_color.r = mindist < distances[object_id] ? res_color.r : color.r;
+            res_color.g = mindist < distances[object_id] ? res_color.g : color.g;
+            res_color.b = mindist < distances[object_id] ? res_color.b : color.b;
+            */
+           
+            
+            float interpolation = clamp(0.5 + 0.5 * (mindist - distances[object_id]) / 15., 0.0, 1.0);
+            res_color =  mix(res_color, color, interpolation);
+            mindist = sdf_smoothunion(mindist, distances[object_id], 15);
+            
+        }
+        //mindist = simple_min(dist, mindist);
     }
-    
-    double merged_dist = sdf_smoothunion(distances[0], distances[1], 15.);
-    merged_dist = sdf_smoothunion(merged_dist, distances[2], 15);
-    merged_dist = sdf_smoothunion(merged_dist, distances[3], 15);
+    //double merged_dist = sdf_smoothunion(distances[0], distances[1], 15.);
+    //merged_dist = sdf_smoothunion(merged_dist, distances[2], 15);
+    //merged_dist = sdf_smoothunion(merged_dist, distances[3], 15);
     //cout << distances[3] << endl;
     //mindist = sdf_smoothunion(distances[0], distances[1], 20.);
     //mindist = simple_min(distances[2], mindist);
-    return merged_dist;
+    return std::make_tuple(mindist, res_color);
 }
 
 
@@ -174,19 +193,21 @@ double DrawSceneTD(
     return mindist;
 }
 
-std::tuple<vec3, double> RaySceneSDF(
+std::tuple<vec3, double, vec4> RaySceneSDF(
     vec3 start,
     vec3 direction,
     Scene * scene,
     bool debug2d=false
 ){
-    double min_dist = 0.1;
+    double min_dist = 1;
     double max_dist = 100.;
     direction = normalize(direction);
     vec3 position = start;
     int steps = 64;
     for (int step = 0; step < steps; ++step){
-        double dist = SampleSceneSDF(position, scene); 
+        double dist;
+        vec4 c; 
+        tie(dist, c) = SampleSceneSDF(position, scene); 
         if (dist <= min_dist) {
             if (debug2d){
                 SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
@@ -194,7 +215,7 @@ std::tuple<vec3, double> RaySceneSDF(
                 SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
                 SDL_RenderDrawPoint(renderer, start.z, start.x);
             }
-            return std::make_tuple(position, dist);
+            return std::make_tuple(position, dist, c);
         };
         if (dist >= max_dist) {
             break;
@@ -218,21 +239,21 @@ std::tuple<vec3, double> RaySceneSDF(
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         SDL_RenderDrawPoint(renderer, start.z, start.x);
     }
-    return std::make_tuple(vec3{0, 0, 0}, SDF_INF);
+    return std::make_tuple(vec3{0, 0, 0}, SDF_INF, vec4{});
 }
 
 
 vec3 CalculateNormal(vec3 position, Scene * scene){
     const double EPS = 0.001;
     vec3 v1 = vec3{
-        SampleSceneSDF(position + vec3{EPS, 0, 0}, scene),
-        SampleSceneSDF(position + vec3{0, EPS, 0}, scene),
-        SampleSceneSDF(position + vec3{0, 0, EPS}, scene)
+        std::get<0>(SampleSceneSDF(position + vec3{EPS, 0, 0}, scene)),
+        std::get<0>(SampleSceneSDF(position + vec3{0, EPS, 0}, scene)),
+        std::get<0>(SampleSceneSDF(position + vec3{0, 0, EPS}, scene))
     };
     vec3 v2 = vec3{
-        SampleSceneSDF(position - vec3{EPS, 0, 0}, scene),
-        SampleSceneSDF(position - vec3{0, EPS, 0}, scene),
-        SampleSceneSDF(position - vec3{0, 0, EPS}, scene)
+        std::get<0>(SampleSceneSDF(position - vec3{EPS, 0, 0}, scene)),
+        std::get<0>(SampleSceneSDF(position - vec3{0, EPS, 0}, scene)),
+        std::get<0>(SampleSceneSDF(position - vec3{0, 0, EPS}, scene))
     };
     return normalize(v1 - v2);
 }
@@ -241,51 +262,27 @@ vec3 CalculateNormal(vec3 position, Scene * scene){
 std::tuple<int, int, int, int> compute_pixel(int x, int y, vec3 pos, vec3 direction, Scene * scene, vec3 sun_vector){
     vec3 hit_point;
     double result;
-    tie(hit_point, result) = RaySceneSDF(pos, direction, scene);
+    vec4 color;
+    tie(hit_point, result, color) = RaySceneSDF(pos, direction, scene);
     if (result < SDF_INF){
         vec3 normal = CalculateNormal(hit_point, scene);
         double dot_product = 0.1 + 0.9 * (dot(normalize(sun_vector), normal) * 0.5 + 0.5);
         double amp = glm::clamp(dot_product, 0., 1.);
-        double c = round((amp * 255.));
-        return std::make_tuple(c, c, c, 255);
+        return std::make_tuple(round(color.r * amp * 255), round(color.g * amp * 255), round(color.b * amp * 255), round(color.a * 255));
     } else {
         return std::make_tuple(0, 0, 0, 0);
-        //SDL_RenderDrawPoint(renderer, x, y);
     }
 }
 
-void threaded_pixel(int x, int y, Scene * scene, vec3 sun_vector, uint32_t *out){
-    vec3 pos = vec3{x + 30, y - 30, 1};
-    vec3 direction = vec3{0, 0, 1}; // orthoganal camera
-    vec3 hit_point;
-    double result;
-    tie(hit_point, result) = RaySceneSDF(pos, direction, scene);
-    if (result < SDF_INF){
-        vec3 normal = CalculateNormal(hit_point, scene);
-        double dot_product = 0.1 + 0.9 * (dot(normalize(sun_vector), normal) * 0.5 + 0.5);
-        double amp = glm::clamp(dot_product, 0., 1.);
-        double c = round((amp * 255.));
-        *out = (static_cast<uint32_t>(c) << 24) |
-                                        (static_cast<uint32_t>(c) << 16) |
-                                        (static_cast<uint32_t>(c) << 8) |
-                                        static_cast<uint32_t>(255);
-    } else {
-        *out = (static_cast<uint32_t>(0) << 24) |
-                                        (static_cast<uint32_t>(0) << 16) |
-                                        (static_cast<uint32_t>(0) << 8) |
-                                        static_cast<uint32_t>(0);
-        //SDL_RenderDrawPoint(renderer, x, y);
-    }
-}
-
-void compute_row(int x, Scene *scene, vec3 sun_vector, uint32_t *result){
-    for (int y = 0; y < TARGET_HEIGHT; ++y){
+void compute_row(int x, int ysize, Scene *scene, vec3 sun_vector, uint32_t *result){
+    for (int y = 0; y < ysize; ++y){
         vec3 pos = vec3{x + 30, y - 30, 1};
         vec3 direction = vec3{0, 0, 1}; // orthoganal camera
         int r,g,b,a;
 
         tie(r, g, b, a) = compute_pixel(x, y, pos, direction, scene, sun_vector);
         //[x + y * TARGET_WIDTH]
+        //if (a == 0){continue;}
         result[y] = (static_cast<uint32_t>(r) << 24) |
                                         (static_cast<uint32_t>(g) << 16) |
                                         (static_cast<uint32_t>(b) << 8) |
