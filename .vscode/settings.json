@@ -62,6 +62,20 @@
         "xloctime": "cpp",
         "xmemory": "cpp",
         "xtr1common": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "thread": "cpp",
+        "stop_token": "cpp",
+        "execution": "cpp",
+        "array": "cpp",
+        "deque": "cpp",
+        "mutex": "cpp",
+        "numeric": "cpp",
+        "queue": "cpp",
+        "ranges": "cpp",
+        "span": "cpp",
+        "future": "cpp",
+        "condition_variable": "cpp",
+        "coroutine": "cpp",
+        "resumable": "cpp"
     }
 }
