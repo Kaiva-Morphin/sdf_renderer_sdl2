@@ -34,7 +34,6 @@ int main(int argc, char ** argv)
     noise.SetFrequency(0.1);
     
     Scene scene;
-    ///*
 
     LineObject l = LineObject{vec3{105, 70, 60}, vec3{-33, -60, 0}, vec3{-23, -30, 0}, 8, eye3};
     scene.objects.push_back(&l);

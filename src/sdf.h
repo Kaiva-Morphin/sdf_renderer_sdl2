@@ -33,7 +33,7 @@ class Object{
     mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1};
 
     vec4 GetColor(vec3 point){
-        //point = applyRelativeTransforms(point);
+        point = applyRelativeTransforms(point);
         double val = noise.GetNoise(point.x, point.y, point.z);
         val = (val + 1) * 0.5;
         if (val * 255. < 170.) {
@@ -167,7 +167,7 @@ std::tuple<double, vec4> SampleSceneSDF(
     vector<double> distances;
     for (size_t object_id = 0; object_id < scene->objects.size(); object_id++) {
         double dist = scene->objects[object_id]->DistanceTo(point);
-        vec4 color = scene->objects[object_id]->GetColor(point);
+        vec4 color = scene->objects[object_id]->color;
         distances.push_back(dist);
         if (mindist == SDF_INF){
             mindist = distances[object_id];
@@ -182,7 +182,7 @@ std::tuple<double, vec4> SampleSceneSDF(
             
             float interpolation = clamp(0.5 + 0.5 * (mindist - distances[object_id]) / 15., 0.0, 1.0);
             res_color =  mix(res_color, color, interpolation);
-            mindist = sdf_smoothunion(mindist, distances[object_id], 15);
+            mindist = sdf_smoothunion(mindist, distances[object_id], 25);
             
         }
         //mindist = simple_min(dist, mindist);

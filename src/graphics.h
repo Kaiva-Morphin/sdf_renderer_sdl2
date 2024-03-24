@@ -1,6 +1,16 @@
 #include <SDL2/SDL.h>
 #include "cmath"
 
+// 480 * 270?
+/*
+texture types:
+    normal gradient
+    3d texture
+        gradient
+        noise gradient
+
+*/
+
 const int TARGET_WIDTH = 240;
 const int TARGET_HEIGHT = 144;
 const int CENTERX = TARGET_WIDTH / 2;

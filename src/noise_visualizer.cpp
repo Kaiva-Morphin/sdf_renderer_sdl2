@@ -53,7 +53,7 @@ int main(int argc, char ** argv)
                 } else {
                     SDL_SetRenderDrawColor(renderer, 40., 40., 0., 255);
                 }
-                
+                SDL_SetRenderDrawColor(renderer, val * 255., val * 255., val * 255., 255);
                 SDL_RenderDrawPoint(renderer, x, y);
             }
         }
