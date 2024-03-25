@@ -126,15 +126,19 @@ class PhysicsScene{
                     }
                     if (object->is_fixed){
                         second_object->position += vec;
-                        second_object->velocity.y = 0.;
+                        second_object->velocity = second_object->velocity - 2 * dot(second_object->velocity, vec) * vec;
+                        second_object->velocity *= 0.9995;
                     } else if (second_object->is_fixed){
                         object->position -= vec;
-                        object->velocity.y = 0.;
+                        object->velocity = object->velocity - 2 * dot(object->velocity, -vec) * -vec;
+                        object->velocity *= 0.9995;
                     } else {
                         object->position -= vec * 0.5f;
-                        object->velocity.y = 0.;
+                        object->velocity = object->velocity - 2 * dot(object->velocity, -vec) * -vec;
+                        object->velocity *= 0.9995;
                         second_object->position += vec * 0.5f;
-                        second_object->velocity.y = 0.;
+                        second_object->velocity = second_object->velocity - 2 * dot(second_object->velocity, vec) * vec;
+                        second_object->velocity *= 0.9995;
                     }
                 }
             }
@@ -145,6 +149,7 @@ class PhysicsScene{
             if (object->is_fixed){SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);}
             else {SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);}
             object->draw();
+            SDL_RenderDrawLine(renderer, object->position.x, object->position.y, object->position.x + object->velocity.x * 0.1, object->position.y + object->velocity.y * 0.1);
         }
     }
 };
@@ -166,7 +171,6 @@ class Box : public PhysicsObject{
     Box(vec2 size=vec2(10, 10), bool is_fixed = false){
         this->size = size;
         this->is_fixed = is_fixed;
-        scene.objects.push_back(this);
     }
     AABB get_binding_box(){
         vec2 half = size;
@@ -249,61 +253,124 @@ int main(int argc, char* argv[]) {
     Box floor = Box();
     floor.is_fixed = true;
     floor.size = vec2(200., 10.);
-    floor.position = vec2(100., 100.);
+    floor.position = vec2(100., 80.1);
+    scene.objects.push_back(&floor);
+
+    Box floor2 = Box();
+    floor2.is_fixed = true;
+    floor2.size = vec2(360., 10.);
+    floor2.position = vec2(180., 220.1);
+    scene.objects.push_back(&floor2);
 
     Box wall = Box();
     wall.is_fixed = true;
     wall.size = vec2(10., 70.);
-    wall.position = vec2(100., 100.);
+    wall.position = vec2(10., 100.);
+    scene.objects.push_back(&wall);
     
+    Box box = Box();
+    box.is_fixed = false;
+    box.size = vec2(20., 20.);
+    box.position = vec2(70., 70.);
+    scene.objects.push_back(&box);
 
 
     Capsule player = Capsule();
     player.position = vec2(130., 75.);
     player.is_fixed = false;
+    scene.objects.push_back(&player);
 
     Capsule c = Capsule();
     c.position = vec2(40., 10.);
     c.is_fixed = false;
+    scene.objects.push_back(&c);
 
     Capsule capsule = Capsule();
     capsule.is_fixed = true;
-    capsule.position = vec2(120., 105.);
+    capsule.position = vec2(240., 120.);
     capsule.rounding = 20.;
     capsule.height = 0.;
+    scene.objects.push_back(&capsule);
 
     Uint32 currentTime = SDL_GetTicks();
     Uint32 lastTime = currentTime;
     float deltaTime = 0.0f;
     bool sim = false;
-    while (!check_quit_event())
+    bool key_a, key_d, key_w;
+    key_a = false;
+    key_d = false;
+    key_w = false;
+    bool done = false;
+    while (!done)
     {
         currentTime = SDL_GetTicks();
         deltaTime = (currentTime - lastTime) / 1000.0f;
         lastTime = currentTime;
         clear_screen(240, 230, 230);
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        
-        if(event.type == SDL_MOUSEMOTION)
-        {
-            SDL_GetMouseState(&xMouse,&yMouse);
-        }
-        if (event.type == SDL_KEYDOWN){
-            switch (event.key.keysym.sym) {
-                case SDLK_a:
-                    player.position.x -= 3;
-                    break;
-                case SDLK_d:
-                    player.position.x += 3;
-                    break;
-                case SDLK_w:
-                    player.position.y += 3;
-                    break;
-                case SDLK_SPACE:
-                    sim = !sim;
-                    break;
+        while (SDL_PollEvent(&event)){
+            switch (event.type)
+            {
+                case SDL_QUIT:
+                    done = true;
+            }
+            if(event.type == SDL_MOUSEMOTION)
+            {
+                SDL_GetMouseState(&xMouse,&yMouse);
+            }
+            if(event.type == SDL_MOUSEBUTTONDOWN)
+            {
+                SDL_GetMouseState(&xMouse,&yMouse);
+                cout << "new" << endl;
+                Box *zxc = new Box();
+                zxc->is_fixed = false;
+                zxc->size = vec2(30., 30.);
+                int w, he;
+                SDL_GetWindowSizeInPixels(window, &w, &he);
+                int xm = xMouse / ((float)w  / (float)TARGET_WIDTH);
+                int ym = yMouse / ((float)he / (float)TARGET_HEIGHT);
+                zxc->position = vec2(xm, ym);
+                scene.objects.push_back(zxc);
+            }
+            if (event.type == SDL_KEYDOWN){
+                switch (event.key.keysym.sym) {
+                    case SDLK_a:
+                        key_a = true;
+                        break;
+                    case SDLK_d:
+                        key_d = true;
+                        break;
+                    case SDLK_w:
+                        key_w = true;
+                        break;
+                    case SDLK_SPACE:
+                        sim = !sim;
+                        break;
+                }
+            }
+            if (event.type == SDL_KEYUP){
+                switch (event.key.keysym.sym) {
+                    case SDLK_a:
+                        key_a = false;
+                        break;
+                    case SDLK_d:
+                        key_d = false;
+                        break;
+                    case SDLK_w:
+                        key_w = false;
+                        break;
+                }
             }
         }
+        if (key_a) player.velocity.x = -90;
+        if (key_d) player.velocity.x = 90;
+        if (key_w) player.velocity.y = -300;
+        
+        
+        
+
+
+
         int w, he;
         SDL_GetWindowSizeInPixels(window, &w, &he);
         int xm = xMouse / ((float)w  / (float)TARGET_WIDTH);

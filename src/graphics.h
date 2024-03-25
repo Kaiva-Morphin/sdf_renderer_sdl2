@@ -11,8 +11,8 @@ texture types:
 
 */
 
-const int TARGET_WIDTH = 240;
-const int TARGET_HEIGHT = 144;
+const int TARGET_WIDTH = 360;
+const int TARGET_HEIGHT = 240;
 const int CENTERX = TARGET_WIDTH / 2;
 const int CENTERY = TARGET_HEIGHT / 2;
 

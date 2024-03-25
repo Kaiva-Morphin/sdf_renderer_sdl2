@@ -1,22 +1,4 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-#include <SDL2/SDL_opengl.h>
-#include <gl/GLU.h>
-#include "cmath"
-
-#include <glm/glm.hpp>
-using namespace glm; // gl math for vec and mat operations
-
-#include <iostream>
-#include <variant>
-#include <vector>
-using namespace std;
-
-#include <chrono>
-#include <ctime>
-
-#include <thread>
-
+#include "header.h"
 
 
 #define PI 3.14159
@@ -63,10 +45,20 @@ class Atlas{
     void set_depth(int d){
         SDL_SetTextureColorMod(texture_atlas, d, d, d);
     }
-    void draw_tile_depth(int i, ivec3 dest){
+    void set_alpha(int a){
+        SDL_SetTextureAlphaMod(texture_atlas, a);
+    }
+    void draw_depth_tile(int i, ivec3 dest){
         dest *= tile_size;
         SDL_Rect src_rect = get_tile_rect(i);
         src_rect.y += (tile_size.y + tile_size.z) * 3.;
+        SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
+        SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
+    }
+    void draw_tile_depth(int i, ivec3 dest){
+        dest *= tile_size;
+        SDL_Rect src_rect = get_tile_rect(i);
+        src_rect.y += (tile_size.y + tile_size.z) * 2.;
         SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
         SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
     }
@@ -116,7 +108,7 @@ class Map{
         texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_size.x, texture_size.y);
         depth_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_size.x, texture_size.y);
         normals_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_size.x, texture_size.y);
-        //SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
     }
 
     void draw(){
@@ -133,23 +125,31 @@ class Map{
     }
 
     void render(Atlas* atlas){
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_SetRenderTarget(renderer, depth_texture);
         SDL_RenderClear(renderer);
+        float depth_step = 1. / (float)(size.z+1) * 255.;
         for (int y = 0; y < size.y; y++){
             for (int z = 0; z < size.z; z++){
                 float depth = (float)(z+1) / (float)(size.z+1) * 255.;
-                SDL_SetTextureColorMod(depth_texture, depth, depth, depth);
-                //atlas->set_depth(depth);
                 for (int x = size.x - 1; x >= 0; x--){
                     int tile = data[y][z][x];
                     if (tile != 0){
+
+                        atlas->set_depth(depth);
+                        atlas->set_alpha(255);
                         atlas->draw_tile_depth(tile - 1, ivec3(x, y - size.y + 1, z));
+
+                        atlas->set_depth(255);
+                        atlas->set_alpha(depth_step);
+                        atlas->draw_depth_tile(tile - 1, ivec3(x, y - size.y + 1, z));
+                        
                     }
                 }
             }
         }
         atlas->set_depth(255);
-
+        atlas->set_alpha(255);
         SDL_SetRenderTarget(renderer, normals_texture);
         SDL_RenderClear(renderer);
         for (int y = 0; y < size.y; y++){
@@ -192,10 +192,20 @@ bool check_quit_event(){
     return false;
 }
 
+
 int main(int argc, char ** argv)
 {
     init();
     IMG_Init(IMG_INIT_PNG);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; 
+    ImGui::StyleColorsDark();
+    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
+    ImGui_ImplSDLRenderer2_Init(renderer);
+
 
     vector<vector<vector<int>>> map_data = {
         {
@@ -246,10 +256,19 @@ int main(int argc, char ** argv)
     Atlas atlas = Atlas("assets/tiles.png", tile_size);
 
     Map map = Map(map_data, &atlas); // 72 * 72
-
+    map.render(&atlas);
     //map.offset = ivec3(10, 10, 0);
-    while (!check_quit_event())
+    bool done = false;
+    while (!done)
     {
+        while (SDL_PollEvent(&event))
+        {
+            ImGui_ImplSDL2_ProcessEvent(&event);
+            if (event.type == SDL_QUIT)
+                done = true;
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+                done = true;
+        }
         SDL_Delay(10);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
@@ -257,12 +276,44 @@ int main(int argc, char ** argv)
         SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
         SDL_RenderFillRect(renderer, &rect);
 
-        map.render(&atlas);
-        map.draw();
         
+        map.draw_depth();
+        
+        
+        ImGui_ImplSDLRenderer2_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+        static float f = 0.0f;
+        static int counter = 0;
+
+        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+        //ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+        //ImGui::Checkbox("Another Window", &show_another_window);
+
+        ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        //ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+            counter++;
+        ImGui::SameLine();
+        ImGui::Text("counter = %d", counter);
+
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::End();
+        ImGui::Render();
+        float x, y;
+        SDL_RenderGetScale(renderer, &x, &y);
+        SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+        SDL_RenderSetScale(renderer, x, y);
         SDL_RenderPresent(renderer);
     }
-    
+    ImGui_ImplSDLRenderer2_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
     IMG_Quit();
     cleanup();
     return 0;
