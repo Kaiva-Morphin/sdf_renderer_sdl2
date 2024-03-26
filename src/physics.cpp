@@ -89,6 +89,7 @@ vec2 apply_rounding(vec2 position, vec2 destination, float rounding){
 class PhysicsObject{
     public:
     float mass=1.;
+    float bounciness=1.;
     float rounding = 0.;
     bool is_fixed=true;
     vec2 position=vec2(0., 0.);
@@ -98,6 +99,10 @@ class PhysicsObject{
     virtual void draw(){};
     virtual vec2 closest_point(vec2 second_center){return vec2(0, 0);};
 };
+
+
+
+
 
 class PhysicsScene{
     public:
@@ -113,9 +118,21 @@ class PhysicsScene{
             for (auto second_object : objects){
                 if (object == second_object){continue;}
                 if (object->is_fixed && second_object->is_fixed){continue;}
-                if (object->get_binding_box().intersects(second_object->get_binding_box())) {
+                AABB object_aabb = object->get_binding_box();
+                AABB second_object_aabb = second_object->get_binding_box();
+                if (object_aabb.intersects(second_object_aabb)) {
                     vec2 center1 = object->center();
                     vec2 center2 = second_object->center();
+
+                    if (object_aabb.is_point_inside(center2)){
+
+                    }
+                    if (second_object_aabb.is_point_inside(center1)){
+                        
+                    }
+
+
+
                     vec2 closest_point1 = object->closest_point(center2);
                     vec2 closest_point2 = second_object->closest_point(closest_point1);
                     vec2 result1 = apply_rounding(closest_point1, closest_point2, object->rounding);
@@ -126,20 +143,22 @@ class PhysicsScene{
                     }
                     if (object->is_fixed){
                         second_object->position += vec;
-                        second_object->velocity = second_object->velocity - 2 * dot(second_object->velocity, vec) * vec;
-                        second_object->velocity *= 0.9995;
+                        second_object->velocity = second_object->velocity - 2 * clamp(dot(second_object->velocity, vec), -1.0f, 1.0f) * vec;
                     } else if (second_object->is_fixed){
                         object->position -= vec;
-                        object->velocity = object->velocity - 2 * dot(object->velocity, -vec) * -vec;
-                        object->velocity *= 0.9995;
+                        object->velocity = object->velocity - 2 * clamp(dot(object->velocity, -vec), -1.0f, 1.0f) * -vec;
                     } else {
                         object->position -= vec * 0.5f;
-                        object->velocity = object->velocity - 2 * dot(object->velocity, -vec) * -vec;
+
+                        object->velocity = object->velocity - 2 * clamp(dot(object->velocity, -vec), -1.0f, 1.0f) * -vec;
                         object->velocity *= 0.9995;
                         second_object->position += vec * 0.5f;
-                        second_object->velocity = second_object->velocity - 2 * dot(second_object->velocity, vec) * vec;
+                        
+                        //reflect(vec2(0, 1), vec2(1, 0));
+                        second_object->velocity = second_object->velocity - 2 * clamp(dot(second_object->velocity, vec), -1.0f, 1.0f) * vec; // 
                         second_object->velocity *= 0.9995;
                     }
+
                 }
             }
         }
@@ -215,7 +234,9 @@ class Box : public PhysicsObject{
     }
 };
 
-class Triangle : public PhysicsObject{
+
+
+class Pyramid : public PhysicsObject{
     
 };
 
@@ -226,7 +247,7 @@ class Capsule : public PhysicsObject{
         this->height = height;
         this->rounding = radius;
         this->is_fixed = is_fixed;
-        scene.objects.push_back(this);
+        //scene.objects.push_back(this);
     }
     AABB get_binding_box(){
         vec2 offset = vec2(rounding, rounding + height * 0.5);
@@ -250,7 +271,7 @@ int xMouse, yMouse;
 int main(int argc, char* argv[]) {
     init();
 
-    Box floor = Box();
+    /*Box floor = Box();
     floor.is_fixed = true;
     floor.size = vec2(200., 10.);
     floor.position = vec2(100., 80.1);
@@ -266,25 +287,25 @@ int main(int argc, char* argv[]) {
     wall.is_fixed = true;
     wall.size = vec2(10., 70.);
     wall.position = vec2(10., 100.);
-    scene.objects.push_back(&wall);
-    
+    scene.objects.push_back(&wall);*/
+    auto player = Capsule();
+    player.position = vec2(130., 75.);
+    player.is_fixed = false;
+    scene.objects.push_back(&player);
     Box box = Box();
-    box.is_fixed = false;
-    box.size = vec2(20., 20.);
+    box.is_fixed = true;
+    box.size = vec2(100., 100.);
     box.position = vec2(70., 70.);
     scene.objects.push_back(&box);
 
 
-    Capsule player = Capsule();
-    player.position = vec2(130., 75.);
-    player.is_fixed = false;
-    scene.objects.push_back(&player);
+    
 
-    Capsule c = Capsule();
+    /*Capsule c = Capsule();
     c.position = vec2(40., 10.);
     c.is_fixed = false;
-    scene.objects.push_back(&c);
-
+    scene.objects.push_back(&c);*/
+    
     Capsule capsule = Capsule();
     capsule.is_fixed = true;
     capsule.position = vec2(240., 120.);
@@ -301,6 +322,8 @@ int main(int argc, char* argv[]) {
     key_d = false;
     key_w = false;
     bool done = false;
+
+
     while (!done)
     {
         currentTime = SDL_GetTicks();
@@ -308,6 +331,11 @@ int main(int argc, char* argv[]) {
         lastTime = currentTime;
         clear_screen(240, 230, 230);
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        int w, he;
+        SDL_GetWindowSizeInPixels(window, &w, &he);
+        int xm = xMouse / ((float)w  / (float)TARGET_WIDTH);
+        int ym = yMouse / ((float)he / (float)TARGET_HEIGHT);
+        vec2 pos = vec2(xm, ym);
         while (SDL_PollEvent(&event)){
             switch (event.type)
             {
@@ -343,6 +371,15 @@ int main(int argc, char* argv[]) {
                     case SDLK_w:
                         key_w = true;
                         break;
+                    case SDLK_c:
+                        player.velocity = vec2(0, 0);
+                        break;
+                    case SDLK_z:
+                        player.position = vec2(xm, ym); 
+                        break;
+                    case SDLK_x:
+                        scene.step(deltaTime);
+                        break;
                     case SDLK_SPACE:
                         sim = !sim;
                         break;
@@ -359,6 +396,7 @@ int main(int argc, char* argv[]) {
                     case SDLK_w:
                         key_w = false;
                         break;
+                    
                 }
             }
         }
@@ -371,15 +409,8 @@ int main(int argc, char* argv[]) {
 
 
 
-        int w, he;
-        SDL_GetWindowSizeInPixels(window, &w, &he);
-        int xm = xMouse / ((float)w  / (float)TARGET_WIDTH);
-        int ym = yMouse / ((float)he / (float)TARGET_HEIGHT);
-        vec2 pos = vec2(xm, ym);
-        if (!sim){
-            player.position = vec2(xm, ym); 
-        }
         
+
 
         //scene.step(deltaTime);
 
@@ -401,7 +432,22 @@ int main(int argc, char* argv[]) {
             SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
         }
         SDL_RenderDrawLine(renderer, result1.x, result1.y, result2.x, result2.y);*/
+        auto second_object = &player;
+        //second_object->position = vec2(xm, ym);
+        for (auto object : scene.objects){
+            if (object == second_object){continue;}
+            vec2 center1 = object->center();
+            vec2 center2 = second_object->center();
+            vec2 closest_point1 = object->closest_point(center2);
+            vec2 closest_point2 = second_object->closest_point(closest_point1);
+            vec2 result1 = apply_rounding(closest_point1, closest_point2, object->rounding);
+            vec2 result2 = apply_rounding(closest_point2, closest_point1, second_object->rounding);
+            vec2 vec = result1 - result2;
+            SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
+            SDL_RenderDrawLine(renderer, result1.x, result1.y, result2.x, result2.y);
+        }
         if (sim){scene.step(deltaTime);}
+
         /*if (object->is_fixed){
             second_object->position += vec;
             second_object->velocity.y = 0.;
