@@ -77,6 +77,8 @@
         "condition_variable": "cpp",
         "coroutine": "cpp",
         "resumable": "cpp",
-        "glew.h": "c"
+        "glew.h": "c",
+        "filesystem": "cpp",
+        "fstream": "cpp"
     }
 }

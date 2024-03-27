@@ -1,8 +1,9 @@
-
 #include "header.h"
 
-
-#include "Shader.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 
 
@@ -15,6 +16,7 @@ SDL_Window* window;
 SDL_Renderer* renderer;
 SDL_GLContext context;
 TTF_Font* font;
+
 
 int TARGET_WIDTH = 320; // always true :party_popper:
 int TARGET_HEIGHT = 240; // always true :party_popper:
@@ -118,18 +120,20 @@ class GameRenderer{ // scale?
     Debugger debugger;
     void init(){
         SDL_Init(SDL_INIT_VIDEO);
-        window = SDL_CreateWindow("Simple Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_SHOWN);
+        window = SDL_CreateWindow("Simple Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_OPENGL);
+        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
         context = SDL_GL_CreateContext(window);
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
         glewExperimental = GL_TRUE;
         glewInit();
         glEnable( GL_DEBUG_OUTPUT );
+
         debugger = Debugger();
         debugger.register_line(string("int_scale"), string("int_scale: "), string("true"));
         update_resolution();
 
-        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
         //SDL_RenderSetLogicalSize(renderer, TARGET_WIDTH, TARGET_HEIGHT);
-        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
         if (true_scaling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
         else SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
@@ -226,6 +230,122 @@ class GameRenderer{ // scale?
 
 
 
+class SDF_Shader{
+    string filePath;
+    string current_src;
+    Debugger* debugger;
+    GLuint outputTexture;
+    GLuint computeShader = glCreateShader(GL_COMPUTE_SHADER);
+    SDL_Texture* sdl_output_texture;
+    int width;
+    int height;
+    string read_shader(){
+        ifstream fileStream(filePath);
+        if (!fileStream.is_open()) {
+            cerr << "ERROR! Cant open file!" << endl;
+            return "";
+        }
+
+        std::stringstream buffer;
+        buffer << fileStream.rdbuf();
+        return buffer.str();
+    }
+    public:
+    GLuint computeProgram = glCreateProgram();
+    SDF_Shader(string path, Debugger* debugger){
+        filePath = path;
+        this->debugger = debugger;
+        this->debugger->register_line("SDFshader","SDF shader status: ","NOT INITED!");
+    }
+    void init(int w, int h){
+        this->debugger->register_line("SDFshader","SDF shader status: ","Initing...");
+        width = w;
+        height = h;
+        current_src = read_shader();
+        glGenTextures(1, &outputTexture);
+        glBindTexture(GL_TEXTURE_2D, outputTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        compile();
+    }
+    void compile(){
+        this->debugger->register_line("SDFshader","SDF shader status: ","Compiling...");
+        const GLchar* shaderSource = current_src.c_str();
+        glShaderSource(computeShader, 1, &shaderSource, NULL);
+        glCompileShader(computeShader);
+        GLint success;
+        glGetShaderiv(computeShader, GL_COMPILE_STATUS, &success);
+        if (!success) {
+            GLchar infoLog[512];
+            glGetShaderInfoLog(computeShader, 512, NULL, infoLog);
+            std::cerr << "Compute shader compilation failed: " << infoLog << std::endl;
+            this->debugger->update_line("SDFshader", string("compilation failed! check console"));
+            return;
+        }
+        glAttachShader(computeProgram, computeShader);
+        glLinkProgram(computeProgram);
+        glGetProgramiv(computeProgram, GL_LINK_STATUS, &success);
+        if (!success) {
+            GLchar infoLog[512];
+            glGetProgramInfoLog(computeProgram, 512, NULL, infoLog);
+            std::cerr << "Compute shader program linking failed: " << infoLog << std::endl;
+            this->debugger->update_line("SDFshader", string("program linking failed! check console"));
+            return;
+        }
+        glBindImageTexture(0, outputTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+        this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
+    }
+    void destroy(){
+        SDL_DestroyTexture(sdl_output_texture);
+        glDeleteShader(computeShader);
+        glDeleteProgram(computeProgram);
+    }
+    void use(){
+        glUseProgram(computeProgram);
+    }
+    
+    void check_file_updates(){
+        string new_src = read_shader();
+        if (new_src != current_src){
+            current_src = new_src;
+            compile();
+        }
+    }
+
+    void run(){
+        glDispatchCompute(width / 16, height / 16, 1);
+    }
+    void wait(){
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    }
+    SDL_Texture* get_texture(){
+        GLubyte* pixels = new GLubyte[width * height * 4]; // Assuming RGBA format
+        glBindTexture(GL_TEXTURE_2D, outputTexture);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(pixels, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32);
+        if (!surface) {
+            delete[] pixels;
+            return nullptr;
+        }
+        //SDL_DestroyTexture(sdl_output_texture);
+        sdl_output_texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (!sdl_output_texture) {
+            SDL_FreeSurface(surface);
+            delete[] pixels;
+            return nullptr;
+        }
+
+        // Clean up resources
+        SDL_FreeSurface(surface);
+        delete[] pixels;
+
+        return sdl_output_texture;
+
+    }
+};
 
 
 

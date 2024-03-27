@@ -10,11 +10,7 @@ int main(int argc, char* args[]) {
     GameRenderer game_renderer = GameRenderer();
     game_renderer.init();
     game_renderer.debugger.register_basic();
-
     SDL_Event e;
-
-    
-
     while (game_renderer.is_running()) {
         while (SDL_PollEvent(&e) != 0) {
             game_renderer.handle_event(e);
