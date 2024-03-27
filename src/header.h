@@ -1,8 +1,7 @@
 #include <SDL2/SDL.h>
+#include <GL/glew.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_opengl.h>
-
-#include <gl/GLU.h>
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"

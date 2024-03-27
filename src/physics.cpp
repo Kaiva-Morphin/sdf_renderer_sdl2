@@ -200,11 +200,11 @@ class Box : public PhysicsObject{
         SDL_Rect rect = SDL_Rect{(int)(this->position.x - this->size.x * 0.5), (int)(this->position.y - this->size.y * 0.5), (int)(this->size.x), (int)(this->size.y)};
         SDL_RenderDrawRect(renderer, &rect);
     }
-    vec2 closest_point(vec2 second_center){
+    vec2 closest_point(vec2 point){
         AABB aabb = get_binding_box();
-        float x = second_center.x;
-        float y = second_center.y;
-        if (aabb.is_point_inside(second_center)){
+        float x = point.x;
+        float y = point.y;
+        if (aabb.is_point_inside(point)){
             float dx1 = abs(x - aabb.min.x);
             float dx2 = abs(x - aabb.max.x);
             float dy1 = abs(y - aabb.min.y);
@@ -256,12 +256,17 @@ class Capsule : public PhysicsObject{
     void draw(){
         drawCapsule(this->position.x, this->position.y, this->rounding, this->height*0.5f);
     }
-    vec2 closest_point(vec2 second_center){ // todo: exception for zeros
+    vec2 closest_point(vec2 point){ // todo: exception for zeros
         AABB aabb = get_binding_box();
         float x = position.x;
-        float y = second_center.y;
-        y = std::min(y, position.y+height*0.5f);
-        y = std::max(y, position.y-height*0.5f);
+        float y = point.y;
+        if (x == point.x) {
+            if (y < position.y){return vec2(x, position.y-height*0.5f);}
+            else {return vec2(x, position.y+height*0.5f);}
+        } else {
+            y = std::min(y, position.y+height*0.5f);
+            y = std::max(y, position.y-height*0.5f);
+        }
         return vec2(x, y);
     }
 };
@@ -270,6 +275,7 @@ class Capsule : public PhysicsObject{
 int xMouse, yMouse;
 int main(int argc, char* argv[]) {
     init();
+
 
     /*Box floor = Box();
     floor.is_fixed = true;
@@ -328,6 +334,7 @@ int main(int argc, char* argv[]) {
     {
         currentTime = SDL_GetTicks();
         deltaTime = (currentTime - lastTime) / 1000.0f;
+        deltaTime = clamp(deltaTime, 0.f, 0.3f);
         lastTime = currentTime;
         clear_screen(240, 230, 230);
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);

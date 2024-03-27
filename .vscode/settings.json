@@ -76,6 +76,7 @@
         "future": "cpp",
         "condition_variable": "cpp",
         "coroutine": "cpp",
-        "resumable": "cpp"
+        "resumable": "cpp",
+        "glew.h": "c"
     }
 }

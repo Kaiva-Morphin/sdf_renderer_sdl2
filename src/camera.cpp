@@ -1,103 +1,51 @@
-#include <SDL2/SDL.h>
+#include "header.h"
 
-const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 600;
-const int LOGICAL_HEIGHT = 240; // Set the logical height for your camera
+#include "GameRenderer.h"
 
-SDL_Window* gWindow = NULL;
-SDL_Renderer* gRenderer = NULL;
 
-bool init() {
-    // Initialize SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        //printf("SDL could not initialize! SDL Error: %s\n", SDL_GetError());
-        return false;
-    }
 
-    // Create window
-    gWindow = SDL_CreateWindow("Low Resolution Camera",
-                               SDL_WINDOWPOS_UNDEFINED,
-                               SDL_WINDOWPOS_UNDEFINED,
-                               SCREEN_WIDTH,
-                               SCREEN_HEIGHT,
-                               SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-    if (gWindow == NULL) {
-        //printf("Window could not be created! SDL Error: %s\n", SDL_GetError());
-        return false;
-    }
 
-    // Create renderer
-    gRenderer = SDL_CreateRenderer(gWindow, -1, SDL_RENDERER_ACCELERATED);
-    if (gRenderer == NULL) {
-        //printf("Renderer could not be created! SDL Error: %s\n", SDL_GetError());
-        return false;
-    }
-
-    // Set logical size
-    SDL_RenderSetLogicalSize(gRenderer, SCREEN_WIDTH, LOGICAL_HEIGHT);
-
-    return true;
-}
-
-void close() {
-    // Destroy window
-    SDL_DestroyRenderer(gRenderer);
-    SDL_DestroyWindow(gWindow);
-    gWindow = NULL;
-    gRenderer = NULL;
-
-    // Quit SDL subsystems
-    SDL_Quit();
-}
-
-void render() {
-    // Clear screen
-    SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-    SDL_RenderClear(gRenderer);
-
-    // Render your graphics here
-
-    // Update screen
-    SDL_RenderPresent(gRenderer);
-}
 
 int main(int argc, char* args[]) {
-    // Initialize SDL
-    if (!init()) {
-        //printf("Failed to initialize!\n");
-        return -1;
-    }
+    GameRenderer game_renderer = GameRenderer();
+    game_renderer.init();
+    game_renderer.debugger.register_basic();
 
-    // Main loop flag
-    bool quit = false;
-
-    // Event handler
     SDL_Event e;
 
-    // Main loop
-    while (!quit) {
-        // Handle events on queue
+    
+
+    while (game_renderer.is_running()) {
         while (SDL_PollEvent(&e) != 0) {
-            // User requests quit
-            if (e.type == SDL_QUIT) {
-                quit = true;
-            }
-            // Window event
-            else if (e.type == SDL_WINDOWEVENT) {
-                // Handle window resize event
-                if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                    // Set logical size based on new window size
-                    SDL_RenderSetLogicalSize(gRenderer, SCREEN_WIDTH, LOGICAL_HEIGHT);
-                }
+            game_renderer.handle_event(e);
+        }
+        //SDL_RenderSetViewport(renderer, nullptr);
+        SDL_SetRenderDrawColor(renderer, 10, 10, 210, 255);
+
+        SDL_RenderClear(renderer);
+        //SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
+        //SDL_RenderFillRect(renderer, &rect);
+        //SDL_SetRenderDrawColor(renderer, 240, 240, 210, 255);
+
+        game_renderer.switch_to_main();
+        int xo = 0;
+        int yo = 0;
+        for (int x = xo; x < TARGET_WIDTH + xo; x++){
+            for (int y = yo; y < TARGET_HEIGHT + yo; y++){
+                int ax = round((float)x / (float)TARGET_WIDTH * 255.);
+                int ay = round((float)y / (float)TARGET_HEIGHT * 255.);
+                SDL_SetRenderDrawColor(renderer, ax, ay, (x+y)%2==0?0:255, 255);
+                SDL_Rect rect = SDL_Rect{x, y, 1, 1};
+                SDL_RenderFillRect(renderer, &rect);
             }
         }
 
-        // Render scene
-        render();
+        game_renderer.debugger.update_basic();
+        game_renderer.debugger.draw();
+        game_renderer.appy_main();
+        SDL_RenderPresent(renderer);
     }
 
-    // Free resources and close SDL
-    close();
-
+    game_renderer.destroy();
     return 0;
 }
