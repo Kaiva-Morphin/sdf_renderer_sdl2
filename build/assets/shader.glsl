@@ -113,35 +113,168 @@ float snoise(vec3 v)
 
 
 
-#define sphere 0; // point with rounding
-#define line 1;
-#define box 2;
-#define cyl 3;
+struct ColorType{
+    int type; // 0 - solid color; 1 - grad; 2 - noise grad; 3 - normal grad;
+    int size; // size of values
+    vec4 colors[16];
+    float values[16];
+};
 
-/*struct Primitive{
-    int primitive_type;
+struct Primitive{
+    int primitive_type; // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
     // universal
     vec3 position;
-    vec4 color;
     vec3 translation_offset;
     mat3x3 transform;
-    double rounding;
-    // specific
-    vec3 p1;
-    vec3 p2;
+    float rounding;
+    // specific points
+    vec3 a;
+    vec3 b;
+    vec3 c;
+};
 
-};*/
+struct ColorSpace{
+    bool global; // is global or applyed with parent transform
+    int size;
+    Primitive primitives[32];
+    ColorType colors[32];
+};
 
-//layout(std430) buffer Buffer1
+struct PrimitiveOperation{
+    int operation_type; // 0 - soft merge, 1 - subtract, 2 - intersection, 3 - xor
+    int size;
+    int objects[16];
+    float value;
+};
+
+struct PrimitiveScene{
+    int size;
+    Primitive primitives[4];
+    PrimitiveOperation operations[16];
+};
+
+
+layout(std430, binding = 1) buffer PrimitiveSceneBuffer {
+  
+  PrimitiveScene scene;
+};
+
+
+struct SDFResponse{
+  vec3 color;
+  float dist;
+};
+
+
+float sdSphere( vec3 p, float s )
+{
+  return length(p)-s;
+}
+
+float sdBox( vec3 p, vec3 b )
+{
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
+float sdCappedCylinder( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3  ba = b - a;
+  vec3  pa = p - a;
+  float baba = dot(ba,ba);
+  float paba = dot(pa,ba);
+  float x = length(pa*baba-ba*paba) - r*baba;
+  float y = abs(paba-baba*0.5)-baba*0.5;
+  float x2 = x*x;
+  float y2 = y*y*baba;
+  float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
+  return sign(d)*sqrt(abs(d))/baba;
+}
+
+float dot2( in vec3 v ) { return dot(v,v); }
+
+float udTriangle( vec3 p, vec3 a, vec3 b, vec3 c )
+{
+  vec3 ba = b - a; vec3 pa = p - a;
+  vec3 cb = c - b; vec3 pb = p - b;
+  vec3 ac = a - c; vec3 pc = p - c;
+  vec3 nor = cross( ba, ac );
+
+  return sqrt(
+    (sign(dot(cross(ba,nor),pa)) +
+     sign(dot(cross(cb,nor),pb)) +
+     sign(dot(cross(ac,nor),pc))<2.0)
+     ?
+     min( min(
+     dot2(ba*clamp(dot(ba,pa)/dot2(ba),0.0,1.0)-pa),
+     dot2(cb*clamp(dot(cb,pb)/dot2(cb),0.0,1.0)-pb) ),
+     dot2(ac*clamp(dot(ac,pc)/dot2(ac),0.0,1.0)-pc) )
+     :
+     dot(nor,pa)*dot(nor,pa)/dot2(nor) );
+}
+
+
+SDFResponse SampleScene(vec3 point){
+  float mindist = 100000.;
+  vec3 color = vec3(1., 0., 0.);
+  for (int i=0;i<scene.size;i++) {
+    Primitive primitive = scene.primitives[i];
+    switch (primitive.primitive_type){
+      case 0: //sphere
+        mindist = min(sdSphere(primitive.position - point, primitive.rounding), mindist);
+        color = vec3(1.);
+        break;
+      case 1: //capsule
+        break;
+      case 2: //box
+        break;
+      case 3: //cyl
+        break;
+      case 4: //triangle
+        break;
+      default:
+        break;
+    }
+  }
+  return SDFResponse(color, mindist);
+}
+
+const float min_dist = 1.;
+const float max_dist = 1000.;
 
 void main() {
-    ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
-    float n = snoise(vec3(storePos.x * 0.04, storePos.y * 0.04, 1. + time * 0.5)) * 0.5 + 0.5;
-    vec4 pixel = vec4(0., 0., 0., 255.);
-    pixel.rgb = vec3(n);
-    //float dist = (clamp(length(storePos.xy - center), 40., 60.) - 40.) / 20.;
-        
-    //vec4 pixel = vec4(sin(float(storePos.x) * 0.1 + time) * 0.5 + 0.5, cos(float(storePos.y) * 0.1 + time) * 0.5 + 0.5, dist, 1.0);
+  ivec2 storePos = ivec2(gl_GlobalInvocationID.xy); // pixel pos
+  //float n = snoise(vec3(storePos.x * 0.04, storePos.y * 0.04, 1. + time * 0.5)) * 0.5 + 0.5;
+  vec4 pixel = vec4(0., 0., 1., 255.);
+  //pixel.r = sin(storePos.x * 0.03 + storePos.y * 0.03 + time + 3.14 / 1.) * 0.5 + 0.5; 
+  //pixel.g = sin(storePos.x * 0.03 * sin(time * 5.) + storePos.y * 0.03 + time + 3.14 / 2.) * 0.5 + 0.5;
+  //pixel.b = sin(storePos.x * 0.03 * cos(time) + storePos.y * 0.03 + time + 3.14 / 3.) * 0.5 + 0.5; 
+  /*vec3 point = vec3(storePos.x - center.x, storePos.y - center.y, 0.);
+  vec3 direction = vec3(0., 0., -1.);
+  int steps = 100;
+  for (int i=0;i<steps;i++) {
+    SDFResponse r = SampleScene(point);
 
-    imageStore(destTex, storePos, pixel);
+    if (r.dist <= min_dist) {
+      pixel.rgb = r.color.rgb;
+      break;
+    }
+
+    if (r.dist > max_dist){
+      pixel.rgb = vec3(0., 0., 0.);
+    }
+    point += direction * r.dist;
+  }*/
+  pixel.rgb = vec3(scene.primitives[0].rounding == 2. ? 1. : 0.);
+  Primitive p = scene.primitives[0];
+  float r = p.rounding;
+  pixel.rgb = vec3(r == 2. ? 1. : 0.);
+  imageStore(destTex, storePos, pixel);
 }

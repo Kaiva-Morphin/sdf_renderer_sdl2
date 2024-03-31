@@ -27,7 +27,6 @@ float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
 class Debugger{
     unordered_map<string, tuple<string, string>> lines;
-
     void draw_line(int line, const char* text){
         SDL_Color textColor = {200, 200, 200}; // Black color
         SDL_Color bgColor = {30, 30, 30}; 
@@ -62,6 +61,7 @@ class Debugger{
     int endTime = 0;
     int frameCount = 0;
     public:
+    bool enabled = false;
     void register_basic(){
         register_line(string("fps"), string("FPS: "), string("?"));
         register_line(string("ticks"), string("tick: "), string("?"));
@@ -97,6 +97,7 @@ class Debugger{
         lines.erase(name);
     }
     void draw(){
+        if (!enabled){return;}
         int line = 0;
         for (const auto& pair : lines) {
             string text;
@@ -157,6 +158,9 @@ class GameRenderer{ // scale?
                 if (true_scaling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
                 else SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
                 update_resolution();
+            }
+            if (e.key.keysym.sym == SDLK_F3){
+                debugger.enabled = !debugger.enabled;
             }
         }
         
