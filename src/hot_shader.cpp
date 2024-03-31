@@ -8,25 +8,20 @@
 #include <string>
 
 
+
+
 GameRenderer game_renderer = GameRenderer();
 int main(int argc, char* argv[]) {
     game_renderer.init();
     game_renderer.debugger.register_basic();
-
+    char buffer[20];
+    snprintf(buffer, sizeof(buffer), "%ix%i", TARGET_WIDTH, TARGET_HEIGHT);
+    game_renderer.debugger.register_line(string("resolution"), string("Resolution: "), string(buffer));
     PrimitiveScene scene;
-    scene.size = 3;
-    scene.primitives[0] = Primitive{
-        2, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-        // universal
-        vec3(2),
-        vec3(2),
-        mat3x3(2., 2., 2., 2., 2., 2., 2., 2., 2.),
-        2.,
-        // specific points
-        vec3(2),
-        vec3(2),
-        vec3(2),
-    };
+    scene.size = 2;
+    scene.primitives[0] = SphereObject(vec3(-TARGET_HEIGHT / 8, 0., 0.), TARGET_HEIGHT / 4).as_primitive();
+    scene.primitives[1] = SphereObject(vec3(TARGET_HEIGHT / 8, 0., 0.), TARGET_HEIGHT / 4).as_primitive();
+
     SDF_Shader shader = SDF_Shader("assets/shader.glsl", &game_renderer.debugger);
     shader.init(TARGET_WIDTH, TARGET_HEIGHT);
     shader.use();
@@ -35,8 +30,9 @@ int main(int argc, char* argv[]) {
     
     GLuint scenebuffer;
     glGenBuffers(1, &scenebuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(scene), &scene, GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(scene), &scene, GL_DYNAMIC_DRAW);
 
     shader.run();
     shader.wait();
@@ -54,7 +50,6 @@ int main(int argc, char* argv[]) {
 
         glUniform1f(glGetUniformLocation(shader.computeProgram, "time"), SDL_GetTicks() / 1000.0f); // Pass time to shader
         glUniform2f(glGetUniformLocation(shader.computeProgram, "center"), TARGET_WIDTH / 2., TARGET_HEIGHT / 2.);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(scene), &scene, GL_DYNAMIC_DRAW);
         glDispatchCompute(TARGET_WIDTH / 16, TARGET_HEIGHT / 16, 1); // Dispatch 2D groups of 16x16 threads
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
@@ -68,6 +63,7 @@ int main(int argc, char* argv[]) {
         
         SDL_RenderPresent(renderer);
     }
+    glDeleteBuffers(1, &scenebuffer);
     shader.destroy();
     game_renderer.destroy();
 

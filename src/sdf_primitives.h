@@ -37,20 +37,20 @@ bloom?
 struct ColorType{
     int type; // 0 - solid color; 1 - grad; 2 - noise grad; 3 - normal grad;
     int size; // size of values
-    vec4 colors[16];
+    float colors[16][4];
     float values[16];
 };
 struct Primitive{
     int primitive_type; // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
     // universal
-    vec3 position;
-    vec3 translation_offset;
-    mat3x3 transform;
+    float position[3];
+    float translation_offset[3];
+    float transform[3][3];
     float rounding;
     // specific points
-    vec3 a;
-    vec3 b;
-    vec3 c;
+    float a[3];
+    float b[3];
+    float c[3];
 };
 
 struct ColorSpace{
@@ -69,7 +69,7 @@ struct PrimitiveOperation{
 
 struct PrimitiveScene{
     int size;
-    Primitive primitives[4];
+    Primitive primitives[64];
     PrimitiveOperation operations[16];
 };
 
@@ -92,6 +92,7 @@ struct ObjectColorSpace{
     ColorType colors[32];
 };
 
+
 class SphereObject : public Object {
     public:
     SphereObject(vec3 position, float radius, mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1}){
@@ -103,13 +104,10 @@ class SphereObject : public Object {
     Primitive as_primitive(){
         return Primitive{
             0, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            position,
-            translation_offset,
-            transform,
+            {position.x, position.y, position.z},
+            {translation_offset.x, translation_offset.y, translation_offset.z},
+            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            vec3(0.),
-            vec3(0.),
-            vec3(0.),
         };
     }
     
@@ -127,13 +125,11 @@ class BoxObject : public Object {
     Primitive as_primitive(){
         return Primitive{
             2, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            position,
-            translation_offset,
-            transform,
+            {position.x, position.y, position.z},
+            {translation_offset.x, translation_offset.y, translation_offset.z},
+            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            size,
-            vec3(0.),
-            vec3(0.),
+            {size.x, size.y, size.z},
         };
     }
 };
@@ -153,13 +149,12 @@ class LineObject : public Object{
     Primitive as_primitive(){
         return Primitive{
             1, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            position,
-            translation_offset,
-            transform,
+            {position.x, position.y, position.z},
+            {translation_offset.x, translation_offset.y, translation_offset.z},
+            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            p1,
-            p2,
-            vec3(0.),
+            {p1.x, p1.y, p1.z},
+            {p2.x, p2.y, p2.z},
         };
     }
 };
@@ -179,13 +174,12 @@ class Cylinder : public Object{
     Primitive as_primitive(){
         return Primitive{
             3, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            position,
-            translation_offset,
-            transform,
+            {position.x, position.y, position.z},
+            {translation_offset.x, translation_offset.y, translation_offset.z},
+            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            p1,
-            p2,
-            vec3(0.),
+            {p1.x, p1.y, p1.z},
+            {p2.x, p2.y, p2.z},
         };
     }
 };
@@ -207,13 +201,13 @@ class Triangle : public Object{
     Primitive as_primitive(){
         return Primitive{
             4, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            position,
-            translation_offset,
-            transform,
+            {position.x, position.y, position.z},
+            {translation_offset.x, translation_offset.y, translation_offset.z},
+            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            p1,
-            p2,
-            p3,
+            {p1.x, p1.y, p1.z},
+            {p2.x, p2.y, p2.z},
+            {p3.x, p3.y, p3.z},
         };
     }
 };

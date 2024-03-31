@@ -1,4 +1,4 @@
-#version 430
+#version 430 core
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
@@ -116,21 +116,21 @@ float snoise(vec3 v)
 struct ColorType{
     int type; // 0 - solid color; 1 - grad; 2 - noise grad; 3 - normal grad;
     int size; // size of values
-    vec4 colors[16];
+    float colors[16][4];
     float values[16];
 };
 
 struct Primitive{
     int primitive_type; // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
     // universal
-    vec3 position;
-    vec3 translation_offset;
-    mat3x3 transform;
+    float position[3];
+    float translation_offset[3];
+    float transform[3][3];
     float rounding;
     // specific points
-    vec3 a;
-    vec3 b;
-    vec3 c;
+    float a[3];
+    float b[3];
+    float c[3];
 };
 
 struct ColorSpace{
@@ -154,10 +154,7 @@ struct PrimitiveScene{
 };
 
 
-layout(std430, binding = 1) buffer PrimitiveSceneBuffer {
-  
-  PrimitiveScene scene;
-};
+
 
 
 struct SDFResponse{
@@ -220,6 +217,22 @@ float udTriangle( vec3 p, vec3 a, vec3 b, vec3 c )
      dot(nor,pa)*dot(nor,pa)/dot2(nor) );
 }
 
+layout (std430, binding = 1) buffer CellArrBuffer {
+  PrimitiveScene scene;
+};
+mat3x3 mat3_from_array(float arr[3][3]){
+  return mat3x3(arr[0][0], arr[0][1], arr[0][2], arr[1][0], arr[1][1], arr[1][2], arr[2][0], arr[2][1], arr[2][2]);
+};
+
+vec3 vec3_from_array(float arr[3]){
+  return vec3(arr[0], arr[1], arr[2]);
+};
+
+float sdf_smoothunion(float d1, float d2, float k)
+{
+    float h = max(k-abs(d1-d2),0.0);
+    return min(d1, d2) - h*h*0.25/k;
+}
 
 SDFResponse SampleScene(vec3 point){
   float mindist = 100000.;
@@ -228,12 +241,14 @@ SDFResponse SampleScene(vec3 point){
     Primitive primitive = scene.primitives[i];
     switch (primitive.primitive_type){
       case 0: //sphere
-        mindist = min(sdSphere(primitive.position - point, primitive.rounding), mindist);
+        mindist = min(sdf_smoothunion(sdSphere(vec3_from_array(primitive.position) - point, primitive.rounding), mindist, 25), mindist);
         color = vec3(1.);
         break;
       case 1: //capsule
         break;
       case 2: //box
+        mindist = min(sdf_smoothunion(sdBox(vec3_from_array(primitive.position) - point, vec3_from_array(primitive.a)) - primitive.rounding, mindist, 25), mindist);
+        color = vec3(1.);
         break;
       case 3: //cyl
         break;
@@ -249,21 +264,53 @@ SDFResponse SampleScene(vec3 point){
 const float min_dist = 1.;
 const float max_dist = 1000.;
 
+
+vec3 calcNormal( in vec3 p ) 
+{
+    const float eps = 0.001; 
+    const vec2 h = vec2(eps,0);
+    return normalize( vec3(SampleScene(p+h.xyy).dist - SampleScene(p-h.xyy).dist,
+                           SampleScene(p+h.yxy).dist - SampleScene(p-h.yxy).dist,
+                           SampleScene(p+h.yyx).dist - SampleScene(p-h.yyx).dist ) );
+}
+
+
+
 void main() {
+  vec3 sun = vec3(1., -1., 1.);
+  scene.primitives[0].rounding = 10.;
+  scene.primitives[1].rounding = 10.;
+  scene.primitives[0].position[0] = cos(time) * 100.;
+  scene.primitives[0].position[1] = sin(time) * 100.;
+  scene.size = 3;
+  scene.primitives[2].position[1] = sin(time) * 100.;
+  scene.primitives[2].a[0] = 50.;
+  scene.primitives[2].a[1] = 50.;
+  scene.primitives[2].a[2] = 50.;
+
+  scene.primitives[2].transform[0][0] = 1.;
+  scene.primitives[2].transform[1][0] = 0.;
+  scene.primitives[2].transform[2][0] = 0.;
+  scene.primitives[2].transform[0][1] = 0.;
+  scene.primitives[2].transform[1][1] = 1.;
+  scene.primitives[2].transform[2][1] = 0.;
+  scene.primitives[2].transform[0][2] = 0.;
+  scene.primitives[2].transform[1][2] = 0.;
+  scene.primitives[2].transform[2][2] = 1.;
+
+  scene.primitives[2].rounding = 5.;
+  scene.primitives[2].primitive_type = 2;
   ivec2 storePos = ivec2(gl_GlobalInvocationID.xy); // pixel pos
-  //float n = snoise(vec3(storePos.x * 0.04, storePos.y * 0.04, 1. + time * 0.5)) * 0.5 + 0.5;
   vec4 pixel = vec4(0., 0., 1., 255.);
-  //pixel.r = sin(storePos.x * 0.03 + storePos.y * 0.03 + time + 3.14 / 1.) * 0.5 + 0.5; 
-  //pixel.g = sin(storePos.x * 0.03 * sin(time * 5.) + storePos.y * 0.03 + time + 3.14 / 2.) * 0.5 + 0.5;
-  //pixel.b = sin(storePos.x * 0.03 * cos(time) + storePos.y * 0.03 + time + 3.14 / 3.) * 0.5 + 0.5; 
-  /*vec3 point = vec3(storePos.x - center.x, storePos.y - center.y, 0.);
+  vec3 point = vec3(storePos.x - center.x, storePos.y - center.y, 1000.);
   vec3 direction = vec3(0., 0., -1.);
-  int steps = 100;
+  int steps = 512;
   for (int i=0;i<steps;i++) {
     SDFResponse r = SampleScene(point);
-
     if (r.dist <= min_dist) {
-      pixel.rgb = r.color.rgb;
+      vec3 n = calcNormal(point);
+      float cdn = clamp(dot(n, sun), 0.1, 1.);
+      pixel.rgb = r.color.rgb * cdn;
       break;
     }
 
@@ -271,10 +318,7 @@ void main() {
       pixel.rgb = vec3(0., 0., 0.);
     }
     point += direction * r.dist;
-  }*/
-  pixel.rgb = vec3(scene.primitives[0].rounding == 2. ? 1. : 0.);
-  Primitive p = scene.primitives[0];
-  float r = p.rounding;
-  pixel.rgb = vec3(r == 2. ? 1. : 0.);
+  }
+  //pixel.r = 
   imageStore(destTex, storePos, pixel);
 }
