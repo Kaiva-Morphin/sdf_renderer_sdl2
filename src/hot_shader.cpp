@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
 
     ObjectScene scene;
     BoxObject box = BoxObject(vec3(0.), vec3(5.));
+    box.position = vec3(0.);
     scene.objects.push_back(&box);
     /*SphereObject sphere = SphereObject(vec3(0.), 1.5);
     sphere.position = vec3(sin(3.1415 * 2. / 5. * 1.) * 5., cos(3.1415 * 2. / 5. * 1.) * 5., 0.);
@@ -160,8 +161,10 @@ int main(int argc, char* argv[]) {
         };
         mat3x3 rotmat = rotmatx * rotmaty * rotmatz;
         cout << scene.objects.size() << endl;
-        if (scene.objects.size() > 0) for (Object* obj : scene.objects){}
-            //obj->transform = rotmat;
+        for (Object* obj :scene.objects){
+            obj->transform = rotmat;
+        }
+            //
             //obj->position = vec3(0.);
             //obj->position = 5.0f * (float)(sin(time) * 0.5 + 0.6) * normalize(obj->position) ;
         
