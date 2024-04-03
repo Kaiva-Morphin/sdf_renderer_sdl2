@@ -43,7 +43,7 @@ class Debugger{
             printf("Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError());
             return;
         }
-
+        
         // Get width and height of text surface
         int textWidth = textSurface->w;
         int textHeight = textSurface->h;
@@ -122,7 +122,7 @@ class GameRenderer{ // scale?
     void init(){
         SDL_Init(SDL_INIT_VIDEO);
         window = SDL_CreateWindow("Simple Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_OPENGL);
-        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
+        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
         context = SDL_GL_CreateContext(window);
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
@@ -243,6 +243,7 @@ class SDF_Shader{
     SDL_Texture* sdl_output_texture;
     int width;
     int height;
+    GLubyte* pixels;
     string read_shader(){
         ifstream fileStream(filePath);
         if (!fileStream.is_open()) {
@@ -273,6 +274,7 @@ class SDF_Shader{
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        pixels = new GLubyte[width * height * 4];
         compile();
     }
     void compile(){
@@ -326,7 +328,7 @@ class SDF_Shader{
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
     SDL_Texture* get_texture(){
-        GLubyte* pixels = new GLubyte[width * height * 4]; // Assuming RGBA format
+        pixels = new GLubyte[width * height * 4];
         glBindTexture(GL_TEXTURE_2D, outputTexture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
         SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(pixels, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32);
@@ -334,20 +336,18 @@ class SDF_Shader{
             delete[] pixels;
             return nullptr;
         }
-        //SDL_DestroyTexture(sdl_output_texture);
+        if (sdl_output_texture != nullptr){SDL_DestroyTexture(sdl_output_texture);};
+        
         sdl_output_texture = SDL_CreateTextureFromSurface(renderer, surface);
         if (!sdl_output_texture) {
             SDL_FreeSurface(surface);
             delete[] pixels;
             return nullptr;
         }
-
         // Clean up resources
         SDL_FreeSurface(surface);
         delete[] pixels;
-
         return sdl_output_texture;
-
     }
 };
 
