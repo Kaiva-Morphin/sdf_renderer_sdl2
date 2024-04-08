@@ -41,7 +41,7 @@ class TextureDrawer{
     int w, h, d;
     int r, g, b;
     public:
-    GLubyte* data;
+    GLubyte* data = nullptr;
     TextureDrawer(int width, int height, int depth){
         w = width;
         h = height;

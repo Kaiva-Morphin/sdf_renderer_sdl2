@@ -97,9 +97,13 @@ float udTriangle( vec3 p, vec3 a, vec3 b, vec3 c )
      dot(nor,pa)*dot(nor,pa)/dot2(nor) );
 }
 
+
+
 layout (std430, binding = 1) buffer CellArrBuffer {
   PrimitiveScene scene;
 };
+
+
 
 mat3x3 mat3_from_array(float arr[3][3]){
   return mat3x3(arr[0][0], arr[0][1], arr[0][2], arr[1][0], arr[1][1], arr[1][2], arr[2][0], arr[2][1], arr[2][2]);
@@ -115,7 +119,7 @@ float sdf_smoothunion(float d1, float d2, float k)
     return min(d1, d2) - h*h*0.25/k;
 }
 
-//uniform sampler3D character_texture;
+uniform sampler3D character_texture;
 
 vec3 apply_transforms(vec3 point, Primitive primitive){
   vec3 position = vec3_from_array(primitive.position);
@@ -220,7 +224,7 @@ void main() {
   vec4 pixel = vec4(0.0863, 0.1765, 0.2549, 1.0);
   
   
-  /*vec3 start = vec3((storePos.x - center.x) * scale_factor, (storePos.y - center.y) * scale_factor, near_z);
+  vec3 start = vec3((storePos.x - center.x) * scale_factor, (storePos.y - center.y) * scale_factor, near_z);
   vec3 point = start;
   vec3 direction = vec3(0., 0., -1.);
   int steps = 64;
@@ -244,9 +248,9 @@ void main() {
       break;
     }
     point += direction * r.dist;
-  }*/
+  }
   //pixel.rgb = texture(textures[0], vec3((storePos.x / center.x / 2. - center.y)*0.25, (storePos.y / center.y / 2. - center.y)*0.25, time)).rgb;
   //pixel.rgb = vec3(sin(time) * 0.5 + 0.5, sin(time * 2) * 0.5 + 0.5, sin(time * 3) * 0.5 + 0.5);
-  pixel.rgba = vec4(1.);
+  //pixel.rgba = vec4(1.);
   imageStore(destTex, storePos, pixel);
 }

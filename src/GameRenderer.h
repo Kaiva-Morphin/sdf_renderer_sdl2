@@ -1,11 +1,10 @@
 #include "header.h"
+#include "sdf_primitives.h"
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
-
-
 
 #include <unordered_map>
 
@@ -301,9 +300,10 @@ class SDF_Shader : public Shader{
             return;
         }
         glBindImageTexture(0, outputTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+
         glGenBuffers(1, &scenebuffer);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
+        
         this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
     }
     void destroy(){
@@ -340,9 +340,8 @@ class SDF_Shader : public Shader{
             printf("SDL Error: %s\n", SDL_GetError());
             return nullptr;
         }
-        if (!sdl_output_texture){
+        if (sdl_output_texture != nullptr){
             SDL_DestroyTexture(sdl_output_texture);
-            printf("SDL Error: %s\n", SDL_GetError());
         };
         
         sdl_output_texture = SDL_CreateTextureFromSurface(renderer, surface);
@@ -354,17 +353,16 @@ class SDF_Shader : public Shader{
         return sdl_output_texture;
     }
 
-    void set_1f(char* name, float value){
+    void set_1f(const char* name, float value){
         glUniform1f(glGetUniformLocation(computeProgram, name), value);
     }
-    void set_2f(char* name, float value1, float value2){
+    void set_2f(const char* name, float value1, float value2){
         glUniform2f(glGetUniformLocation(computeProgram, name), value1, value2);
     }
 
-    void set_scene(PrimitiveScene primitive_scene){
+    void set_scene(PrimitiveScene* primitive_scene){
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(primitive_scene), &primitive_scene, GL_STATIC_DRAW);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(*primitive_scene), primitive_scene, GL_STATIC_DRAW);
     }
 };
 
