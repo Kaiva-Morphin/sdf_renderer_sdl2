@@ -116,7 +116,7 @@ class TextureDrawer{
     GLubyte* get_data(){
         return data;
     }
-    ~TextureDrawer(){
+    void destroy(){
         delete[] data;
     }
 };

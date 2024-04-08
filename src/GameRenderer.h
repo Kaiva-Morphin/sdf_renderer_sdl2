@@ -249,7 +249,6 @@ class SDF_Shader : public Shader{
             cerr << "ERROR! Cant open file!" << endl;
             return "";
         }
-
         std::stringstream buffer;
         buffer << fileStream.rdbuf();
         return buffer.str();
@@ -328,15 +327,15 @@ class SDF_Shader : public Shader{
         glDispatchCompute(width / 16, height / 16, 1);
     }
     void wait(){
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
     }
     SDL_Texture* get_texture(){
         GLubyte* pixels = new GLubyte[width * height * 4];
         glBindTexture(GL_TEXTURE_2D, outputTexture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
         SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(pixels, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32);
-        delete[] pixels;
         if (!surface) {
+            delete[] pixels;
             printf("SDL Error: %s\n", SDL_GetError());
             return nullptr;
         }
@@ -345,6 +344,7 @@ class SDF_Shader : public Shader{
         };
         
         sdl_output_texture = SDL_CreateTextureFromSurface(renderer, surface);
+        delete[] pixels;
         SDL_FreeSurface(surface);
         if (!sdl_output_texture) {
             printf("SDL Error: %s\n", SDL_GetError());
@@ -362,7 +362,7 @@ class SDF_Shader : public Shader{
 
     void set_scene(PrimitiveScene* primitive_scene){
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(*primitive_scene), primitive_scene, GL_STATIC_DRAW);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(*primitive_scene), primitive_scene, GL_DYNAMIC_DRAW);
     }
 };
 

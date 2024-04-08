@@ -7,7 +7,6 @@ using namespace std;
 
 
 #ifndef SDF_INITED
-
 #define SDF_INITED
 
 
@@ -42,9 +41,10 @@ bloom?
 struct Primitive{
     int primitive_type; // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
     // universal
-    float position[3];
-    float translation_offset[3];
-    float transform[3][3];
+    float texture_position[3];
+    float position[3]; // where is center
+    float translation_offset[3]; // where is rotation point relative to center
+    float transform[3][3]; // rotation and scale
     float rounding;
     // specific points
     float a[3];
@@ -85,6 +85,7 @@ class SphereObject : public Object {
     Primitive as_primitive(){
         return Primitive{
             0, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
+            {0., 0., 0.,},
             {position.x, position.y, position.z},
             {translation_offset.x, translation_offset.y, translation_offset.z},
             {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
@@ -108,6 +109,7 @@ class BoxObject : public Object {
     Primitive as_primitive(){
         return Primitive{
             2, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
+            {0., 0., 0.,},
             {position.x, position.y, position.z},
             {translation_offset.x, translation_offset.y, translation_offset.z},
             {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
@@ -133,6 +135,7 @@ class LineObject : public Object{
     Primitive as_primitive(){
         return Primitive{
             1, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
+            {0., 0., 0.,},
             {position.x, position.y, position.z},
             {translation_offset.x, translation_offset.y, translation_offset.z},
             {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
@@ -158,6 +161,7 @@ class CylinderObject : public Object{
     Primitive as_primitive(){
         return Primitive{
             3, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
+            {0., 0., 0.,},
             {position.x, position.y, position.z},
             {translation_offset.x, translation_offset.y, translation_offset.z},
             {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
@@ -185,6 +189,7 @@ class TriangleObject : public Object{
     Primitive as_primitive(){
         return Primitive{
             4, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
+            {0., 0., 0.,},
             {position.x, position.y, position.z},
             {translation_offset.x, translation_offset.y, translation_offset.z},
             {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
