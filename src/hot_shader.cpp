@@ -1,6 +1,7 @@
 #include "header.h"
-#include "GameRenderer.h"
 #include "sdf_primitives.h"
+#include "GameRenderer.h"
+#include "textre_drawer.h"
 
 #include <iostream>
 #include <fstream>
@@ -20,18 +21,33 @@ int main(int argc, char* argv[]) {
 
 
     ObjectScene scene;
-    BoxObject box = BoxObject(vec3(0.), vec3(5.));
+    BoxObject box = BoxObject(vec3(0.), vec3(2.5));
     box.position = vec3(0.);
+    box.transform = mat3x3(1., 0., 0., 0., 1., 0., 0., 0., 1.);
+    box.translation_offset = vec3(0.);
     scene.objects.push_back(&box);
+    /*SphereObject sphere = SphereObject(vec3(0.), 2.5);
+    sphere.position = vec3(0.);
+    sphere.translation_offset = vec3(0., 6., 0.);
+    scene.objects.push_back(&sphere);
+    LineObject arm1 = LineObject(vec3(0.), vec3(0.), vec3(3., 1., 0.), .5);
+    arm1.translation_offset = vec3(6., 2., 0.);
+    scene.objects.push_back(&arm1);*/
+    /*LineObject arm11 = LineObject(vec3(0.), vec3(0.), vec3(1., 3., 0.), .5);
+    arm11.translation_offset = vec3(9., 2., 0.);
+    scene.objects.push_back(&arm11);*/
+
+
+
     /*SphereObject sphere = SphereObject(vec3(0.), 1.5);
     sphere.position = vec3(sin(3.1415 * 2. / 5. * 1.) * 5., cos(3.1415 * 2. / 5. * 1.) * 5., 0.);
-    scene.objects.push_back(&sphere);
+    scene.objects.push_back(&sphere);*/
 
-    BoxObject box = BoxObject(vec3(0.), vec3(1.5));
+    /*BoxObject box = BoxObject(vec3(0.), vec3(1.5));
     box.position = vec3(sin(3.1415 * 2. / 5. * 2.) * 5., cos(3.1415 * 2. / 5. * 2.) * 5., 0.);
-    scene.objects.push_back(&box);
+    scene.objects.push_back(&box);*/
 
-    LineObject line = LineObject(vec3(0.), vec3(-0.9), vec3(1.), 1.5);
+    /*LineObject line = LineObject(vec3(0.), vec3(-0.9), vec3(1.), 1.5);
     line.position = vec3(sin(3.1415 * 2. / 5. * 3.) * 5., cos(3.1415 * 2. / 5. * 3.) * 5., 0.);
     scene.objects.push_back(&line);
 
@@ -48,97 +64,87 @@ int main(int argc, char* argv[]) {
     tri.position = vec3(sin(3.1415 * 2. / 5. * 5.) * 5., cos(3.1415 * 2. / 5. * 5.) * 5., 0.);
     tri.rounding = 0.;
     scene.objects.push_back(&tri);*/
+
+
     PrimitiveScene primitive_scene;
-    scene.update_primitive_scene(&primitive_scene);
 
-    int TEX_SIZE = 32;
-    const int TEX_AMOUNT = 32;
-    //GLubyte* data = new GLubyte[TEX_SIZE * 32 * TEX_SIZE * 3];
-    GLubyte* data = new GLubyte[TEX_SIZE * TEX_SIZE * TEX_SIZE * 3];
-    for (int z = 0; z < TEX_SIZE; ++z) {
-        for (int y = 0; y < TEX_SIZE; ++y) {
-            for (int x = 0; x < TEX_SIZE; ++x) {
-                int index = (z * TEX_SIZE * TEX_SIZE + y * TEX_SIZE + x) * 3;
-                data[index] = (int)((float)x / (float)TEX_SIZE * 255.);
-                data[index + 1] = (float)y / (float)TEX_SIZE * 255.;
-                data[index + 2] = (float)z / (float)TEX_SIZE * 255.;
-                //data[(z * TEX_SIZE * TEX_SIZE + y * TEX_SIZE + x) * 3] = static_cast<GLubyte>(x/TEX_SIZE*255); // Red
-                //data[(z * TEX_SIZE * TEX_SIZE + y * TEX_SIZE + x) * 3 + 1] = static_cast<GLubyte>(y/TEX_SIZE*255); // Green
-                //data[(z * TEX_SIZE * TEX_SIZE + y * TEX_SIZE + x) * 3 + 2] = static_cast<GLubyte>(z/TEX_SIZE*255); // Blue
+    //int TEX_SIZE = 64;
+//
+//
+    //GLuint character_texture;
+    //glGenTextures(1, &character_texture);
+    //GLubyte* texdata = new GLubyte[TEX_SIZE * TEX_SIZE * TEX_SIZE * 3];
+    //std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 255);
+    //glBindTexture(GL_TEXTURE_3D, character_texture);
+        
 
-            }
-        }
-    }
+    //TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
+    //drawer.fill(DRAWER_CORAL);
+    //drawer.set_color(DRAWER_WHITE);
+    //drawer.fill_circle(0, 16, 0, 14.);
+    //drawer.fill_circle(32, 16, 0, 14.);
+    //drawer.set_color(DRAWER_BLACK);
+    //drawer.fill_circle(0, 16, 0, 8.);
+    //drawer.fill_circle(32, 16, 0, 8.);
+    ////std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 128.);
+    //GLubyte* texdata = texdata = drawer.get_data();
 
-    
+        /*if (i == 1){
+            TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
+            drawer.fill(DRAWER_CORAL);
+            drawer.set_color(DRAWER_WHITE);
+            drawer.fill_circle(0, 16, 0, 14.);
+            drawer.fill_circle(32, 16, 0, 14.);
+            drawer.set_color(DRAWER_BLACK);
+            drawer.fill_circle(0, 16, 0, 8.);
+            drawer.fill_circle(32, 16, 0, 8.);
+            //std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 128.);
+            texdata = drawer.get_data();
+        };
+        if (i == 2){
+            TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
+            drawer.fill(DRAWER_CORAL);
+            //std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 128.);
+            texdata = drawer.get_data();
+        }*/
 
-
-    GLuint textures[TEX_AMOUNT];
-    for (int i = 0; i < TEX_AMOUNT; ++i) {
-        glGenTextures(TEX_AMOUNT, &textures[i]);
-        glBindTexture(GL_TEXTURE_3D, textures[i]);
-        GLubyte* texdata = new GLubyte[TEX_SIZE * TEX_SIZE * TEX_SIZE * 3];
-        if (i == 0) std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 255.);
-        if (i == 1) std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 128.);
-        if (i == 2) std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 0.);
-        if (i == 3) std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 255.);
-        if (i == 4) std::fill(texdata, texdata + TEX_SIZE * TEX_SIZE * TEX_SIZE * 3, 255.);
-
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB4, TEX_SIZE, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, texdata);
-        //glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB4, TEX_SIZE, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, i==0?data:nullptr);
-        //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-        //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
-    }
-
-    delete[] data;
-
-    snprintf(buffer, sizeof(buffer), "%i bytes", sizeof(primitive_scene));
-    game_renderer.debugger.register_line(string("s_usage"), string("Struct usage: "), string(buffer));
-    snprintf(buffer, sizeof(buffer), "%f Mbytes", (double)(TEX_SIZE * TEX_SIZE * TEX_SIZE * 12 * TEX_AMOUNT) / 8. / 1024. / 1024.);
-    game_renderer.debugger.register_line(string("t_usage"), string("Texture usage: "), string(buffer));
+    //glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB4, TEX_SIZE, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, texdata);
+    ////glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB4, TEX_SIZE, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, i==0?data:nullptr);
+    //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    ////glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    ////glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP); // GL_CLAMP // GL_REPEAT
+    //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
+    //    //glActiveTexture(GL_TEXTURE0 + i);
+    //
+//
+//
+    //snprintf(buffer, sizeof(buffer), "%i bytes", sizeof(primitive_scene));
+    //game_renderer.debugger.register_line(string("s_usage"), string("Struct usage: "), string(buffer));
+    //snprintf(buffer, sizeof(buffer), "%.3f Mbytes", (double)(TEX_SIZE * TEX_SIZE * TEX_SIZE * 12) / 8. / 1024. / 1024.);
+    //game_renderer.debugger.register_line(string("t_usage"), string("Texture usage: "), string(buffer));
 
 
     SDF_Shader shader = SDF_Shader("assets/shader.glsl", &game_renderer.debugger);
     shader.init(TARGET_WIDTH, TARGET_HEIGHT);
-    shader.use();
-    glUniform1f(glGetUniformLocation(shader.computeProgram, "time"), SDL_GetTicks() / 1000.0f);
-    glUniform2f(glGetUniformLocation(shader.computeProgram, "center"), TARGET_WIDTH / 2., TARGET_HEIGHT / 2.);
-    /*glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_3D, textures[0]);
-    glUniform1i(glGetUniformLocation(shader.computeProgram, "textures[2]"), 0);
-    glActiveTexture(GL_TEXTURE);
-
-    glBindTexture(GL_TEXTURE_3D, textures[1]);
-    glUniform1i(glGetUniformLocation(shader.computeProgram, "textures[1]"), 1);*/
-    for (int i = 0; i < TEX_AMOUNT; ++i) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_3D, textures[i]);
-        glUniform1i(glGetUniformLocation(shader.computeProgram, ("textures[" + std::to_string(i) + "]").c_str()), i);
-    }
-
     
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_3D, character_texture);
+    //glUniform1i(glGetUniformLocation(shader.computeProgram, "character_texture"), 0);
 
-    GLuint scenebuffer;
-    glGenBuffers(1, &scenebuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(primitive_scene), &primitive_scene, GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
+
+
 
     //shader.run();
     //shader.wait();
-
     float anglex = 0.;
     float angley = 0.;
     float anglez = 0.;
 
-    SDL_Texture* texture;// = shader.get_texture(); //ConvertGLTextureToSDLTexture(outputTexture, TARGET_WIDTH, TARGET_HEIGHT);
+    //SDL_Texture* texture = nullptr;// = shader.get_texture(); //ConvertGLTextureToSDLTexture(outputTexture, TARGET_WIDTH, TARGET_HEIGHT);
     SDL_Event e;
-
     while (game_renderer.is_running()) {
         float time = SDL_GetTicks() / 1000.0f;
         angley = (float)((int)(time*1000) % 31415) / 1000.0f;
@@ -160,18 +166,14 @@ int main(int argc, char* argv[]) {
                 0, 0, 1
         };
         mat3x3 rotmat = rotmatx * rotmaty * rotmatz;
-        cout << scene.objects.size() << endl;
-        for (Object* obj :scene.objects){
+        //sphere.transform = rotmat;
+        //box.transform = rotmat;
+        /*for (auto obj : scene.objects){
             obj->transform = rotmat;
-        }
-            //
-            //obj->position = vec3(0.);
-            //obj->position = 5.0f * (float)(sin(time) * 0.5 + 0.6) * normalize(obj->position) ;
-        
-        //sphere.position.x = sin(time) * 1.;
-        //sphere.position.y = cos(time) * 1.;
-
+            //obj->position = normalize(obj->position) * (float)(sin(time) * 0.5 + 0.6) * 5.5f;
+        }*/
         scene.update_primitive_scene(&primitive_scene);
+        shader.use();
         shader.check_file_updates();
         while (SDL_PollEvent(&e) != 0) {
             game_renderer.handle_event(e);
@@ -179,24 +181,21 @@ int main(int argc, char* argv[]) {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         game_renderer.switch_to_main();
+        
+        shader.set_1f(const_cast<char*>("time"), time);
+        shader.set_2f(const_cast<char*>("center"), TARGET_WIDTH / 2., TARGET_HEIGHT / 2.);
 
-        glUniform1f(glGetUniformLocation(shader.computeProgram, "time"), time); // Pass time to shader
-        glUniform2f(glGetUniformLocation(shader.computeProgram, "center"), TARGET_WIDTH / 2., TARGET_HEIGHT / 2.);
+        //glActiveTexture(GL_TEXTURE0);
+        //glBindTexture(GL_TEXTURE_3D, character_texture);
+        //glUniform1i(glGetUniformLocation(shader.computeProgram, "character_texture"), 0);
 
-        /*for (int i = 0; i < TEX_AMOUNT; ++i) {
-            glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(GL_TEXTURE_3D, textures[i]);
-            glUniform1i(glGetUniformLocation(shader.computeProgram, ("textures[" + std::to_string(i) + "]").c_str()), i);
-        }*/
+        shader.set_scene(primitive_scene);
 
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(primitive_scene), &primitive_scene, GL_STATIC_DRAW);
-        glDispatchCompute(TARGET_WIDTH / 16, TARGET_HEIGHT / 16, 1); // Dispatch 2D groups of 16x16 threads
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        shader.run();
+        shader.wait();
 
-        texture = shader.get_texture();
-
-        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+        
+        SDL_RenderCopy(renderer, shader.get_texture(), nullptr, nullptr);
 
         game_renderer.debugger.update_basic();
         game_renderer.debugger.draw();
@@ -204,10 +203,10 @@ int main(int argc, char* argv[]) {
         
         SDL_RenderPresent(renderer);
     }
-    for (int i = 0; i < TEX_AMOUNT; ++i) {
-        glDeleteTextures(1, &textures[i]); // Delete each texture
-    }
-    glDeleteBuffers(1, &scenebuffer);
+
+    //glDeleteTextures(1, &character_texture);
+    
+    
     shader.destroy();
     game_renderer.destroy();
 

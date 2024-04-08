@@ -234,7 +234,7 @@ int main(int argc, char ** argv)
             {0, 0, 0, 0, 0, 0, 1, 1},
             {0, 0, 0, 0, 0, 0, 1, 1},
             {0, 0, 0, 0, 0, 0, 3, 3},
-            {0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 1, 0, 0, 0, 0, 0},
             {0, 0, 0, 0, 0, 0, 0, 0},
             {0, 0, 0, 0, 0, 0, 0, 0},
         },
@@ -244,7 +244,7 @@ int main(int argc, char ** argv)
             {0, 0, 0, 0, 0, 0, 1, 1},
             {0, 0, 0, 0, 0, 0, 3, 3},
             {0, 0, 0, 0, 0, 0, 0, 0},
-            {0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 1, 0, 0, 0, 0, 0},
             {0, 0, 0, 0, 0, 0, 0, 0},
             {0, 0, 0, 0, 0, 0, 0, 0},
         },
@@ -277,16 +277,16 @@ int main(int argc, char ** argv)
         SDL_RenderFillRect(renderer, &rect);
 
         
-        map.draw_depth();
+        map.draw_normals();
         
         
-        ImGui_ImplSDLRenderer2_NewFrame();
+        /*ImGui_ImplSDLRenderer2_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
         static float f = 0.0f;
         static int counter = 0;
-
-        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+        bool open = false;
+        ImGui::Begin("Hello, world!", &open);                          // Create a window called "Hello, world!" and append into it.
 
         ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
         //ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
@@ -302,12 +302,12 @@ int main(int argc, char ** argv)
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::End();
-        ImGui::Render();
+        ImGui::Render();*/
         float x, y;
         SDL_RenderGetScale(renderer, &x, &y);
         SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+        //ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
         SDL_RenderSetScale(renderer, x, y);
         SDL_RenderPresent(renderer);
     }

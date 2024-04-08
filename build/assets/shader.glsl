@@ -115,7 +115,7 @@ float sdf_smoothunion(float d1, float d2, float k)
     return min(d1, d2) - h*h*0.25/k;
 }
 
-uniform sampler3D textures[32];
+//uniform sampler3D character_texture;
 
 vec3 apply_transforms(vec3 point, Primitive primitive){
   vec3 position = vec3_from_array(primitive.position);
@@ -137,8 +137,8 @@ SDFResponse SampleScene(vec3 point){
   vec3 color = vec3(1., 0., 0.);
   for (int i=0;i<scene.size;i++) {
     Primitive primitive = scene.primitives[i];
-    /*vec3(sin(i / 3.14), cos(i / 3.14), sin(i));*/
-    vec3 tex_color = texture(textures[i],  vec3(0.5) - apply_transforms(point, primitive) * 0.25).rgb;
+    vec3 tex_color = vec3(sin(i / 3.14), cos(i / 3.14), sin(i));
+    //vec3 tex_color = texture(character_texture,  vec3(0.5) - apply_transforms(point, primitive) *0.25).rgb; // 0.1 ~ 5. -> 1 ~ 0.5 
     switch (primitive.primitive_type){
       case 0: //sphere
         new_dist = sdSphere(apply_transforms(point, primitive), primitive.rounding);
@@ -146,8 +146,8 @@ SDFResponse SampleScene(vec3 point){
       case 1: //capsule
         new_dist = sdCapsule(
             apply_transforms(point, primitive),
-            vec3_from_array(primitive.translation_offset) - vec3_from_array(primitive.a),
-            vec3_from_array(primitive.translation_offset) - vec3_from_array(primitive.b),
+            vec3_from_array(primitive.translation_offset) + vec3_from_array(primitive.a),
+            vec3_from_array(primitive.translation_offset) + vec3_from_array(primitive.b),
             primitive.rounding
           ), mindist;
         break;
@@ -157,8 +157,8 @@ SDFResponse SampleScene(vec3 point){
       case 3: //cyl
         new_dist = sdCappedCylinder(
             apply_transforms(point, primitive),
-            vec3_from_array(primitive.translation_offset) - vec3_from_array(primitive.a),
-            vec3_from_array(primitive.translation_offset) - vec3_from_array(primitive.b),
+            vec3_from_array(primitive.translation_offset) + vec3_from_array(primitive.a),
+            vec3_from_array(primitive.translation_offset) + vec3_from_array(primitive.b),
             primitive.rounding
           );
         break;
@@ -166,15 +166,15 @@ SDFResponse SampleScene(vec3 point){
         new_dist = 
           udTriangle(
             apply_transforms(point, primitive),
-            vec3_from_array(primitive.translation_offset) - vec3_from_array(primitive.a),
-            vec3_from_array(primitive.translation_offset) - vec3_from_array(primitive.b),
-            vec3_from_array(primitive.translation_offset) - vec3_from_array(primitive.c)
+            vec3_from_array(primitive.translation_offset) + vec3_from_array(primitive.a),
+            vec3_from_array(primitive.translation_offset) + vec3_from_array(primitive.b),
+            vec3_from_array(primitive.translation_offset) + vec3_from_array(primitive.c)
         ) - primitive.rounding;
         break;
       default:
         break;
     }
-    float interpolation = clamp(0.5 + 0.5 * (mindist - new_dist) / 0.1, 0.0, 1.0);
+    float interpolation = clamp(0.5 + 0.5 * (mindist - new_dist) / 1.1, 0.0, 1.0);
     mindist = sdf_smoothunion(mindist, new_dist, 3.);
     color = mix(color, tex_color, interpolation);
   }
@@ -220,7 +220,7 @@ void main() {
   vec4 pixel = vec4(0.0863, 0.1765, 0.2549, 1.0);
   
   
-  vec3 start = vec3((storePos.x - center.x) * scale_factor, (storePos.y - center.y) * scale_factor, near_z);
+  /*vec3 start = vec3((storePos.x - center.x) * scale_factor, (storePos.y - center.y) * scale_factor, near_z);
   vec3 point = start;
   vec3 direction = vec3(0., 0., -1.);
   int steps = 64;
@@ -231,22 +231,22 @@ void main() {
       break;
     }
     if (r.dist <= min_dist) {
-      /*vec3 n = calcNormal(point);
-      float cdn = clamp(dot(n, sun), 0.1, 1.);
-      pixel.rgb = r.color.rgb * cdn;*/
       vec3 pos = point;
       vec3 nor = calcNormal(pos);
       vec3  lig = normalize(sun);
       float dif = clamp(dot(nor,lig),0.0,1.0);
       float sha = calcSoftshadow( pos, lig, min_dist, max_dist, 16.0 );
       float amb = 0.5 + 0.5*nor.y;
-      pixel.rgb = vec3(0.05,0.1,0.15)*amb + vec3(1.00,0.9,0.80)*dif*sha*r.color;
+      pixel.rgb = vec3(0.1647, 0.2235, 0.2824)*amb*r.color + vec3(1.00,0.9,0.80)*dif*sha*r.color;
+      //pixel.rgb = vec3(0.05,0.1,0.15)*amb + vec3(1.00,0.9,0.80)*dif*sha*r.color;
       //pixel.rgb = vec3(1. - length(start - pos) / (near_z - far_z));
       //pixel.rgb = vec3(0.05,0.1,0.15)*amb + r.color*dif*sha;
       break;
     }
     point += direction * r.dist;
-  }
-  //pixel.rgb = texture(textures[6], vec3(storePos.x / center.x / 2. - center.y, storePos.y / center.y / 2. - center.y, time * 0.1)).rgb;
+  }*/
+  //pixel.rgb = texture(textures[0], vec3((storePos.x / center.x / 2. - center.y)*0.25, (storePos.y / center.y / 2. - center.y)*0.25, time)).rgb;
+  //pixel.rgb = vec3(sin(time) * 0.5 + 0.5, sin(time * 2) * 0.5 + 0.5, sin(time * 3) * 0.5 + 0.5);
+  pixel.rgba = vec4(1.);
   imageStore(destTex, storePos, pixel);
 }
