@@ -6,6 +6,11 @@ using namespace glm;
 using namespace std;
 
 
+#ifndef SDF_INITED
+
+#define SDF_INITED
+
+
 /*
 
 Scene -> "Bones" -> Primitives 
@@ -48,7 +53,7 @@ struct Primitive{
 };
 
 struct PrimitiveOperation{
-    int operation_type; // 0 - soft merge, 1 - subtract, 2 - intersection, 3 - xor
+    int operation_type; // 0 - soft add, 1 - soft subtract, 2 - intersection, 3 - xor
     int a;
     int b;
     float value;
@@ -84,6 +89,9 @@ class SphereObject : public Object {
             {translation_offset.x, translation_offset.y, translation_offset.z},
             {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
+            {0., 0., 0.,},
+            {0., 0., 0.,},
+            {0., 0., 0.,}
         };
     }
     
@@ -105,6 +113,8 @@ class BoxObject : public Object {
             {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
             {size.x, size.y, size.z},
+            {0., 0., 0.,},
+            {0., 0., 0.,}
         };
     }
 };
@@ -129,6 +139,7 @@ class LineObject : public Object{
             rounding,
             {p1.x, p1.y, p1.z},
             {p2.x, p2.y, p2.z},
+            {0., 0., 0.,}
         };
     }
 };
@@ -153,6 +164,7 @@ class CylinderObject : public Object{
             rounding,
             {p1.x, p1.y, p1.z},
             {p2.x, p2.y, p2.z},
+            {0., 0., 0.,}
         };
     }
 };
@@ -195,3 +207,5 @@ class ObjectScene {
         }
     };
 };
+
+#endif

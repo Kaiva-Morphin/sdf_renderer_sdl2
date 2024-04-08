@@ -1,11 +1,10 @@
 #include "header.h"
+#include "sdf_primitives.h"
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
-
-
 
 #include <unordered_map>
 
@@ -22,7 +21,7 @@ int TARGET_WIDTH = 320; // always true :party_popper:
 int TARGET_HEIGHT = 240; // always true :party_popper:
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
-
+//SDL_GetError()
 
 
 class Debugger{
@@ -49,7 +48,7 @@ class Debugger{
         int textHeight = textSurface->h;
         int offset = 5;
         // Set rendering space and render to screen
-        SDL_Rect renderQuad = {0, (textHeight - offset - 1) * line, textWidth, textHeight - offset};
+        SDL_Rect renderQuad = {0, (textHeight - offset) * line, textWidth, textHeight - offset};
         SDL_Rect srcRect = {0, offset, textWidth, textHeight};
         SDL_RenderCopy(renderer, texture, &srcRect, &renderQuad);
 
@@ -231,19 +230,19 @@ class GameRenderer{ // scale?
 
 
 
+class Shader{};
 
 
-
-class SDF_Shader{
+class SDF_Shader : public Shader{
     string filePath;
     string current_src;
     Debugger* debugger;
+    GLuint scenebuffer;
     GLuint outputTexture;
     GLuint computeShader = glCreateShader(GL_COMPUTE_SHADER);
-    SDL_Texture* sdl_output_texture;
+    SDL_Texture* sdl_output_texture = nullptr;
     int width;
     int height;
-    GLubyte* pixels;
     string read_shader(){
         ifstream fileStream(filePath);
         if (!fileStream.is_open()) {
@@ -274,7 +273,6 @@ class SDF_Shader{
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        pixels = new GLubyte[width * height * 4];
         compile();
     }
     void compile(){
@@ -302,9 +300,14 @@ class SDF_Shader{
             return;
         }
         glBindImageTexture(0, outputTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+
+        glGenBuffers(1, &scenebuffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
+        
         this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
     }
     void destroy(){
+        glDeleteBuffers(1, &scenebuffer);
         SDL_DestroyTexture(sdl_output_texture);
         glDeleteShader(computeShader);
         glDeleteProgram(computeProgram);
@@ -328,28 +331,38 @@ class SDF_Shader{
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
     SDL_Texture* get_texture(){
-        pixels = new GLubyte[width * height * 4];
+        GLubyte* pixels = new GLubyte[width * height * 4];
         glBindTexture(GL_TEXTURE_2D, outputTexture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
         SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(pixels, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32);
+        delete[] pixels;
         if (!surface) {
-            delete[] pixels;
+            printf("SDL Error: %s\n", SDL_GetError());
             return nullptr;
         }
-        if (sdl_output_texture != nullptr){SDL_DestroyTexture(sdl_output_texture);};
+        if (sdl_output_texture != nullptr){
+            SDL_DestroyTexture(sdl_output_texture);
+        };
         
         sdl_output_texture = SDL_CreateTextureFromSurface(renderer, surface);
+        SDL_FreeSurface(surface);
         if (!sdl_output_texture) {
-            SDL_FreeSurface(surface);
-            delete[] pixels;
+            printf("SDL Error: %s\n", SDL_GetError());
             return nullptr;
         }
-        // Clean up resources
-        SDL_FreeSurface(surface);
-        delete[] pixels;
         return sdl_output_texture;
     }
+
+    void set_1f(const char* name, float value){
+        glUniform1f(glGetUniformLocation(computeProgram, name), value);
+    }
+    void set_2f(const char* name, float value1, float value2){
+        glUniform2f(glGetUniformLocation(computeProgram, name), value1, value2);
+    }
+
+    void set_scene(PrimitiveScene* primitive_scene){
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(*primitive_scene), primitive_scene, GL_STATIC_DRAW);
+    }
 };
-
-
 
