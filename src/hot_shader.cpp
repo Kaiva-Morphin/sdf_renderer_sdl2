@@ -21,16 +21,69 @@ int main(int argc, char* argv[]) {
 
 
     ObjectScene scene;
-
-
-    LineObject arm1 = LineObject(vec3(0., 0., 0.), vec3(0., 0., 0.), vec3(0., -5., 0.), .5);
-    arm1.translation_offset = vec3(0., 0., 0.);
-    scene.objects.push_back(&arm1);
-
-    /*LineObject arm2 = LineObject(vec3(5., 5., 5.), vec3(0., 0., 0.), vec3(0., -5., 0.), .5);
-    arm2.translation_offset = vec3(0., 0., 0.);
-    scene.objects.push_back(&arm2);*/
-
+    for (int i = 0; i < 6; i ++){
+        BoxObject* box = new BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
+        switch (i){
+            case 0:
+            box->set_translation_offset({3., 0., 0.,});
+            break;
+            case 1:
+            box->set_translation_offset({0., 3., 0.,});
+            break;
+            case 2:
+            box->set_translation_offset({0., 0., 3.,});
+            break;
+            case 3:
+            box->set_translation_offset({-3., 0., 0.,});
+            break;
+            case 4:
+            box->set_translation_offset({0., -3., 0.,});
+            break;
+            case 5:
+            box->set_translation_offset({0., 0., -3.,});
+            break;
+        }
+        scene.objects.push_back(box);
+        box->texture_transform = mat4x4(
+            1., 0., 0., 0.,
+            0., 1., 0., 0.,
+            0., 0., 1., 0.,
+            -40., -40., -40., 1.
+        );
+    }
+    /*BoxObject head = BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
+    head.set_translation_offset({3., 0., 0.,});
+    scene.objects.push_back(&head);
+    head.texture_transform = mat4x4(
+        1., 0., 0., 0.,
+        0., 1., 0., 0.,
+        0., 0., 1., 0.,
+        20., -20., -20., 1.
+    );
+    BoxObject box = BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
+    box.set_translation_offset({0., 3., 0.,});
+    scene.objects.push_back(&box);
+    box.texture_transform = mat4x4(
+        1., 0., 0., 0.,
+        0., 1., 0., 0.,
+        0., 0., 1., 0.,
+        -20.,-20., 20., 1.
+    );
+    BoxObject box2 = BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
+    box2.set_translation_offset({0., 0., 3.,});
+    box2.texture_transform = mat4x4(
+        1., 0., 0., 0.,
+        0., 1., 0., 0.,
+        0., 0., 1., 0.,
+        -20., 20., -20., 1.
+    );
+    scene.objects.push_back(&box2);*/
+    //LineObject arm1 = LineObject(vec3(2., 2., 0.), vec3(1., -1., 1.), vec3(0., 0., 0.), .3);
+    //arm1.set_translation_offset(-vec3(2., 2., 0.));
+    //scene.objects.push_back(&arm1);
+    //LineObject arm11 = LineObject(vec3(3., 1., 1.), vec3(0., -1., 1.), vec3(0., 0., 0.), .3);
+    //arm11.set_translation_offset(-vec3(-3., 1., 0.));
+    //scene.objects.push_back(&arm11);
 
 
     /*LineObject arm11 = LineObject(vec3(0.), vec3(0.), vec3(1., -3., 0.), .5);
@@ -84,16 +137,7 @@ int main(int argc, char* argv[]) {
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
-    
-    
-
     drawer.destroy();
-    
-
-
-    
-    
-
     PrimitiveScene primitive_scene;
     scene.update_primitive_scene(&primitive_scene);
 
@@ -116,29 +160,41 @@ int main(int argc, char* argv[]) {
     SDL_Event e;
     while (game_renderer.is_running()) {
         float time = SDL_GetTicks() / 1000.0f;
+
         angley = (float)((int)(time*1000) % 31415) / 1000.0f;
-        anglex = cos(time);
-        anglez = sin(time);
-        mat3x3 rotmatx = mat3x3{
-                1, 0, 0,
-                0, cos(anglex), -sin(anglex),
-                0, sin(anglex), cos(anglex)
+        anglex = cos(time) * 3.;
+        anglez = sin(time * 0.5) * 3.;
+
+
+
+        mat4x4 rotmatx = {
+                1, 0, 0, 0,
+                0, cos(anglex), -sin(anglex), 0,
+                0, sin(anglex), cos(anglex), 0,
+                0, 0, 0, 0,
         };
-        mat3x3 rotmaty = mat3x3{
-                cos(angley), 0, sin(angley),
-                0, 1, 0,
-                -sin(angley), 0, cos(angley)
+        mat4x4 rotmaty = {
+                cos(angley), 0, sin(angley), 0,
+                0, 1, 0, 0,
+                -sin(angley), 0, cos(angley), 0,
+                0, 0, 0, 0,
         };
-        mat3x3 rotmatz = mat3x3{
-                cos(anglez), -sin(anglez), 0,
-                sin(anglez), cos(anglez), 0,
-                0, 0, 1
+        mat4x4 rotmatz = {
+                cos(anglez), -sin(anglez), 0, 0,
+                sin(anglez), cos(anglez), 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 0,
         };
-        mat3x3 rotmat = rotmatx * rotmaty * rotmatz;
+        mat4x4 rotmat = rotmatx * rotmaty * rotmatz;
         //sphere.transform = rotmat;
         //box.transform = rotmat;
+        int c = 0;
         for (auto obj : scene.objects){
-            obj->transform = rotmat;
+            obj->transform[0] = rotmat[c%3];
+            obj->transform[1] = rotmat[(c+1)%3];
+            obj->transform[2] = rotmat[(c+2)%3];
+            //c++;
+            //obj->transform[3] = vec4(obj->translation_offset, 1.);
             //obj->position = normalize(obj->position) * (float)(sin(time) * 0.5 + 0.6) * 5.5f;
         }
         

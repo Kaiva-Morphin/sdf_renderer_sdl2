@@ -5,6 +5,7 @@
 using namespace glm;
 using namespace std;
 
+#define EYE4 {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
 #ifndef SDF_INITED
 #define SDF_INITED
@@ -38,18 +39,15 @@ bloom?
 
 */
 
-struct Primitive{
+struct alignas(16) Primitive{
+    mat4x4 transform;
+    mat4x4 texture_transform;
+    vec4 position;
+    vec4 a;
+    vec4 b;
+    vec4 c;
     int primitive_type; // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-    // universal
-    float texture_position[3];
-    float position[3]; // where is center
-    float translation_offset[3]; // where is rotation point relative to center
-    float transform[3][3]; // rotation and scale
     float rounding;
-    // specific points
-    float a[3];
-    float b[3];
-    float c[3];
 };
 
 struct PrimitiveOperation{
@@ -69,30 +67,32 @@ class Object{
     public:
     vec3 position = vec3(0.);
     float rounding = 0.;
-    vec3 translation_offset = vec3{0, 0, 0};
-    mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    mat4x4 transform = EYE4;
+    mat4x4 texture_transform = EYE4;
+    void set_translation_offset(vec3 translation_offset){
+        transform[3]  = vec4(translation_offset, 1.);
+    }
     virtual Primitive as_primitive(){return Primitive{};};
 };
 
 class SphereObject : public Object {
     public:
-    SphereObject(vec3 position, float radius, mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1}){
+    SphereObject(vec3 position, float radius, mat4x4 transform = EYE4){
         this->position = position;
-        this->translation_offset = vec3(0);
         this->rounding = radius;
         this->transform = transform;
     };
     Primitive as_primitive(){
+        vec4(position, 0.);
         return Primitive{
+            transform,
+            texture_transform,
+            vec4(position, 0.),
+            vec4(0.),
+            vec4(0.),
+            vec4(0.),
             0, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            {0., 0., 0.,},
-            {position.x, position.y, position.z},
-            {translation_offset.x, translation_offset.y, translation_offset.z},
-            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            {0., 0., 0.,},
-            {0., 0., 0.,},
-            {0., 0., 0.,}
         };
     }
     
@@ -101,22 +101,21 @@ class SphereObject : public Object {
 class BoxObject : public Object {
     vec3 size;
     public:
-    BoxObject(vec3 position, vec3 size, mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1}){
+    BoxObject(vec3 position, vec3 size, mat4x4 transform = EYE4){
         this->transform = transform;
         this->position = position;
         this->size = size;
     };
     Primitive as_primitive(){
         return Primitive{
+            transform,
+            texture_transform,
+            vec4(position, 0.),
+            vec4(size, 0.),
+            vec4(0.),
+            vec4(0.),
             2, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            {0., 0., 0.,},
-            {position.x, position.y, position.z},
-            {translation_offset.x, translation_offset.y, translation_offset.z},
-            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            {size.x, size.y, size.z},
-            {0., 0., 0.,},
-            {0., 0., 0.,}
         };
     }
 };
@@ -125,7 +124,7 @@ class LineObject : public Object{
     vec3 p1;
     vec3 p2;
     public:
-    LineObject(vec3 position, vec3 p1, vec3 p2, float radius, mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1}){
+    LineObject(vec3 position, vec3 p1, vec3 p2, float radius, mat4x4 transform = EYE4){
         this->transform = transform;
         this->position = position;
         this->p1 = p1;
@@ -134,15 +133,14 @@ class LineObject : public Object{
     };
     Primitive as_primitive(){
         return Primitive{
+            transform,
+            texture_transform,
+            vec4(position, 0.),
+            vec4(p1, 0.),
+            vec4(p2, 0.),
+            vec4(0.),
             1, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            {0., 0., 0.,},
-            {position.x, position.y, position.z},
-            {translation_offset.x, translation_offset.y, translation_offset.z},
-            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            {p1.x, p1.y, p1.z},
-            {p2.x, p2.y, p2.z},
-            {0., 0., 0.,}
         };
     }
 };
@@ -151,7 +149,7 @@ class CylinderObject : public Object{
     vec3 p1;
     vec3 p2;
     public:
-    CylinderObject(vec3 position, vec3 p1, vec3 p2, float radius, mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1}){
+    CylinderObject(vec3 position, vec3 p1, vec3 p2, float radius, mat4x4 transform = EYE4){
         this->transform = transform;
         this->position = position;
         this->p1 = p1;
@@ -160,15 +158,14 @@ class CylinderObject : public Object{
     };
     Primitive as_primitive(){
         return Primitive{
+            transform,
+            texture_transform,
+            vec4(position, 0.),
+            vec4(p1, 0.),
+            vec4(p2, 0.),
+            vec4(0.),
             3, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            {0., 0., 0.,},
-            {position.x, position.y, position.z},
-            {translation_offset.x, translation_offset.y, translation_offset.z},
-            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            {p1.x, p1.y, p1.z},
-            {p2.x, p2.y, p2.z},
-            {0., 0., 0.,}
         };
     }
 };
@@ -178,7 +175,7 @@ class TriangleObject : public Object{
     vec3 p2;
     vec3 p3;
     public:
-    TriangleObject(vec3 position, vec3 p1, vec3 p2, vec3 p3, float radius, mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1}){
+    TriangleObject(vec3 position, vec3 p1, vec3 p2, vec3 p3, float radius, mat4x4 transform = EYE4){
         this->transform = transform;
         this->position = position;
         this->p1 = p1;
@@ -188,15 +185,14 @@ class TriangleObject : public Object{
     };
     Primitive as_primitive(){
         return Primitive{
+            transform,
+            texture_transform,
+            vec4(position, 0.),
+            vec4(p1, 0.),
+            vec4(p2, 0.),
+            vec4(p3, 0.),
             4, // 0 - sphere, 1 - capsule, 2 - box, 3 - cyl, 4 - triangle
-            {0., 0., 0.,},
-            {position.x, position.y, position.z},
-            {translation_offset.x, translation_offset.y, translation_offset.z},
-            {{transform[0][0], transform[0][1], transform[0][2]}, {transform[1][0], transform[1][1], transform[1][2]}, {transform[2][0], transform[2][1], transform[2][2]}},
             rounding,
-            {p1.x, p1.y, p1.z},
-            {p2.x, p2.y, p2.z},
-            {p3.x, p3.y, p3.z},
         };
     }
 };

@@ -20,8 +20,8 @@ int main(int argc, char* argv[]) {
     struct alignas(16) Primitive {
         mat4x4 transform;
         vec4 texture_position;
-        vec4 position;
-        float primitive_type;
+        vec4 position; 
+        int primitive_type;
         //vec3 translation_offset;
         float rounding;
         //vec3 a;
