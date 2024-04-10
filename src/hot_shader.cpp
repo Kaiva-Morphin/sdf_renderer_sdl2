@@ -21,36 +21,117 @@ int main(int argc, char* argv[]) {
 
 
     ObjectScene scene;
-    for (int i = 0; i < 6; i ++){
+    /*for (int i = 0; i < 6; i ++){
         BoxObject* box = new BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
         switch (i){
             case 0:
             box->set_translation_offset({3., 0., 0.,});
+            box->texture_transform = mat4x4(
+                1., 0., 0., 0.,
+                0., 1., 0., 0.,
+                0., 0., 1., 0.,
+                30., 0., 30, 1.
+            );
             break;
             case 1:
             box->set_translation_offset({0., 3., 0.,});
+            box->texture_transform = mat4x4(
+                1., 0., 0., 0.,
+                0., 1., 0., 0.,
+                0., 0., 1., 0.,
+                0., 30., 0, 1.
+            );
             break;
             case 2:
             box->set_translation_offset({0., 0., 3.,});
+            box->texture_transform = mat4x4(
+                1., 0., 0., 0.,
+                0., 1., 0., 0.,
+                0., 0., 1., 0.,
+                0., 0., 30, 1.
+            );
             break;
             case 3:
             box->set_translation_offset({-3., 0., 0.,});
+            box->texture_transform = mat4x4(
+                1., 0., 0., 0.,
+                0., 1., 0., 0.,
+                0., 0., 1., 0.,
+                -30., 0., 0, 1.
+            );
             break;
             case 4:
             box->set_translation_offset({0., -3., 0.,});
+            box->texture_transform = mat4x4(
+                1., 0., 0., 0.,
+                0., 1., 0., 0.,
+                0., 0., 1., 0.,
+                0., -30., 0, 1.
+            );
             break;
             case 5:
             box->set_translation_offset({0., 0., -3.,});
+            box->texture_transform = mat4x4(
+                1., 0., 0., 0.,
+                0., 1., 0., 0.,
+                0., 0., 1., 0.,
+                0., 0., -30, 1.
+            );
             break;
         }
         scene.objects.push_back(box);
-        box->texture_transform = mat4x4(
-            1., 0., 0., 0.,
-            0., 1., 0., 0.,
-            0., 0., 1., 0.,
-            -40., -40., -40., 1.
-        );
-    }
+        
+    }*/
+    BoxObject eyebow = BoxObject(vec3(0., 0., 1.), vec3(1., 1., 1.));
+    eyebow.set_translation_offset({0., 0., 0.,});
+    scene.objects.push_back(&eyebow);
+    eyebow.texture_transform = mat4x4(
+        1., 0., 0., 0.,
+        0., 1., 0., 0.,
+        0., 0., 1., 0.,
+        1., -1., -1., 1.
+    );
+    scene.ordered_operations.push_back(
+        PrimitiveOperation{
+            OPERATION_UNION,
+            0,
+            1.
+        }
+    );
+    /*BoxObject b = BoxObject(vec3(2., 0., 0.), vec3(1., 1., 1.));
+    b.set_translation_offset({0., 0., 0.,});
+    scene.objects.push_back(&b);
+    b.texture_transform = mat4x4(
+        1., 0., 0., 0.,
+        0., 1., 0., 0.,
+        0., 0., 1., 0.,
+        0., 0., 0., 1.
+    );
+    BoxObject a = BoxObject(vec3(-2., 0., 0.), vec3(1., 1., 1.));
+    a.set_translation_offset({0., 0., 0.,});
+    scene.objects.push_back(&a);
+    a.texture_transform = mat4x4(
+        1., 0., 0., 0.,
+        0., 1., 0., 0.,
+        0., 0., 1., 0.,
+        0., 0., 0., 1.
+    );*/
+
+
+    /*scene.ordered_operations.push_back(
+        PrimitiveOperation{
+            OPERATION_SUBTRACTION,
+            0,
+            0.1
+        }
+    );
+    scene.ordered_operations.push_back(
+        PrimitiveOperation{
+            OPERATION_UNION,
+            2,
+            0.1
+        }
+    );*/
     /*BoxObject head = BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
     head.set_translation_offset({3., 0., 0.,});
     scene.objects.push_back(&head);
@@ -128,10 +209,10 @@ int main(int argc, char* argv[]) {
     for (int z = 0; z < TEX_SIZE; z++)
     for (int y = 0; y < TEX_SIZE; y++)
     for (int x = 0; x < TEX_SIZE; x++)
-    drawer.set_pixel(x, y, z, (float)x / (float)TEX_SIZE * 255., (float)y / (float)TEX_SIZE * 255., (float)z / (float)TEX_SIZE * 255.);
+    drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
 
     GLubyte* character_texture_data = drawer.get_data();
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB4, TEX_SIZE, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, character_texture_data);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB8, TEX_SIZE, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, character_texture_data);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -188,15 +269,15 @@ int main(int argc, char* argv[]) {
         mat4x4 rotmat = rotmatx * rotmaty * rotmatz;
         //sphere.transform = rotmat;
         //box.transform = rotmat;
-        int c = 0;
-        for (auto obj : scene.objects){
-            obj->transform[0] = rotmat[c%3];
-            obj->transform[1] = rotmat[(c+1)%3];
-            obj->transform[2] = rotmat[(c+2)%3];
+        //int c = 0;
+        /*for (auto obj : scene.objects){
+            //obj->transform[0] = rotmat[c%3];
+            //obj->transform[1] = rotmat[(c+1)%3];
+            //obj->transform[2] = rotmat[(c+2)%3];
             //c++;
             //obj->transform[3] = vec4(obj->translation_offset, 1.);
             //obj->position = normalize(obj->position) * (float)(sin(time) * 0.5 + 0.6) * 5.5f;
-        }
+        }*/
         
         
         shader.check_file_updates();

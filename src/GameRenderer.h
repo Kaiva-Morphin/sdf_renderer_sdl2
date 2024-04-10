@@ -324,7 +324,7 @@ class SDF_Shader : public Shader{
     }
 
     void run(){
-        glDispatchCompute(width / 16, height / 16, 1);
+        glDispatchCompute(ceil((float)width / 16.), ceil((float)height / 16.), 1);
     }
     void wait(){
         glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);

@@ -38,7 +38,9 @@ every object can be:
 bloom?
 
 */
-
+#define OPERATION_UNION 0
+#define OPERATION_SUBTRACTION 1
+#define OPERATION_INTERSECTION 2
 struct alignas(16) Primitive{
     mat4x4 transform;
     mat4x4 texture_transform;
@@ -50,17 +52,17 @@ struct alignas(16) Primitive{
     float rounding;
 };
 
-struct PrimitiveOperation{
-    int operation_type; // 0 - soft add, 1 - soft subtract, 2 - intersection, 3 - xor
-    int a;
-    int b;
+struct alignas(16) PrimitiveOperation{
+    int operation_type; // 0 - soft add, 1 - soft subtract, 2 - intersection
+    int member;
     float value;
 };
 
 struct PrimitiveScene{
     int size;
+    int operations;
     Primitive primitives[32];
-    PrimitiveOperation operations[16];
+    PrimitiveOperation ordered_operations[32];
 };
 
 class Object{
@@ -201,10 +203,15 @@ class TriangleObject : public Object{
 class ObjectScene {
     public:
     vector<Object*> objects;
+    vector<PrimitiveOperation> ordered_operations;
     void update_primitive_scene(PrimitiveScene* scene){
         scene->size = objects.size();
         for (int i = 0; i < scene->size; i++){
             scene->primitives[i] = objects[i]->as_primitive();
+        }
+        scene->operations = ordered_operations.size();
+        for (int i = 0; i < scene->operations; i++){
+            scene->ordered_operations[i] = ordered_operations[i];
         }
     };
 };
