@@ -104,7 +104,7 @@ class TextureDrawer{
         g = v.g * 255.;
         b = v.b * 255.;
     }
-    void fill_circle(int px, int py, int pz, float radius){
+    void fill_sphere(int px, int py, int pz, float radius){
         for (int x = px - (int)radius; x <= px + (int)radius; x++)
         for (int y = py - (int)radius; y <= py + (int)radius; y++)
         for (int z = pz - (int)radius; z <= pz + (int)radius; z++){
@@ -112,7 +112,13 @@ class TextureDrawer{
             set_pixel(x, y, z);
         }
     }
-
+    void fill_cube(int p1x, int p1y, int p1z, int p2x, int p2y, int p2z){
+        for (int x = std::min(p1x, p2x); x <= std::max(p1x, p2x); x++)
+        for (int y = std::min(p1y, p2y); y <= std::max(p1y, p2y); y++)
+        for (int z = std::min(p1z, p2z); z <= std::max(p1z, p2z); z++){
+            set_pixel(x, y, z);
+        }
+    }
     GLubyte* get_data(){
         return data;
     }

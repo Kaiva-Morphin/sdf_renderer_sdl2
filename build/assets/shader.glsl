@@ -19,8 +19,10 @@ struct Primitive{
 };
 
 struct PrimitiveOperation{
-    int operation_type; // 0 - soft add, 1 - soft subtract, 2 - intersection
-    int member;
+    int operation_type; // 0 - soft add, 1 - soft subtract, 2 - intersection, 3 - interpolation
+    int left_member;
+    int right_member;
+    int overrides;
     float value;
 };
 
@@ -141,7 +143,7 @@ SDFResponse SampleScene(vec3 point){
   for (int i=0;i<scene.size;i++) {
     Primitive primitive = scene.primitives[i];
     //vec3 tex_color = vec3(sin(i / 3.14), cos(i / 3.14), sin(i));
-    colors[i] = texture(character_texture,  vec3(0.5) - (primitive.texture_transform * vec4(in_primitive_space(point, primitive), 1.)).xyz).rgb; // 0.1 scale ~ 5. render_units && 1 scale ~ 0.5 render_units
+    colors[i] = texture(character_texture,  vec3(0.5) - (-primitive.texture_transform * vec4(in_primitive_space(point, primitive), 1.)).xyz).rgb; // 0.1 scale ~ 5. render_units && 1 scale ~ 0.5 render_units
     
     switch (primitive.primitive_type){
       case 0: //sphere
@@ -188,25 +190,33 @@ SDFResponse SampleScene(vec3 point){
     mindist = sdf_smoothunion(mindist, new_dist, 0.1);
     color = mix(color, tex_color, interpolation);
   */
-  mindist = 100.;
   for (int i=0;i<scene.operations;i++) {
     PrimitiveOperation op = scene.ordered_operations[i];
+    float left = op.left_member != -1 ? distances[op.left_member] : 100.;
+    float right = op.right_member != -1 ? distances[op.right_member] : 100.;
+    vec3 left_color = op.left_member != -1 ? colors[op.left_member] : vec3(0., 0., 0.);
+    vec3 right_color = op.right_member != -1? colors[op.right_member] : vec3(0., 0., 0.);
     switch (op.operation_type){
       case 0:
-        mindist = opSmoothUnion(mindist, distances[op.member], op.value);
-        float interpolation = clamp(0.5 + 0.5 * (mindist - new_dist) / op.value, 0.0, 1.0);
-        color = mix(color, colors[op.member], interpolation);
+        distances[op.overrides] = opSmoothUnion(right, left, op.value);
+        float interpolation = 1. - clamp((left - distances[op.overrides]) / op.value, 0.0, 1.0);
+        colors[op.overrides] = mix(right_color, left_color, interpolation);
+        /*float mixFactor = clamp((mindist / distances[op.member]), 0.0, 1.0);
+        color = mix(color, colors[op.member], mixFactor);*/
         break;
       case 1:
-        mindist = opSmoothSubtraction(distances[op.member], mindist, op.value);
+        distances[op.overrides] = opSmoothSubtraction(left, right, op.value);
         break;
       case 2:
-        mindist = opSmoothIntersection(mindist, distances[op.member], op.value);
+        distances[op.overrides] = opSmoothIntersection(right, left, op.value);
         break;
+      case 3:
+        distances[op.overrides] = mix(left, right, op.value);
+        colors[op.overrides] = mix(left_color, right_color, op.value);
     }
   }
   //mindist = opSmoothSubtraction(distances[0], distances[1], 0.1);
-  return SDFResponse(color, mindist);
+  return SDFResponse(colors[scene.operations-1], distances[scene.operations-1]);
 }
 
 const float near_z = 10.;
@@ -238,7 +248,7 @@ float calcSoftshadow( in vec3 ro, in vec3 rd, float tmin, float tmax, const floa
     return clamp( res, 0.0, 1.0 );
 }
 
-const float scale_factor = 0.02;
+const float scale_factor = 0.1;
 
 /*
 
@@ -254,26 +264,14 @@ void main() {
   ivec2 storePos = ivec2(gl_GlobalInvocationID.xy); // pixel pos
   vec4 pixel = vec4(0.0863, 0.1765, 0.2549, 1.0);
   vec3 sun = vec3(1., 1., 1.); // sun direction
-
-
-  if (true) for (int i = 0; i < scene.size; i++){
-    scene.primitives[i].transform[0] = vec4(1., 0., 0., 0.);
-    scene.primitives[i].transform[1] = vec4(0., 1., 0., 0.);
-    scene.primitives[i].transform[2] = vec4(0., 0., 1., 0.);
-    //scene.primitives[i].transform[0] = vec4(0., 0., 1., 0.);
-  }
-  /*scene.primitives[0].transform[3] = vec4(0., 0., 0., 1.);
-  scene.primitives[0].position = vec4(5., 0., 0., 0.);
-  scene.primitives[0].texture_transform = mat4x4(
-    1., 0., 0., 0.,
-    0., 1., 0., 0.,
-    0., 0., 1., 0.,
-    0., 0., 0., 1.
-  );*/
-  
   vec3 start = vec3((storePos.x - center.x) * scale_factor, (storePos.y - center.y) * -scale_factor, near_z);
   vec3 point = start;
   vec3 direction = vec3(0., 0., -1.);
+  /*for (int i = 0; i < scene.operations; i ++){
+    scene.ordered_operations[i].value = (sin(time) * 0.5 + 0.5) * 2. + 1.;
+  }*/
+  
+
   for (int i=0;i<steps;i++) {
     SDFResponse r = SampleScene(point);
     if (r.dist > max_dist || point.z <= far_z){
@@ -285,7 +283,7 @@ void main() {
       vec3 nor = calcNormal(pos);
       vec3  lig = normalize(sun);
       float dif = clamp(dot(nor,lig),0.0,1.0);
-      float sha = calcSoftshadow( pos, lig, min_dist, max_dist, 16.0 );
+      float sha = 1.;//calcSoftshadow( pos, lig, min_dist, max_dist, 16.0 );
       float amb = 0.9 + 0.1 * nor.y;
       float depth = 1. - length(start - pos) / (near_z - far_z);
       pixel.rgb = vec3(0.2078, 0.2549, 0.298)*amb*r.color + vec3(1.00,0.9,0.80)*dif*sha*r.color; // color with shadows

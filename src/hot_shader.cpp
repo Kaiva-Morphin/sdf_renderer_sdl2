@@ -9,7 +9,30 @@
 #include <string>
 #include <algorithm>
 
-
+mat4x4 eulerXYZ(float anglex, float angley, float anglez){
+    anglex = anglex / 180. * 3.1415;
+    angley = angley / 180. * 3.1415;
+    anglez = anglez / 180. * 3.1415;
+    mat4x4 rotmatx = {
+            1, 0, 0, 0,
+            0, cos(anglex), -sin(anglex), 0,
+            0, sin(anglex), cos(anglex), 0,
+            0, 0, 0, 1,
+    };
+    mat4x4 rotmaty = {
+            cos(angley), 0, sin(angley), 0,
+            0, 1, 0, 0,
+            -sin(angley), 0, cos(angley), 0,
+            0, 0, 0, 1,
+    };
+    mat4x4 rotmatz = {
+            cos(anglez), -sin(anglez), 0, 0,
+            sin(anglez), cos(anglez), 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1,
+    };
+    return rotmatx * rotmaty * rotmatz;
+}
 
 GameRenderer game_renderer = GameRenderer();
 int main(int argc, char* argv[]) {
@@ -21,7 +44,7 @@ int main(int argc, char* argv[]) {
 
 
     ObjectScene scene;
-    /*for (int i = 0; i < 6; i ++){
+    for (int i = 0; i < 6; i ++){
         BoxObject* box = new BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
         switch (i){
             case 0:
@@ -30,7 +53,7 @@ int main(int argc, char* argv[]) {
                 1., 0., 0., 0.,
                 0., 1., 0., 0.,
                 0., 0., 1., 0.,
-                30., 0., 30, 1.
+                30., 30., -30, 1.
             );
             break;
             case 1:
@@ -39,7 +62,7 @@ int main(int argc, char* argv[]) {
                 1., 0., 0., 0.,
                 0., 1., 0., 0.,
                 0., 0., 1., 0.,
-                0., 30., 0, 1.
+                30., -30., 30, 1.
             );
             break;
             case 2:
@@ -48,7 +71,7 @@ int main(int argc, char* argv[]) {
                 1., 0., 0., 0.,
                 0., 1., 0., 0.,
                 0., 0., 1., 0.,
-                0., 0., 30, 1.
+                30., -30., -30, 1.
             );
             break;
             case 3:
@@ -57,7 +80,7 @@ int main(int argc, char* argv[]) {
                 1., 0., 0., 0.,
                 0., 1., 0., 0.,
                 0., 0., 1., 0.,
-                -30., 0., 0, 1.
+                -30., 30., 30, 1.
             );
             break;
             case 4:
@@ -66,7 +89,7 @@ int main(int argc, char* argv[]) {
                 1., 0., 0., 0.,
                 0., 1., 0., 0.,
                 0., 0., 1., 0.,
-                0., -30., 0, 1.
+                -30., 30., -30, 1.
             );
             break;
             case 5:
@@ -75,29 +98,43 @@ int main(int argc, char* argv[]) {
                 1., 0., 0., 0.,
                 0., 1., 0., 0.,
                 0., 0., 1., 0.,
-                0., 0., -30, 1.
+                -30., -30., 30, 1.
             );
             break;
         }
         scene.objects.push_back(box);
-        
-    }*/
-    BoxObject eyebow = BoxObject(vec3(0., 0., 1.), vec3(1., 1., 1.));
-    eyebow.set_translation_offset({0., 0., 0.,});
-    scene.objects.push_back(&eyebow);
-    eyebow.texture_transform = mat4x4(
-        1., 0., 0., 0.,
-        0., 1., 0., 0.,
-        0., 0., 1., 0.,
-        1., -1., -1., 1.
-    );
+        scene.ordered_operations.push_back(
+            PrimitiveOperation{
+                OPERATION_UNION,
+                i-1,
+                i,
+                i,
+                3
+            }
+        );
+    }
+    int sphere_id = (int)scene.ordered_operations.size();
+    SphereObject sphere = SphereObject(vec3(0.), 2.5);
+    sphere.texture_transform = mat4x4(
+                1., 0., 0., 0.,
+                0., 1., 0., 0.,
+                0., 0., 1., 0.,
+                -30., -30., -30, 1.
+            );
+    scene.objects.push_back(&sphere);
     scene.ordered_operations.push_back(
         PrimitiveOperation{
-            OPERATION_UNION,
-            0,
-            1.
-        }
-    );
+                OPERATION_INTERPOLATION,
+                (int)scene.ordered_operations.size(),
+                (int)scene.ordered_operations.size()-1,
+                (int)scene.ordered_operations.size(),
+                1.
+            }
+        );
+
+
+
+
     /*BoxObject b = BoxObject(vec3(2., 0., 0.), vec3(1., 1., 1.));
     b.set_translation_offset({0., 0., 0.,});
     scene.objects.push_back(&b);
@@ -211,6 +248,8 @@ int main(int argc, char* argv[]) {
     for (int x = 0; x < TEX_SIZE; x++)
     drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
 
+
+
     GLubyte* character_texture_data = drawer.get_data();
     glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB8, TEX_SIZE, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, character_texture_data);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -269,15 +308,15 @@ int main(int argc, char* argv[]) {
         mat4x4 rotmat = rotmatx * rotmaty * rotmatz;
         //sphere.transform = rotmat;
         //box.transform = rotmat;
-        //int c = 0;
-        /*for (auto obj : scene.objects){
-            //obj->transform[0] = rotmat[c%3];
-            //obj->transform[1] = rotmat[(c+1)%3];
-            //obj->transform[2] = rotmat[(c+2)%3];
+        int c = 0;
+        for (auto obj : scene.objects){
+            obj->transform[0] = rotmat[c%3];
+            obj->transform[1] = rotmat[(c+1)%3];
+            obj->transform[2] = rotmat[(c+2)%3];
             //c++;
             //obj->transform[3] = vec4(obj->translation_offset, 1.);
             //obj->position = normalize(obj->position) * (float)(sin(time) * 0.5 + 0.6) * 5.5f;
-        }*/
+        }
         
         
         shader.check_file_updates();

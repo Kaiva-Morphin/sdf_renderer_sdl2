@@ -41,6 +41,8 @@ bloom?
 #define OPERATION_UNION 0
 #define OPERATION_SUBTRACTION 1
 #define OPERATION_INTERSECTION 2
+#define OPERATION_INTERPOLATION 3
+
 struct alignas(16) Primitive{
     mat4x4 transform;
     mat4x4 texture_transform;
@@ -53,8 +55,10 @@ struct alignas(16) Primitive{
 };
 
 struct alignas(16) PrimitiveOperation{
-    int operation_type; // 0 - soft add, 1 - soft subtract, 2 - intersection
-    int member;
+    int operation_type; // 0 - soft add, 1 - soft subtract, 2 - intersection, 3 - interpolation
+    int left_member;
+    int right_member;
+    int overrides;
     float value;
 };
 
