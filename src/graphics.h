@@ -1,8 +1,18 @@
 #include <SDL2/SDL.h>
 #include "cmath"
 
-const int TARGET_WIDTH = 240;
-const int TARGET_HEIGHT = 144;
+// 480 * 270?
+/*
+texture types:
+    normal gradient
+    3d texture
+        gradient
+        noise gradient
+
+*/
+
+const int TARGET_WIDTH = 360;
+const int TARGET_HEIGHT = 240;
 const int CENTERX = TARGET_WIDTH / 2;
 const int CENTERY = TARGET_HEIGHT / 2;
 
@@ -89,3 +99,6 @@ void DrawCircle(int32_t centreX, int32_t centreY, int32_t radius)
       }
    }
 }
+
+
+

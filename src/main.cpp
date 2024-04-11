@@ -8,6 +8,7 @@ using namespace glm; // gl math for vec and mat operations
 
 #include "graphics.h"
 #include "sdf.h"
+#include "fast_noise.h"
 
 #include <iostream>
 #include <variant>
@@ -18,16 +19,21 @@ using namespace std;
 
 #include <thread>
 
+
+
 #define PI 3.14159
 #define HALF_PI PI / 2.
 
 #define red  vec4{255, 0, 0, 255}
 
+
 int main(int argc, char ** argv)
 {
+    noise.SetSeed(3);
+    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    noise.SetFrequency(0.1);
     
     Scene scene;
-    ///*
 
     LineObject l = LineObject{vec3{105, 70, 60}, vec3{-33, -60, 0}, vec3{-23, -30, 0}, 8, eye3};
     scene.objects.push_back(&l);
@@ -45,20 +51,20 @@ int main(int argc, char ** argv)
     head.color = vec4{0.4, 0.4, 0, 1.};
     LineObject leg1 = LineObject{vec3{105, 70, 60}, vec3{-20, 10, -10}, vec3{-20, 22, -14}, 4, eye3};
     scene.objects.push_back(&leg1);
-    leg1.color = vec4{0.2, 0.2, 0, 1.};
+    leg1.color = vec4{0.2, 0.2, 0.7, 1.};
     LineObject leg2 = LineObject{vec3{105, 70, 60}, vec3{-20, 10, 10}, vec3{-20, 22, 14}, 4, eye3};
     scene.objects.push_back(&leg2);
-    leg2.color = vec4{0.2, 0.2, 0, 1.};
+    leg2.color = vec4{0.2, 0.2, 0.7, 1.};
     LineObject leg3 = LineObject{vec3{105, 70, 60}, vec3{20, 10, -10}, vec3{20, 22, -14}, 4, eye3};
     scene.objects.push_back(&leg3);
-    leg3.color = vec4{0.2, 0.2, 0, 1.};
+    leg3.color = vec4{0.2, 0.2, 0.7, 1.};
     LineObject leg4 = LineObject{vec3{105, 70, 60}, vec3{20, 10, 10}, vec3{20, 22, 14}, 4, eye3};
     scene.objects.push_back(&leg4);
-    leg4.color = vec4{0.2, 0.2, 0, 1.};
+    leg4.color = vec4{0.2, 0.2, 0.7, 1.};
     
     BoxObject cube = BoxObject{vec3{105, 70, 60}, vec3{20, 20, 20}, eye3};
     scene.objects.push_back(&cube);
-    cube.color = vec4{1., 1., 0, 1.};
+    cube.color = vec4{1., 0., 0.5, 1.};
     
     /**/
     /*
@@ -74,9 +80,9 @@ int main(int argc, char ** argv)
     init();
     bool quit = false;
 
-    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 80, 80);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-    SDL_Texture *buffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, TARGET_WIDTH, TARGET_HEIGHT);
+    const int rendersizex = TARGET_WIDTH - 60;
+    const int rendersizey = TARGET_HEIGHT - 20;
+    SDL_Texture *buffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, rendersizex, rendersizey);
     SDL_SetTextureBlendMode(buffer, SDL_BLENDMODE_BLEND);
 
     vec3 sun_vec = vec3{1, -3, 1};
@@ -101,10 +107,9 @@ int main(int argc, char ** argv)
                 0, 0, 1
         };
         mat3x3 rotmat = rotmatx * rotmaty * rotmatz;
-        
         for (size_t object_id = 0; object_id < scene.objects.size(); object_id++) {
             scene.objects[object_id]->transform = rotmat;
-            scene.objects[object_id]->translation_offset = vec3{0, -8, 40};
+            scene.objects[object_id]->translation_offset = vec3{0, -16, 40};
         }
         
         angley += 0.1;
@@ -129,8 +134,8 @@ int main(int argc, char ** argv)
                 0, 0, 1
         };
         mat3x3 rotmat = rotmatx * rotmaty * rotmatz;*/
-        cube.translation_offset.x = sin(angley * 0.2) * 100.;
-
+        cube.translation_offset.x = sin(angley * 0.2) * 70.;
+        cube.transform = inverse(rotmat);
 
 
 
@@ -151,23 +156,24 @@ int main(int argc, char ** argv)
 
             int *pixels = NULL;
             int pitch;
-            SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
+            SDL_Rect rect = SDL_Rect{0, 0, rendersizex, rendersizey};
             SDL_LockTexture(buffer, &rect, (void **) &pixels, &pitch);
             
             vector<thread> threads;
-            const int rendersizey = TARGET_HEIGHT;
-            uint32_t results[TARGET_WIDTH][rendersizey];
-            for (int x = 0; x < TARGET_WIDTH; ++x){
+            
+
+            uint32_t results[rendersizex][rendersizey];
+            for (int x = 0; x < rendersizex; ++x){
                 threads.push_back(thread(compute_row, x, rendersizey, &scene, sun_vector, results[x]));
             }
             for (int x = 0; x < threads.size(); ++x){
                 threads[x].join();
                 for (int y = 0; y < rendersizey; ++y){
-                    pixels[x + y * TARGET_WIDTH] = results[x][y];
+                    pixels[x + y * rendersizex] = results[x][y];
                 };
             }
             SDL_UnlockTexture(buffer);
-            SDL_RenderCopy(renderer, buffer, NULL, NULL);
+            SDL_RenderCopy(renderer, buffer, &rect, &rect);
             draw();
             auto end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
@@ -200,7 +206,6 @@ int main(int argc, char ** argv)
     }
     
     SDL_DestroyTexture(buffer);
-    SDL_DestroyTexture(texture);
 
     cleanup();
     return 0;

@@ -22,6 +22,8 @@ using namespace std;
     Capsule,
     Cylinder
 };*/
+#include "fast_noise.h"
+FastNoiseLite noise;
 
 class Object{
     public:
@@ -29,6 +31,19 @@ class Object{
     vec4 color = vec4{1, 1, 1, 1};
     vec3 translation_offset = vec3{0, 0, 0};
     mat3x3 transform = mat3x3{1, 0, 0, 0, 1, 0, 0, 0, 1};
+
+    vec4 GetColor(vec3 point){
+        point = applyRelativeTransforms(point);
+        double val = noise.GetNoise(point.x, point.y, point.z);
+        val = (val + 1) * 0.5;
+        if (val * 255. < 170.) {
+            return vec4{150. / 255., 150. / 255., 0., 1.};
+        } else {
+            return vec4{40. / 255., 40. / 255., 0., 1.};
+        }
+         
+    }
+
     vec3 applyRelativeTransforms(vec3 point){
         vec3 vec = point - this->position - this->translation_offset;
         vec = vec * transform;
@@ -167,7 +182,7 @@ std::tuple<double, vec4> SampleSceneSDF(
             
             float interpolation = clamp(0.5 + 0.5 * (mindist - distances[object_id]) / 15., 0.0, 1.0);
             res_color =  mix(res_color, color, interpolation);
-            mindist = sdf_smoothunion(mindist, distances[object_id], 15);
+            mindist = sdf_smoothunion(mindist, distances[object_id], 25);
             
         }
         //mindist = simple_min(dist, mindist);
