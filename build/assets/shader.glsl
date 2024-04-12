@@ -270,7 +270,7 @@ void main() {
   /*for (int i = 0; i < scene.operations; i ++){
     scene.ordered_operations[i].value = (sin(time) * 0.5 + 0.5) * 2. + 1.;
   }*/
-  
+  scene.ordered_operations[scene.operations - 1].value = pow(sin(time * 5.) * 1.5, 2.) + 0.5;
 
   for (int i=0;i<steps;i++) {
     SDFResponse r = SampleScene(point);

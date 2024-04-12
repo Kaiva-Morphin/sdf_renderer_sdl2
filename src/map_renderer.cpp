@@ -1,16 +1,14 @@
 #include "header.h"
-
+#include "sdf_primitives.h"
+#include "GameRenderer.h"
+#include "textre_drawer.h"
 
 #define PI 3.14159
 #define HALF_PI PI / 2.
 
-const int TARGET_WIDTH = 360;
-const int TARGET_HEIGHT = 216;
 const int CENTERX = TARGET_WIDTH / 2;
 const int CENTERY = TARGET_HEIGHT / 2;
 
-SDL_Window *window;
-SDL_Renderer *renderer;
 SDL_Event event;
 
 void init(){
@@ -110,7 +108,7 @@ class Map{
         normals_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_size.x, texture_size.y);
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
     }
-
+    ivec2 get_texture_size(){return texture_size;}
     void draw(){
         SDL_Rect dstrect = SDL_Rect{offset.x, offset.y, texture_size.x, texture_size.y};
         SDL_RenderCopy(renderer, texture, nullptr, &dstrect);
@@ -192,19 +190,16 @@ bool check_quit_event(){
     return false;
 }
 
-
+GameRenderer game_renderer = GameRenderer();
 int main(int argc, char ** argv)
 {
-    init();
-    IMG_Init(IMG_INIT_PNG);
+    game_renderer.init();
+    game_renderer.debugger.register_basic();
+    char char_buf[128];
+    snprintf(char_buf, sizeof(char_buf), "%ix%i", TARGET_WIDTH, TARGET_HEIGHT);
+    game_renderer.debugger.register_line(string("resolution"), string("Resolution: "), string(char_buf));
 
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; 
-    ImGui::StyleColorsDark();
-    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-    ImGui_ImplSDLRenderer2_Init(renderer);
+    IMG_Init(IMG_INIT_PNG);
 
 
     vector<vector<vector<int>>> map_data = {
@@ -249,72 +244,51 @@ int main(int argc, char ** argv)
             {0, 0, 0, 0, 0, 0, 0, 0},
         },
     };
-
+    map_data[1][1][1] = 1;
+    
     // x z y
     ivec3 tile_size = ivec3(24, 12, 8);
     
     Atlas atlas = Atlas("assets/tiles.png", tile_size);
 
-    Map map = Map(map_data, &atlas); // 72 * 72
+    Map map = Map(map_data, &atlas);
     map.render(&atlas);
-    //map.offset = ivec3(10, 10, 0);
-    bool done = false;
-    while (!done)
+    
+    int TEX_SIZE = 64;
+    TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
+    drawer.fill(DRAWER_WHITE);
+    for (int z = 0; z < TEX_SIZE; z++)
+    for (int y = 0; y < TEX_SIZE; y++)
+    for (int x = 0; x < TEX_SIZE; x++)
+    drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
+    GLubyte* character_texture_data = drawer.get_data();
+    SDF_Shader shader = SDF_Shader("assets/shader.glsl", &game_renderer.debugger);
+    shader.init(TARGET_WIDTH, TARGET_HEIGHT, ivec3(TEX_SIZE), character_texture_data);
+
+
+    while (game_renderer.is_running())
     {
         while (SDL_PollEvent(&event))
         {
-            ImGui_ImplSDL2_ProcessEvent(&event);
-            if (event.type == SDL_QUIT)
-                done = true;
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
-                done = true;
+            game_renderer.handle_event(event);
         }
         SDL_Delay(10);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
+        game_renderer.switch_to_main();
         SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
         SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
         SDL_RenderFillRect(renderer, &rect);
-
-        
-        map.draw_normals();
-        
-        
-        /*ImGui_ImplSDLRenderer2_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
-        static float f = 0.0f;
-        static int counter = 0;
-        bool open = false;
-        ImGui::Begin("Hello, world!", &open);                          // Create a window called "Hello, world!" and append into it.
-
-        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-        //ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-        //ImGui::Checkbox("Another Window", &show_another_window);
-
-        ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        //ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-            counter++;
-        ImGui::SameLine();
-        ImGui::Text("counter = %d", counter);
-
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::End();
-        ImGui::Render();*/
-        float x, y;
-        SDL_RenderGetScale(renderer, &x, &y);
-        SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
-
-        //ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
-        SDL_RenderSetScale(renderer, x, y);
+        ivec2 map_size = map.get_texture_size();
+        map.offset = ivec3((float)(TARGET_WIDTH - map_size.x) / 2., (float)(TARGET_HEIGHT - map_size.y) / 2., 0);     
+        map.draw();
+        game_renderer.debugger.update_basic();
+        game_renderer.debugger.draw();
+        game_renderer.appy_main();
         SDL_RenderPresent(renderer);
     }
-    ImGui_ImplSDLRenderer2_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
     IMG_Quit();
+    game_renderer.destroy();
     cleanup();
     return 0;
 }

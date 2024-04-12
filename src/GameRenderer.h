@@ -16,9 +16,9 @@ SDL_Renderer* renderer;
 SDL_GLContext context;
 TTF_Font* font;
 
-
-int TARGET_WIDTH = 320; // always true :party_popper:
-int TARGET_HEIGHT = 240; // always true :party_popper:
+//480 * 270 ? 320 * 240
+int TARGET_WIDTH = 480; // always true :party_popper:
+int TARGET_HEIGHT = 270; // always true :party_popper:
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
 //SDL_GetError()
@@ -239,6 +239,7 @@ class SDF_Shader : public Shader{
     Debugger* debugger;
     GLuint scenebuffer;
     GLuint outputTexture;
+    GLuint characterTexture;
     GLuint computeShader = glCreateShader(GL_COMPUTE_SHADER);
     SDL_Texture* sdl_output_texture = nullptr;
     int width;
@@ -260,7 +261,7 @@ class SDF_Shader : public Shader{
         this->debugger = debugger;
         this->debugger->register_line("SDFshader","SDF shader status: ","NOT INITED!");
     }
-    void init(int w, int h){
+    void init(int w, int h, ivec3 binded_texture_size, GLubyte* binded_texture_data){
         this->debugger->register_line("SDFshader","SDF shader status: ","Initing...");
         width = w;
         height = h;
@@ -272,7 +273,21 @@ class SDF_Shader : public Shader{
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        glGenTextures(1, &characterTexture);
+        glBindTexture(GL_TEXTURE_3D, characterTexture);
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB8, binded_texture_size.x, binded_texture_size.y, binded_texture_size.z, 0, GL_RGB, GL_UNSIGNED_BYTE, binded_texture_data);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
+        
         compile();
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_3D, characterTexture);
+        glUniform1i(glGetUniformLocation(computeProgram, "character_texture"), 0);
     }
     void compile(){
         this->debugger->register_line("SDFshader","SDF shader status: ","Compiling...");
