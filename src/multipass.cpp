@@ -194,7 +194,6 @@ GameRenderer game_renderer = GameRenderer();
 int main(int argc, char ** argv)
 {
     game_renderer.init();
-    game_renderer.debugger.register_basic();
 
     while (game_renderer.is_running())
     {
@@ -206,13 +205,14 @@ int main(int argc, char ** argv)
         SDL_Delay(10);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-        game_renderer.switch_to_main();
-        SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
-        SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
-        SDL_RenderFillRect(renderer, &rect);
+
+        game_renderer.switch_to_garanteed();
+        game_renderer.apply_garanteed();
+
+        
+
         game_renderer.debugger.update_basic();
         game_renderer.debugger.draw();
-        game_renderer.appy_main();
         SDL_RenderPresent(renderer);
     }
 

@@ -38,9 +38,6 @@ GameRenderer game_renderer = GameRenderer();
 int main(int argc, char* argv[]) {
     game_renderer.init();
     game_renderer.debugger.register_basic();
-    char char_buf[128];
-    snprintf(char_buf, sizeof(char_buf), "%ix%i", TARGET_WIDTH, TARGET_HEIGHT);
-    game_renderer.debugger.register_line(string("resolution"), string("Resolution: "), string(char_buf));
 
     ObjectScene scene;
     for (int i = 0; i < 6; i ++){

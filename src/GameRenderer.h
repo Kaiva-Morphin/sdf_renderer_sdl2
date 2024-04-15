@@ -19,14 +19,15 @@ TTF_Font* font;
 //480 * 270 ? 320 * 240
 int TARGET_WIDTH = 320; // always true :party_popper:
 int TARGET_HEIGHT = 240; // always true :party_popper:
+
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
 //SDL_GetError()
 
 
 class Debugger{
-    unordered_map<string, tuple<string, string>> lines;
-    vector<string> line_order;
+    unordered_map<string, tuple<string, string>> lines; // todo: add destroying!
+    vector<string> line_order; // todo: add destroying!
     void draw_line(int line, const char* text){
         SDL_Color textColor = {200, 200, 200}; // Black color
         SDL_Color bgColor = {30, 30, 30}; 
@@ -65,9 +66,12 @@ class Debugger{
     void register_basic(){
         register_line(string("fps"), string("FPS: "), string("?"));
         register_line(string("ticks"), string("tick: "), string("?"));
+        register_line(string("int_scale"), string("int_scale: "), string("?"));
         char buffer[20];
         snprintf(buffer, sizeof(buffer), "%ix%i", TARGET_WIDTH, TARGET_HEIGHT);
-        register_line(string("resolution"), string("Resolution: "), string(buffer));
+        register_line(string("resolution"), string("Current resolution: "), string(buffer));
+        snprintf(buffer, sizeof(buffer), "%ix%i", TARGET_WIDTH, TARGET_HEIGHT);
+        register_line(string("target_resolution"), string("Target resolution: "), string(buffer));
         int x, y;
         SDL_GetWindowSize(window, &x, &y);
         snprintf(buffer, sizeof(buffer), "%ix%i", x, y);
@@ -115,16 +119,18 @@ class Debugger{
             line += 1;
         }
     };
+
 };
 
 
-class GameRenderer{ // scale?
+class GameRenderer{
     bool running = true;
     bool true_scaling = false;
-    SDL_Rect bg_rect;
     SDL_Rect main_rect;
-    SDL_Texture* bg_texture;
-    SDL_Texture* main_texture;
+    ivec2 main_logical_size;
+    SDL_Rect garanteed_rect;
+    SDL_Texture* garanteed_texture = nullptr;
+    SDL_Texture* main_texture = nullptr;
     public:
     Debugger debugger;
     void init(){
@@ -133,26 +139,22 @@ class GameRenderer{ // scale?
         SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
         context = SDL_GL_CreateContext(window);
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-
         glewExperimental = GL_TRUE;
         glewInit();
         glEnable( GL_DEBUG_OUTPUT );
-
         debugger = Debugger();
-        debugger.register_line(string("int_scale"), string("int_scale: "), string("true"));
-        update_resolution();
-
-        //SDL_RenderSetLogicalSize(renderer, TARGET_WIDTH, TARGET_HEIGHT);
+        debugger.register_basic();
+        update_resolution(); // !! before deleting this line, check if main_texture is created in any other way!
         if (true_scaling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
         else SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
+
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
         SDL_SetWindowResizable(window, SDL_bool::SDL_TRUE);
-        //SDL_SetHint(SDL_HINT_RENDER_LOGICAL_SIZE_MODE, 0);
         SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SCALING, "1");
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
         TTF_Init();
         font = TTF_OpenFont("assets/fonts/TinyUnicode.ttf", 16);
-        main_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, TARGET_WIDTH, TARGET_HEIGHT);
+        garanteed_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, TARGET_WIDTH, TARGET_HEIGHT);
     }
 
     bool is_running(){
@@ -191,49 +193,93 @@ class GameRenderer{ // scale?
         int current_window_w;
         int current_window_h;
         SDL_GetWindowSize(window, &current_window_w, &current_window_h);
+        //main_rect
         float aspect = (float)current_window_w / (float)current_window_h;
-        if (aspect < TARGET_ASPECT){
+        if (aspect <= TARGET_ASPECT){
             if (true_scaling){
-                main_rect.w = (int)floor((float)current_window_w / (float)TARGET_WIDTH) * TARGET_WIDTH;
-                if (main_rect.w == 0){
-                    main_rect.w = current_window_w;
-                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
+                garanteed_rect.w = (int)floor((float)current_window_w / (float)TARGET_WIDTH) * TARGET_WIDTH;
+                if (garanteed_rect.w == 0){ // check for resolution is lower than ours
+                    garanteed_rect.w = current_window_w;
+                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE); // todo: may be useless, because my implementation already garanteed square pixels
                 } else {
-                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
+                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE); // todo: may be useless, because my implementation already garanteed square pixels
                 }
-            } else main_rect.w = current_window_w;
-            main_rect.h = main_rect.w / TARGET_ASPECT;
+            } else garanteed_rect.w = current_window_w;
+            garanteed_rect.h = garanteed_rect.w / TARGET_ASPECT;
         }
         else {
             if (true_scaling){
-                main_rect.h = (int)floor((float)current_window_h / (float)TARGET_HEIGHT) * TARGET_HEIGHT;
-                if (main_rect.h == 0){
-                    main_rect.h = current_window_h;
-                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
+                garanteed_rect.h = (int)floor((float)current_window_h / (float)TARGET_HEIGHT) * TARGET_HEIGHT;
+                if (garanteed_rect.h == 0){ // check for resolution is lower than ours
+                    garanteed_rect.h = current_window_h;
+                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE); // todo: may be useless, because my implementation already garanteed square pixels
                 } else {
-                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
+                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE); // todo: may be useless, because my implementation already garanteed square pixels
                 }
-            } else main_rect.h = current_window_h;
-            main_rect.w = main_rect.h * TARGET_ASPECT;
+            } else garanteed_rect.h = current_window_h;
+            garanteed_rect.w = garanteed_rect.h * TARGET_ASPECT;
         }
-        main_rect.x = (current_window_w - main_rect.w) / 2;
-        main_rect.y = (current_window_h - main_rect.h) / 2;
+
+        garanteed_rect.x = floor(((float)current_window_w - (float)garanteed_rect.w) / 2.0f);
+        garanteed_rect.y = floor(((float)current_window_h - (float)garanteed_rect.h) / 2.0f);
+
+        float x_per_px = (float)garanteed_rect.w / (float)TARGET_WIDTH;
+        float y_per_px = (float)garanteed_rect.h / (float)TARGET_HEIGHT;
+
+        main_rect.w = ceil(current_window_w / x_per_px) * x_per_px;
+        main_rect.h = ceil(current_window_h / y_per_px) * y_per_px;
+
+        main_rect.x = floor(((float)current_window_w - (float)main_rect.w) / 2.0f);
+        main_rect.y = floor(((float)current_window_h - (float)main_rect.h) / 2.0f);
+
+        main_logical_size = {
+            ceil(current_window_w / x_per_px),
+            ceil(current_window_h / y_per_px)
+        };
+
+        if (main_texture != nullptr) SDL_DestroyTexture(main_texture);
+        main_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, main_logical_size.x, main_logical_size.y);
+        char buffer[20];
+        snprintf(buffer, sizeof(buffer), "%ix%i", main_logical_size.x, main_logical_size.y);
+        debugger.update_line(string("resolution"), string(buffer));
+
+        
+    }
+    ivec2 get_logical_size(){
+        return main_logical_size;
+    }
+    SDL_Rect get_rect(){
+        return main_rect;
+    }
+    ivec2 get_garanteed_logical_size(){
+        return {TARGET_WIDTH, TARGET_HEIGHT};
+    }
+    SDL_Rect get_garanteed_rect(){
+        return garanteed_rect;
     }
 
     void switch_to_main(){
         SDL_SetRenderTarget(renderer, main_texture);
     }
 
-    void appy_main(){
+    void apply_main(){
         SDL_SetRenderTarget(renderer, nullptr);
-        
         SDL_RenderCopy(renderer, main_texture, nullptr, &main_rect);
+    }
+    
+    void switch_to_garanteed(){
+        SDL_SetRenderTarget(renderer, garanteed_texture);
+    }
+
+    void apply_garanteed(){
+        SDL_SetRenderTarget(renderer, nullptr);
+        SDL_RenderCopy(renderer, garanteed_texture, nullptr, &garanteed_rect);
     }
 
     void destroy(){
         SDL_GL_DeleteContext(context);
         TTF_CloseFont(font);
-        SDL_DestroyTexture(main_texture);
+        SDL_DestroyTexture(garanteed_texture);
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
@@ -367,9 +413,7 @@ class SDF_Shader : public Shader{
             printf("SDL Error: %s\n", SDL_GetError());
             return nullptr;
         }
-        if (sdl_output_texture != nullptr){
-            SDL_DestroyTexture(sdl_output_texture);
-        };
+        if (sdl_output_texture != nullptr) SDL_DestroyTexture(sdl_output_texture);
         
         sdl_output_texture = SDL_CreateTextureFromSurface(renderer, surface);
         delete[] pixels;
