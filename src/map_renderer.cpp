@@ -1,6 +1,6 @@
 #include "header.h"
 #include "sdf_primitives.h"
-#include "GameRenderer.h"
+#include "Game.h"
 #include "textre_drawer.h"
 
 #define PI 3.14159
@@ -86,7 +86,7 @@ class Atlas{
 //*        Z
 
 class Map{
-    // todo: caching map to texture and make depthmap for shadows and pure rendering
+    // todo: caching map's colors, normals, depth, ?materials? to gl buffers
     SDL_Texture *texture;
     SDL_Texture *normals_texture;
     SDL_Texture *depth_texture;
@@ -109,6 +109,7 @@ class Map{
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
     }
     ivec2 get_texture_size(){return texture_size;}
+    
     void draw(){
         SDL_Rect dstrect = SDL_Rect{offset.x, offset.y, texture_size.x, texture_size.y};
         SDL_RenderCopy(renderer, texture, nullptr, &dstrect);
@@ -190,11 +191,11 @@ bool check_quit_event(){
     return false;
 }
 
-GameRenderer game_renderer = GameRenderer();
+Game game = Game();
 int main(int argc, char ** argv)
 {
-    game_renderer.init();
-    game_renderer.debugger.register_basic();
+    game.init();
+    game.debugger.register_basic();
 
     IMG_Init(IMG_INIT_PNG);
 
@@ -254,7 +255,7 @@ int main(int argc, char ** argv)
     for (int x = 0; x < TEX_SIZE; x++)
     drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
     GLubyte* character_texture_data = drawer.get_data();
-    SDF_Shader shader = SDF_Shader("assets/shader.glsl", &game_renderer.debugger);
+    SDF_Shader shader = SDF_Shader("assets/shader.glsl", &game.debugger);
     ivec2 shader_texture_size = ivec2(48, 48);
     shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
     drawer.destroy();
@@ -276,18 +277,18 @@ int main(int argc, char ** argv)
     
 
 
-    while (game_renderer.is_running())
+    while (game.is_running())
     {
         float time = SDL_GetTicks() / 1000.0f;
         while (SDL_PollEvent(&event))
         {
-            game_renderer.handle_event(event);
+            game.handle_event(event);
         }
         SDL_Delay(10);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         map.render(&atlas);
-        game_renderer.switch_to_main();
+        game.switch_to_main();
         SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
         SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
         SDL_RenderFillRect(renderer, &rect);
@@ -305,13 +306,13 @@ int main(int argc, char ** argv)
         rect = {20, 20, shader_texture_size.x, shader_texture_size.y};
         SDL_RenderCopy(renderer, shader.get_texture(), nullptr, &rect);
 
-        game_renderer.debugger.update_basic();
-        game_renderer.debugger.draw();
-        game_renderer.appy_main();
+        game.debugger.update_basic();
+        game.debugger.draw();
+        game.apply_main();
         SDL_RenderPresent(renderer);
     }
     IMG_Quit();
-    game_renderer.destroy();
+    game.destroy();
     cleanup();
     return 0;
 }

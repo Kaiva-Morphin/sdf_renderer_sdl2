@@ -1,6 +1,4 @@
-#include "header.h"
-#include "sdf_primitives.h"
-#include "GameRenderer.h"
+#include "Game.h"
 #include "textre_drawer.h"
 
 #define PI 3.14159
@@ -190,33 +188,55 @@ bool check_quit_event(){
     return false;
 }
 
-GameRenderer game_renderer = GameRenderer();
+/*
+    passes:
+        sky
+        draw map (apply normalmap lightning) maybe weather?
+        ??? draw map lightning based on physics ???
+        draw entities
+        draw particles
+        ??? reflections ???
+
+
+
+
+     
+
+    -> SDL_TEXTURE -> draw map ~> GL_TEXTURE     \
+    -> SDL_TEXTURE -> draw normals ~> GL_TEXTURE  } -> shader -> 
+    -> SDL_TEXTURE -> draw depth ~> GL_TEXTURE   /
+
+
+*/
+
+
+
+Game game = Game();
 int main(int argc, char ** argv)
 {
-    game_renderer.init();
-
-    while (game_renderer.is_running())
+    game.init();
+    while (game.is_running())
     {
-        float time = SDL_GetTicks() / 1000.0f;
         while (SDL_PollEvent(&event))
         {
-            game_renderer.handle_event(event);
+            game.handle_event(event);
         }
+
         SDL_Delay(10);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        game_renderer.switch_to_garanteed();
-        game_renderer.apply_garanteed();
+        game.switch_to_garanteed();
+        game.apply_garanteed();
 
         
 
-        game_renderer.debugger.update_basic();
-        game_renderer.debugger.draw();
+        game.debugger.update_basic();
+        game.debugger.draw();
         SDL_RenderPresent(renderer);
     }
 
-    game_renderer.destroy();
+    game.destroy();
     cleanup();
     return 0;
 }

@@ -1,6 +1,6 @@
 #include "header.h"
 #include "sdf_primitives.h"
-#include "GameRenderer.h"
+#include "Game.h"
 #include "textre_drawer.h"
 
 #include <iostream>
@@ -34,10 +34,10 @@ mat4x4 eulerXYZ(float anglex, float angley, float anglez){
     return rotmatx * rotmaty * rotmatz;
 }
 
-GameRenderer game_renderer = GameRenderer();
+Game game = Game();
 int main(int argc, char* argv[]) {
-    game_renderer.init();
-    game_renderer.debugger.register_basic();
+    game.init();
+    game.debugger.register_basic();
 
     ObjectScene scene;
     for (int i = 0; i < 6; i ++){
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
     GLubyte* character_texture_data = drawer.get_data();
     PrimitiveScene primitive_scene;
     scene.update_primitive_scene(&primitive_scene);
-    SDF_Shader shader = SDF_Shader("assets/shader.glsl", &game_renderer.debugger);
+    SDF_Shader shader = SDF_Shader("assets/shader.glsl", &game.debugger);
     shader.init(TARGET_WIDTH, TARGET_HEIGHT, ivec3(TEX_SIZE), character_texture_data);
     drawer.destroy();
     shader.set_scene(&primitive_scene);
@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
     float angley = 0.;
     float anglez = 0.;
     SDL_Event e;
-    while (game_renderer.is_running()) {
+    while (game.is_running()) {
         float time = SDL_GetTicks() / 1000.0f;
         angley = (float)((int)(time*1000) % 31415) / 1000.0f;
         anglex = cos(time) * 3.;
@@ -186,12 +186,12 @@ int main(int argc, char* argv[]) {
         shader.check_file_updates();
         shader.use();
         while (SDL_PollEvent(&e) != 0) {
-            game_renderer.handle_event(e);
+            game.handle_event(e);
         }
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-        game_renderer.switch_to_main();
+        game.switch_to_main();
         shader.set_1f("time", time);
         shader.set_2f("center", TARGET_WIDTH / 2., TARGET_HEIGHT / 2.);
         scene.update_primitive_scene(&primitive_scene);
@@ -201,9 +201,9 @@ int main(int argc, char* argv[]) {
         
         SDL_RenderCopy(renderer, shader.get_texture(), nullptr, nullptr);
 
-        game_renderer.debugger.update_basic();
-        game_renderer.debugger.draw();
-        game_renderer.appy_main();
+        game.debugger.update_basic();
+        game.debugger.draw();
+        game.apply_main();
         
         SDL_RenderPresent(renderer);
     }
@@ -211,7 +211,7 @@ int main(int argc, char* argv[]) {
     //glDeleteTextures(1, &character_texture);
     
     shader.destroy();
-    game_renderer.destroy();
+    game.destroy();
 
     return 0;
 }
