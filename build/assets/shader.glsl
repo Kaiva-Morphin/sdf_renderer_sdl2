@@ -248,7 +248,7 @@ float calcSoftshadow( in vec3 ro, in vec3 rd, float tmin, float tmax, const floa
     return clamp( res, 0.0, 1.0 );
 }
 
-const float scale_factor = 0.1;
+const float scale_factor = 0.083;
 
 /*
 
@@ -260,9 +260,34 @@ const float scale_factor = 0.1;
 
 */
 
+mat4x4 eulerXYZ(float anglex, float angley, float anglez){
+    anglex = anglex / 180. * 3.1415;
+    angley = angley / 180. * 3.1415;
+    anglez = anglez / 180. * 3.1415;
+    mat4x4 rotmatx = mat4x4(
+           vec4(1., 0., 0., 0.),
+           vec4(0., cos(anglex), -sin(anglex), 0.),
+           vec4(0., sin(anglex), cos(anglex), 0.),
+           vec4(0., 0., 0., 1.)
+    );
+    mat4x4 rotmaty = mat4x4(
+            vec4(cos(angley), 0., sin(angley), 0.),
+            vec4(0., 1., 0., 0.),
+            vec4(-sin(angley), 0., cos(angley), 0.),
+            vec4(0., 0., 0., 1.)
+    );
+    mat4x4 rotmatz = mat4x4(
+            vec4(cos(anglez), -sin(anglez), 0., 0.),
+            vec4(sin(anglez), cos(anglez), 0., 0.),
+            vec4(0., 0., 1., 0.),
+            vec4(0., 0., 0., 1.)
+    );
+    return rotmatx * rotmaty * rotmatz;
+}
+
 void main() {
   ivec2 storePos = ivec2(gl_GlobalInvocationID.xy); // pixel pos
-  vec4 pixel = vec4(0.0863, 0.1765, 0.2549, 1.0);
+  vec4 pixel = vec4(0.0863, 0.1765, 0.2549, 0.0);
   vec3 sun = vec3(1., 1., 1.); // sun direction
   vec3 start = vec3((storePos.x - center.x) * scale_factor, (storePos.y - center.y) * -scale_factor, near_z);
   vec3 point = start;
@@ -270,8 +295,15 @@ void main() {
   /*for (int i = 0; i < scene.operations; i ++){
     scene.ordered_operations[i].value = (sin(time) * 0.5 + 0.5) * 2. + 1.;
   }*/
-  scene.ordered_operations[scene.operations - 1].value = pow(sin(time * 5.) * 1.5, 2.) + 0.5;
+  //scene.ordered_operations[scene.operations - 1].value = pow(sin(time * 5.) * 1.5, 2.) + 0.5;
 
+  scene.primitives[0].transform =/* eulerXYZ(sin(time) * 90, cos(time) * 90, 0.) * */mat4x4(
+    1., 0., 0., 0.,
+    0., 1., 0., 0.,
+    -0.22, 0.22, 0.7, 0.,
+    0., 0., 0., 1.
+  );
+  //scene.primitives[0].position = -vec4(2.4, -2.5, 0., 0.);
   for (int i=0;i<steps;i++) {
     SDFResponse r = SampleScene(point);
     if (r.dist > max_dist || point.z <= far_z){
@@ -287,6 +319,8 @@ void main() {
       float amb = 0.9 + 0.1 * nor.y;
       float depth = 1. - length(start - pos) / (near_z - far_z);
       pixel.rgb = vec3(0.2078, 0.2549, 0.298)*amb*r.color + vec3(1.00,0.9,0.80)*dif*sha*r.color; // color with shadows
+      //pixel.rgb = nor;
+      pixel.a = 1;
       //pixel.rgb = vec3(1. - length(start - pos) / (near_z - far_z)); // depth
       //pixel.rgb = vec3(0.05,0.1,0.15)*amb + vec3(1.00,0.9,0.80)*dif*sha*r.color;
       //pixel.rgb = vec3(0.05,0.1,0.15)*amb + r.color*dif*sha;

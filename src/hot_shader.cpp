@@ -14,22 +14,22 @@ mat4x4 eulerXYZ(float anglex, float angley, float anglez){
     angley = angley / 180. * 3.1415;
     anglez = anglez / 180. * 3.1415;
     mat4x4 rotmatx = {
-            1, 0, 0, 0,
-            0, cos(anglex), -sin(anglex), 0,
-            0, sin(anglex), cos(anglex), 0,
-            0, 0, 0, 1,
+            1, 0., 0., 0.,
+            0., cos(anglex), -sin(anglex), 0.,
+            0., sin(anglex), cos(anglex), 0.,
+            0., 0., 0., 1,
     };
     mat4x4 rotmaty = {
-            cos(angley), 0, sin(angley), 0,
-            0, 1, 0, 0,
-            -sin(angley), 0, cos(angley), 0,
-            0, 0, 0, 1,
+            cos(angley), 0., sin(angley), 0.,
+            0., 1, 0., 0.,
+            -sin(angley), 0., cos(angley), 0.,
+            0., 0., 0., 1,
     };
     mat4x4 rotmatz = {
-            cos(anglez), -sin(anglez), 0, 0,
-            sin(anglez), cos(anglez), 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1,
+            cos(anglez), -sin(anglez), 0., 0.,
+            sin(anglez), cos(anglez), 0., 0.,
+            0., 0., 1, 0.,
+            0., 0., 0., 1,
     };
     return rotmatx * rotmaty * rotmatz;
 }

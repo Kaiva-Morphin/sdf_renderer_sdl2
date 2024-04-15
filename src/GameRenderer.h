@@ -17,8 +17,8 @@ SDL_GLContext context;
 TTF_Font* font;
 
 //480 * 270 ? 320 * 240
-int TARGET_WIDTH = 480; // always true :party_popper:
-int TARGET_HEIGHT = 270; // always true :party_popper:
+int TARGET_WIDTH = 320; // always true :party_popper:
+int TARGET_HEIGHT = 240; // always true :party_popper:
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
 //SDL_GetError()
@@ -26,6 +26,7 @@ float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
 class Debugger{
     unordered_map<string, tuple<string, string>> lines;
+    vector<string> line_order;
     void draw_line(int line, const char* text){
         SDL_Color textColor = {200, 200, 200}; // Black color
         SDL_Color bgColor = {30, 30, 30}; 
@@ -64,6 +65,13 @@ class Debugger{
     void register_basic(){
         register_line(string("fps"), string("FPS: "), string("?"));
         register_line(string("ticks"), string("tick: "), string("?"));
+        char buffer[20];
+        snprintf(buffer, sizeof(buffer), "%ix%i", TARGET_WIDTH, TARGET_HEIGHT);
+        register_line(string("resolution"), string("Resolution: "), string(buffer));
+        int x, y;
+        SDL_GetWindowSize(window, &x, &y);
+        snprintf(buffer, sizeof(buffer), "%ix%i", x, y);
+        register_line(string("window_size"), string("Window size: "), string(buffer));
     }
     void update_basic(){
         char buffer[20];
@@ -84,6 +92,7 @@ class Debugger{
 
     void register_line(string name, string text, string data){
         lines[name] = make_tuple(text, data);
+        line_order.push_back(name);
     }
     void update_line_text(string name, string text){
         get<0>(lines[name]) = text;
@@ -98,10 +107,10 @@ class Debugger{
     void draw(){
         if (!enabled){return;}
         int line = 0;
-        for (const auto& pair : lines) {
+        for (const auto& line_name : line_order) {
             string text;
             string data;
-            tie(text, data) = pair.second;
+            tie(text, data) = lines[line_name];
             draw_line(line, (text + data).c_str());
             line += 1;
         }
@@ -162,14 +171,17 @@ class GameRenderer{ // scale?
                 debugger.enabled = !debugger.enabled;
             }
         }
-        
-
         if (e.type == SDL_QUIT) {
             running = false;
         }
         else if (e.type == SDL_WINDOWEVENT) {
             if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                 update_resolution();
+                int x, y;
+                char buffer[20];
+                SDL_GetWindowSize(window, &x, &y);
+                snprintf(buffer, sizeof(buffer), "%ix%i", x, y);
+                debugger.update_line(string("window_size"), string(buffer));
             }
         }
     }
@@ -261,6 +273,7 @@ class SDF_Shader : public Shader{
         this->debugger = debugger;
         this->debugger->register_line("SDFshader","SDF shader status: ","NOT INITED!");
     }
+    ivec2 size(){return ivec2(width, height);}
     void init(int w, int h, ivec3 binded_texture_size, GLubyte* binded_texture_data){
         this->debugger->register_line("SDFshader","SDF shader status: ","Initing...");
         width = w;

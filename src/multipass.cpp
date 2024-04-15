@@ -195,89 +195,6 @@ int main(int argc, char ** argv)
 {
     game_renderer.init();
     game_renderer.debugger.register_basic();
-    char char_buf[128];
-    snprintf(char_buf, sizeof(char_buf), "%ix%i", TARGET_WIDTH, TARGET_HEIGHT);
-    game_renderer.debugger.register_line(string("resolution"), string("Resolution: "), string(char_buf));
-
-    IMG_Init(IMG_INIT_PNG);
-
-
-    vector<vector<vector<int>>> map_data = {
-        {
-            {0, 0, 1, 1, 1, 1, 1, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1},
-        },
-        {
-            {0, 0, 1, 1, 1, 1, 1, 1},
-            {0, 0, 0, 0, 0, 0, 1, 1},
-            {0, 0, 0, 0, 0, 0, 1, 1},
-            {0, 0, 0, 0, 0, 0, 1, 1},
-            {0, 0, 5, 0, 0, 0, 1, 1},
-            {0, 2, 1, 4, 0, 0, 3, 3},
-            {0, 0, 3, 0, 0, 0, 0, 0},
-            {0, 0, 0, 0, 0, 0, 0, 0},
-        },
-        {
-            {1, 0, 1, 1, 1, 1, 1, 1},
-            {0, 0, 0, 0, 0, 0, 1, 1},
-            {0, 0, 0, 0, 0, 0, 1, 1},
-            {0, 0, 0, 0, 0, 0, 1, 1},
-            {0, 0, 0, 0, 0, 0, 3, 3},
-            {0, 0, 1, 0, 0, 0, 0, 0},
-            {0, 0, 0, 0, 0, 0, 0, 0},
-            {0, 0, 0, 0, 0, 0, 0, 0},
-        },
-        {
-            {1, 0, 1, 1, 1, 1, 1, 1},
-            {0, 0, 0, 0, 0, 0, 1, 1},
-            {0, 0, 0, 0, 0, 0, 1, 1},
-            {0, 0, 0, 0, 0, 0, 3, 3},
-            {0, 0, 0, 0, 0, 0, 0, 0},
-            {0, 0, 1, 0, 0, 0, 0, 0},
-            {0, 0, 0, 0, 0, 0, 0, 0},
-            {0, 0, 0, 0, 0, 0, 0, 0},
-        },
-    };
-    // x z y
-    ivec3 tile_size = ivec3(24, 12, 8);
-    Atlas atlas = Atlas("assets/tiles.png", tile_size);
-    Map map = Map(map_data, &atlas);
-    map.render(&atlas);
-    int TEX_SIZE = 64;
-    TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
-    drawer.fill(DRAWER_WHITE);
-    for (int z = 0; z < TEX_SIZE; z++)
-    for (int y = 0; y < TEX_SIZE; y++)
-    for (int x = 0; x < TEX_SIZE; x++)
-    drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
-    GLubyte* character_texture_data = drawer.get_data();
-    SDF_Shader shader = SDF_Shader("assets/shader.glsl", &game_renderer.debugger);
-    ivec2 shader_texture_size = ivec2(48, 48);
-    shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
-    drawer.destroy();
-    ObjectScene scene;
-    PrimitiveScene primitive_scene;
-
-    BoxObject* box = new BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
-    scene.objects.push_back(box);
-    scene.ordered_operations.push_back(
-        PrimitiveOperation{
-            OPERATION_UNION,
-            -1,
-            0,
-            0,
-            1
-        }
-    );
-    scene.update_primitive_scene(&primitive_scene);
-    
-
 
     while (game_renderer.is_running())
     {
@@ -289,31 +206,16 @@ int main(int argc, char ** argv)
         SDL_Delay(10);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-        map.render(&atlas);
         game_renderer.switch_to_main();
         SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
         SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
         SDL_RenderFillRect(renderer, &rect);
-        ivec2 map_size = map.get_texture_size();
-        //map.offset = ivec3((float)(TARGET_WIDTH - map_size.x) / 2., (float)(TARGET_HEIGHT - map_size.y) / 2., 0);
-        map.draw();
-        shader.check_file_updates();
-        shader.use();
-        shader.set_1f("time", time);
-        shader.set_2f("center", shader_texture_size.x / 2., shader_texture_size.y / 2.);
-        scene.update_primitive_scene(&primitive_scene);
-        shader.set_scene(&primitive_scene);
-        shader.run();
-        shader.wait();
-        rect = {20, 20, shader_texture_size.x, shader_texture_size.y};
-        SDL_RenderCopy(renderer, shader.get_texture(), nullptr, &rect);
-
         game_renderer.debugger.update_basic();
         game_renderer.debugger.draw();
         game_renderer.appy_main();
         SDL_RenderPresent(renderer);
     }
-    IMG_Quit();
+
     game_renderer.destroy();
     cleanup();
     return 0;
