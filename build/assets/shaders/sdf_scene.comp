@@ -383,29 +383,10 @@ void main() {
       float amb = 0.9 + 0.1 * nor.y;
       float depth = 1. - length(start - pos) / (near_z - far_z);
       pixel.rgb = vec3(0.2078, 0.2549, 0.298)*amb*r.color + vec3(1.00,0.9,0.80)*dif*sha*r.color; // color with shadows
-      pixel.rgb = nor * vec3(-1, 1, 1);
       pixel.a = 1;
-      //pixel.rgb = vec3(1. - length(start - pos) / (near_z - far_z)); // depth
-      //pixel.rgb = vec3(0.05,0.1,0.15)*amb + vec3(1.00,0.9,0.80)*dif*sha*r.color;
-      //pixel.rgb = vec3(0.05,0.1,0.15)*amb + r.color*dif*sha;
       break;
     }
     point += direction * r.dist;
   }
-  //pixel.rgb = texture(textures[0], vec3((storePos.x / center.x / 2. - center.y)*0.25, (storePos.y / center.y / 2. - center.y)*0.25, time)).rgb;
-  //pixel.rgb = vec3(sin(time + storePos.x * 0.1 + storePos.y * 0.1) * 0.5 + 0.5, sin(time * 2 + storePos.y * 0.1) * 0.5 + 0.5, sin(time * 3 + (storePos.y  + storePos.x) * 0.1) * 0.5 + 0.5);
-  /*bool cond = false;
-  mat4x4 m = transpose(mat4x4(
-    1, 0, 0, 1,
-    0, 1, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1
-  ));
-  vec4 vector = vec4(0., 0., 0., 1.);*/
-  //bool cond = scene.primitives[0].primitive_type == 0.;
-  //pixel.rgb = vec3(float(step_count) / float(steps) == 0 ? 1. : 0.);
-  
-  //pixel.rgb = vec3(scene.ordered_operations[1].operation_type == 1 ? 1. : 0.);
-  
   imageStore(destTex, storePos, pixel);
 }

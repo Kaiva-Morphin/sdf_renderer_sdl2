@@ -27,17 +27,26 @@ void cleanup(){
 }
 class Atlas{
     SDL_Texture* texture_atlas;
+    ivec4 state_table[1][8]; // state -> [rects]
     public:
     ivec3 tile_size;
+    ivec3 tile_offsets;
     SDL_Rect get_tile_rect(int i){
         return SDL_Rect{i * (tile_size.x + tile_size.z), 0, tile_size.x + tile_size.z, tile_size.y + tile_size.z};
     }
-    Atlas(const char* path, ivec3 tile_size){
+    Atlas(const char* path, ivec3 tile_size, ivec3 tile_offsets){
         SDL_Surface *surface = IMG_Load(path);
         texture_atlas = SDL_CreateTextureFromSurface(renderer, surface);
         SDL_FreeSurface(surface);
         this->tile_size = tile_size;
+        this->tile_offsets = tile_offsets;
     }
+
+    void generate_state_table(){
+        SDL_Rect tile_rect = get_tile_rect(0);
+        ivec4 tile = {0, 0, tile_rect.w, tile_rect.h};
+    }
+
     void set_depth(int d){
         SDL_SetTextureColorMod(texture_atlas, d, d, d);
     }
@@ -45,27 +54,88 @@ class Atlas{
         SDL_SetTextureAlphaMod(texture_atlas, a);
     }
     void draw_depth_tile(int i, ivec3 dest){
-        dest *= tile_size;
+        dest *= (tile_size - tile_offsets);
+        SDL_Rect src_rect = get_tile_rect(i);
+        src_rect.y += (tile_size.y + tile_size.z) * 4.;
+        SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
+        SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
+    }
+    void draw_tile_depth(int i, ivec3 dest){
+        dest *= (tile_size - tile_offsets);
         SDL_Rect src_rect = get_tile_rect(i);
         src_rect.y += (tile_size.y + tile_size.z) * 3.;
         SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
         SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
     }
-    void draw_tile_depth(int i, ivec3 dest){
-        dest *= tile_size;
-        SDL_Rect src_rect = get_tile_rect(i);
-        src_rect.y += (tile_size.y + tile_size.z) * 2.;
-        SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
-        SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
-    }
-    void draw_tile(int i, ivec3 dest){
-        dest *= tile_size;
+
+    void draw_tile(int i, ivec3 dest, int state){ // todo: rewrite for gpu!
+        dest *= (tile_size - tile_offsets);
         SDL_Rect src_rect = get_tile_rect(i);
         SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
         SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
+
+        src_rect.y += tile_size.y + tile_size.z;
+        // minimize draw calls!
+        /*if (state == 0){ 
+            SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
+            return;
+        }*/
+        /*
+
+        n   a    d
+        0   1   -X 
+        1+  2   -Y 
+        2+  4   -Z 
+        3+  8   +X 
+        4   16  +Y 
+        5   32  +Z 
+
+        */
+
+        if ((state & (1 << 2)) == 0){ // -Z
+            SDL_Rect src_rect_temp = src_rect;
+            src_rect_temp.w = 18;
+            src_rect_temp.h = 11;
+            SDL_Rect dest_rect_temp = dest_rect;
+            dest_rect_temp.w = 18;
+            dest_rect_temp.h = 11;
+            SDL_RenderCopy(renderer, texture_atlas, &src_rect_temp, &dest_rect_temp);
+        }
+        if ((state & (1 << 1)) == 0){ // -Y
+            SDL_Rect src_rect_temp = src_rect;
+            src_rect_temp.y += 11;
+            src_rect_temp.w = 25;
+            src_rect_temp.h = 9;
+            SDL_Rect dest_rect_temp = dest_rect;
+            dest_rect_temp.y += 11;
+            dest_rect_temp.w = 25;
+            dest_rect_temp.h = 9;
+            if ((state & (1 << 0)) != 0) { // -X // FIX
+                src_rect_temp.x += 9;
+                src_rect_temp.y += 7;
+                src_rect_temp.h = 2;
+                src_rect_temp.w = 16;
+                dest_rect_temp.x += 9;
+                dest_rect_temp.y += 7;
+                dest_rect_temp.h = 2;
+                dest_rect_temp.w = 16;
+            }
+            SDL_RenderCopy(renderer, texture_atlas, &src_rect_temp, &dest_rect_temp);
+        }
+        if ((state & (1 << 3)) == 0){ // +X
+            SDL_Rect src_rect_temp = src_rect;
+            src_rect_temp.x += 18;
+            src_rect_temp.w = 8;
+            src_rect_temp.h = 19;
+            SDL_Rect dest_rect_temp = dest_rect;
+            dest_rect_temp.x += 18;
+            dest_rect_temp.w = 8;
+            dest_rect_temp.h = 19;
+            SDL_RenderCopy(renderer, texture_atlas, &src_rect_temp, &dest_rect_temp);
+        }
     }
     void draw_tile_normals(int i, ivec3 dest){
-        dest *= tile_size;
+        dest *= (tile_size - tile_offsets);
         SDL_Rect src_rect = get_tile_rect(i);
         src_rect.y += tile_size.y + tile_size.z;
         SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
@@ -83,7 +153,10 @@ class Atlas{
 //*      \
 //*        Z
 
-class Map{
+
+
+
+class Map{ 
     // todo: caching map to texture and make depthmap for shadows and pure rendering
     SDL_Texture *texture;
     SDL_Texture *normals_texture;
@@ -120,26 +193,50 @@ class Map{
         SDL_RenderCopy(renderer, depth_texture, nullptr, &dstrect);
     }
 
+    bool has_tile_wrapped(ivec3 pos){
+        if (pos.x < 0 || pos.y < 0 || pos.z < 0) return false;
+        if (pos.y >= data.size() || pos.z >= data[0].size() || pos.x >= data[0][0].size()) return false;
+        return data[pos.y][pos.z][pos.x] != 0;
+    }
+
+    int get_tile_neighbors_state(ivec3 pos){
+        /*
+
+        1   -X
+        2   -Y
+        4   -Z
+        8   +X
+        16  +Y
+        32  +Z
+
+        */
+        int state = 0;
+        if (has_tile_wrapped(pos + ivec3(-1.,  0.,  0.))) state += 1;
+        if (has_tile_wrapped(pos + ivec3( 0., -1.,  0.))) state += 2;
+        if (has_tile_wrapped(pos + ivec3( 0.,  0., -1.))) state += 4;
+        if (has_tile_wrapped(pos + ivec3( 1.,  0.,  0.))) state += 8;
+        if (has_tile_wrapped(pos + ivec3( 0.,  1.,  0.))) state += 16;
+        if (has_tile_wrapped(pos + ivec3( 0.,  0.,  1.))) state += 32;
+        return state;
+    }
+
     void render(Atlas* atlas){
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_SetRenderTarget(renderer, depth_texture);
         SDL_RenderClear(renderer);
         float depth_step = 1. / (float)(size.z+1) * 255.;
-        for (int y = 0; y < size.y; y++){
-            for (int z = 0; z < size.z; z++){
-                float depth = (float)(z+1) / (float)(size.z+1) * 255.;
+        for (int z = 0; z < size.z; z++){
+            float depth = (float)(z+1) / (float)(size.z+1) * 255.;
+            atlas->set_depth(depth);
+            atlas->set_alpha(255);
+            for (int y = 0; y < size.y; y++){
                 for (int x = size.x - 1; x >= 0; x--){
                     int tile = data[y][z][x];
                     if (tile != 0){
-
-                        atlas->set_depth(depth);
-                        atlas->set_alpha(255);
                         atlas->draw_tile_depth(tile - 1, ivec3(x, y - size.y + 1, z));
-
-                        atlas->set_depth(255);
-                        atlas->set_alpha(depth_step);
-                        atlas->draw_depth_tile(tile - 1, ivec3(x, y - size.y + 1, z));
-                        
+                        //atlas->set_depth(255);
+                        //atlas->set_alpha(depth);
+                        //atlas->draw_depth_tile(tile - 1, ivec3(x, y - size.y + 1, z));
                     }
                 }
             }
@@ -165,7 +262,7 @@ class Map{
                 for (int x = size.x - 1; x >= 0; x--){
                     int tile = data[y][z][x];
                     if (tile != 0){
-                        atlas->draw_tile(tile - 1, ivec3(x, y - size.y + 1, z));
+                        atlas->draw_tile(tile - 1, ivec3(x, y - size.y + 1, z), get_tile_neighbors_state(ivec3(x, y, z)));
                     }
                 }
             }
@@ -215,27 +312,140 @@ Game game = Game();
 int main(int argc, char ** argv)
 {
     game.init();
+    
+    IMG_Init(IMG_INIT_PNG);
+
+
+    vector<vector<vector<int>>> map_data = {
+        {
+            {0, 0, 1, 1, 1, 1, 1, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1},
+        },
+        {
+            {0, 0, 1, 1, 1, 1, 1, 1},
+            {0, 0, 0, 0, 0, 0, 1, 1},
+            {0, 0, 0, 0, 0, 0, 1, 1},
+            {0, 0, 0, 0, 0, 0, 1, 1},
+            {0, 0, 5, 0, 0, 0, 1, 1},
+            {0, 2, 1, 4, 0, 0, 3, 3},
+            {0, 0, 3, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0},
+        },
+        {
+            {1, 0, 1, 1, 1, 1, 1, 1},
+            {0, 0, 0, 0, 0, 0, 1, 1},
+            {0, 0, 0, 0, 0, 0, 1, 1},
+            {0, 0, 0, 0, 0, 0, 1, 1},
+            {0, 0, 0, 0, 0, 0, 3, 3},
+            {0, 0, 1, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0},
+        },
+        {
+            {1, 0, 1, 1, 1, 1, 1, 1},
+            {0, 0, 0, 0, 0, 0, 1, 1},
+            {0, 0, 0, 0, 0, 0, 1, 1},
+            {0, 0, 0, 0, 0, 0, 3, 3},
+            {0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 1, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0},
+        },
+    };
+
+    // x z y
+    ivec3 tile_size = ivec3(17, 11, 9);
+    ivec3 tile_offsets = ivec3(1, 1, 1);
+    Atlas atlas = Atlas("assets/better_tiles.png", tile_size, tile_offsets);
+
+    //atlas.generate_state_table();
+
+    //return 0;
+
+    // 0 1 2 3 4
+    // 1 2 4
+
+
+    Map map = Map(map_data, &atlas);
+
+    map.render(&atlas);
+
+    int TEX_SIZE = 64;
+    TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
+    drawer.fill(DRAWER_WHITE);
+    for (int z = 0; z < TEX_SIZE; z++)
+    for (int y = 0; y < TEX_SIZE; y++)
+    for (int x = 0; x < TEX_SIZE; x++)
+    drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
+    GLubyte* character_texture_data = drawer.get_data();
+    SDF_Shader shader = SDF_Shader("assets/shaders/sdf_scene.comp", &game.debugger);
+    ivec2 shader_texture_size = ivec2(48, 48);
+    shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
+    drawer.destroy();
+    ObjectScene scene;
+    PrimitiveScene primitive_scene;
+
+    BoxObject* box = new BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
+    scene.objects.push_back(box);
+    scene.ordered_operations.push_back(
+        PrimitiveOperation{
+            OPERATION_UNION,
+            -1,
+            0,
+            0,
+            1
+        }
+    );
+    scene.update_primitive_scene(&primitive_scene);
+
+    
+
     while (game.is_running())
     {
+        float time = game.time();
         while (SDL_PollEvent(&event))
         {
             game.handle_event(event);
         }
+        //SDL_Delay(10);
+        map.render(&atlas);
 
-        SDL_Delay(10);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-
-        game.switch_to_garanteed();
-        game.apply_garanteed();
-
+        game.switch_to_main();
         
+        SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
+        SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
+        SDL_RenderFillRect(renderer, &rect);
+        ivec2 map_size = map.get_texture_size();
+        //map.offset = ivec3((float)(TARGET_WIDTH - map_size.x) / 2., (float)(TARGET_HEIGHT - map_size.y) / 2., 0);
+        map.draw_depth();
+        //shader.check_file_updates();
+        //shader.use();
+        //shader.set_1f("time", time);
+        //shader.set_2f("center", shader_texture_size.x / 2., shader_texture_size.y / 2.);
+        //scene.update_primitive_scene(&primitive_scene);
+        //shader.set_scene(&primitive_scene);
+        //shader.run();
+        //shader.wait();
+        //rect = {20, 20, shader_texture_size.x, shader_texture_size.y};
+        //SDL_RenderCopy(renderer, shader.get_texture(), nullptr, &rect);
 
+
+        // todo: alpha checks for depth buffer draw
         game.debugger.update_basic();
         game.debugger.draw();
+        game.apply_main();
+
         SDL_RenderPresent(renderer);
     }
-
+    IMG_Quit();
     game.destroy();
     cleanup();
     return 0;

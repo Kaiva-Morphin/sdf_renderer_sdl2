@@ -6,6 +6,8 @@
 #include <sstream>
 #include <string>
 
+#include <chrono>
+
 #include <unordered_map>
 
 #include <SDL2/SDL_ttf.h>
@@ -95,14 +97,17 @@ class Debugger{
     }
 
     void register_line(string name, string text, string data){
-        lines[name] = make_tuple(text, data);
-        line_order.push_back(name);
+        if (lines.find(name) == lines.end()){ // if doesnt exists
+            lines[name] = make_tuple(text, data);
+            line_order.push_back(name);
+        } else {
+            get<1>(lines[name]) = data;
+        }
     }
     void update_line_text(string name, string text){
         get<0>(lines[name]) = text;
     }
     void update_line(string name, string data){
-        auto& ref = lines[name];
         get<1>(lines[name]) = data;
     }
     void destroy_line(string name){
@@ -125,7 +130,7 @@ class Debugger{
 
 class Game{
     bool running = true;
-    bool true_scaling = false;
+    bool true_scalling = false;
     SDL_Rect main_rect;
     ivec2 main_logical_size;
     SDL_Rect garanteed_rect;
@@ -136,7 +141,7 @@ class Game{
     void init(){
         SDL_Init(SDL_INIT_VIDEO);
         window = SDL_CreateWindow("Simple Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_OPENGL);
-        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
+        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
         context = SDL_GL_CreateContext(window);
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
         glewExperimental = GL_TRUE;
@@ -145,7 +150,7 @@ class Game{
         debugger = Debugger();
         debugger.register_basic();
         update_resolution(); // !! before deleting this line, check if main_texture is created in any other way!
-        if (true_scaling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
+        if (true_scalling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
         else SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
@@ -156,6 +161,16 @@ class Game{
         font = TTF_OpenFont("assets/fonts/TinyUnicode.ttf", 16);
         garanteed_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, TARGET_WIDTH, TARGET_HEIGHT);
     }
+
+    typedef void (*Function)(void);
+    auto check_time(Function fn){
+        auto start = chrono::high_resolution_clock::now();
+        fn();
+        auto end = chrono::high_resolution_clock::now();
+        auto duration = chrono::duration_cast<chrono::microseconds>(end - start);
+        return duration.count();
+    }
+
 
     bool is_running(){
         return running;
@@ -169,8 +184,8 @@ class Game{
     void handle_event(SDL_Event e){
         if (e.type == SDL_KEYDOWN){
             if (e.key.keysym.sym == SDLK_F2){
-                true_scaling = !true_scaling;
-                if (true_scaling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
+                true_scalling = !true_scalling;
+                if (true_scalling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
                 else SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
                 update_resolution();
             }
@@ -194,14 +209,14 @@ class Game{
     }
 
     void update_resolution(){
-        debugger.update_line(string("int_scale"), string(true_scaling?"TRUE":"FALSE"));
+        debugger.update_line(string("int_scale"), string(true_scalling?"TRUE":"FALSE"));
         int current_window_w;
         int current_window_h;
         SDL_GetWindowSize(window, &current_window_w, &current_window_h);
         //main_rect
         float aspect = (float)current_window_w / (float)current_window_h;
         if (aspect <= TARGET_ASPECT){
-            if (true_scaling){
+            if (true_scalling){
                 garanteed_rect.w = (int)floor((float)current_window_w / (float)TARGET_WIDTH) * TARGET_WIDTH;
                 if (garanteed_rect.w == 0){ // check for resolution is lower than ours
                     garanteed_rect.w = current_window_w;
@@ -213,7 +228,7 @@ class Game{
             garanteed_rect.h = garanteed_rect.w / TARGET_ASPECT;
         }
         else {
-            if (true_scaling){
+            if (true_scalling){
                 garanteed_rect.h = (int)floor((float)current_window_h / (float)TARGET_HEIGHT) * TARGET_HEIGHT;
                 if (garanteed_rect.h == 0){ // check for resolution is lower than ours
                     garanteed_rect.h = current_window_h;
@@ -241,14 +256,11 @@ class Game{
             ceil(current_window_w / x_per_px),
             ceil(current_window_h / y_per_px)
         };
-
         if (main_texture != nullptr) SDL_DestroyTexture(main_texture);
         main_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, main_logical_size.x, main_logical_size.y);
         char buffer[20];
         snprintf(buffer, sizeof(buffer), "%ix%i", main_logical_size.x, main_logical_size.y);
         debugger.update_line(string("resolution"), string(buffer));
-
-        
     }
     ivec2 get_logical_size(){
         return main_logical_size;
@@ -256,7 +268,7 @@ class Game{
     SDL_Rect get_rect(){
         return main_rect;
     }
-    ivec2 get_garanteed_logical_size(){
+    ivec2 get_garanteed_logical_size(){ 
         return {TARGET_WIDTH, TARGET_HEIGHT};
     }
     SDL_Rect get_garanteed_rect(){
@@ -272,11 +284,11 @@ class Game{
         SDL_RenderCopy(renderer, main_texture, nullptr, &main_rect);
     }
     
-    void switch_to_garanteed(){
+    void switch_to_garanteed(){ // todo: remove
         SDL_SetRenderTarget(renderer, garanteed_texture);
     }
 
-    void apply_garanteed(){
+    void apply_garanteed(){ // todo: remove
         SDL_SetRenderTarget(renderer, nullptr);
         SDL_RenderCopy(renderer, garanteed_texture, nullptr, &garanteed_rect);
     }
