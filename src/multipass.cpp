@@ -418,14 +418,38 @@ int main(int argc, char ** argv)
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
+        ivec2 rect = game.get_logical_size();
         game.switch_to_main();
-        
-        SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
-        SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
-        SDL_RenderFillRect(renderer, &rect);
-        ivec2 map_size = map.get_texture_size();
+        for (int x = 0; x < rect.x; x++)
+        for (int y = 0; y < rect.y; y++)
+        {
+            float r = (float)x / (float)rect.x * 255.;
+            float g = (float)y / (float)rect.y * 255.;
+            r = (((x+y)%2)==0)?r:0.5*r;
+            g = (((x+y)%2)==0)?g:0.5*g;
+            SDL_SetRenderDrawColor(renderer, r, g, 0., 255.);
+            SDL_RenderDrawPoint(renderer, x, y);
+        }
+        game.apply_main();
+        game.switch_to_garanteed();
+        for (int x = 0; x < TARGET_WIDTH; x++)
+        for (int y = 0; y < TARGET_HEIGHT; y++)
+        {
+            float r = (float)x / (float)TARGET_WIDTH * 255.;
+            float g = (float)y / (float)TARGET_HEIGHT * 255.;
+            r = (((x+y)%2)==0)?r:0.5*r;
+            g = (((x+y)%2)==0)?g:0.5*g;
+            SDL_SetRenderDrawColor(renderer, r, g, 255., 255.);
+            SDL_RenderDrawPoint(renderer, x, y);
+        }
+        game.apply_garanteed();
+
+        //SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
+        //SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
+        //SDL_RenderFillRect(renderer, &rect);
+        //ivec2 map_size = map.get_texture_size();
         //map.offset = ivec3((float)(TARGET_WIDTH - map_size.x) / 2., (float)(TARGET_HEIGHT - map_size.y) / 2., 0);
-        map.draw_depth();
+        //map.draw_depth();
         //shader.check_file_updates();
         //shader.use();
         //shader.set_1f("time", time);
@@ -439,9 +463,8 @@ int main(int argc, char ** argv)
 
 
         // todo: alpha checks for depth buffer draw
-        game.debugger.update_basic();
-        game.debugger.draw();
-        game.apply_main();
+        //game.debugger.update_basic();
+        //game.debugger.draw();
 
         SDL_RenderPresent(renderer);
     }

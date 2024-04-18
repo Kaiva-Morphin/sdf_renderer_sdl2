@@ -19,8 +19,8 @@ SDL_GLContext context;
 TTF_Font* font;
 
 //480 * 270 ? 320 * 240
-int TARGET_WIDTH = 320; // always true :party_popper:
-int TARGET_HEIGHT = 240; // always true :party_popper:
+int TARGET_WIDTH = 32; // always true :party_popper:
+int TARGET_HEIGHT = 24; // always true :party_popper:
 
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
@@ -248,10 +248,25 @@ class Game{
 
         main_rect.w = ceil(current_window_w / x_per_px) * x_per_px;
         main_rect.h = ceil(current_window_h / y_per_px) * y_per_px;
+        if (main_rect.w % 2 == garanteed_rect.w % 2) main_rect.w += 1;
+        if (main_rect.h % 2 == garanteed_rect.h % 2) main_rect.h += 1;
 
         main_rect.x = floor(((float)current_window_w - (float)main_rect.w) / 2.0f);
         main_rect.y = floor(((float)current_window_h - (float)main_rect.h) / 2.0f);
+        cout << endl;
+        cout << main_rect.x << endl;
+        cout << main_rect.y << endl;
+        cout << main_rect.w << endl;
+        cout << main_rect.h << endl;
 
+
+
+        /*
+        0 
+        -2 
+        2560 
+        1390 
+        */
         main_logical_size = {
             ceil(current_window_w / x_per_px),
             ceil(current_window_h / y_per_px)

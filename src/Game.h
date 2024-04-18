@@ -19,12 +19,44 @@ SDL_GLContext context;
 TTF_Font* font;
 
 //480 * 270 ? 320 * 240
-int TARGET_WIDTH = 32; // always true :party_popper:
-int TARGET_HEIGHT = 24; // always true :party_popper:
+int TARGET_WIDTH = 320; // always true :party_popper:
+int TARGET_HEIGHT = 240; // always true :party_popper:
 
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
-//SDL_GetError()
+class Shader{
+    protected:
+    GLuint program = glCreateProgram();
+    string filePath;
+    string current_src;
+    int width;
+    int height;
+    string read_shader(){
+        ifstream fileStream(filePath);
+        if (!fileStream.is_open()) {
+            cerr << "ERROR! Cant open file!" << endl;
+            return "";
+        }
+        std::stringstream buffer;
+        buffer << fileStream.rdbuf();
+        return buffer.str();
+    }
+    virtual void compile(){};
+    public:
+    ivec2 size(){return ivec2(width, height);}
+    
+    void set_1f(const char* name, float value){
+        glUniform1f(glGetUniformLocation(program, name), value);
+    }
+    void set_2f(const char* name, float value1, float value2){
+        glUniform2f(glGetUniformLocation(program, name), value1, value2);
+    }
+};
+
+class PassShader : public Shader {
+    public:
+    PassShader(){}
+};
 
 
 class Debugger{
@@ -147,54 +179,6 @@ class Game{
     
     Debugger debugger;
 
-    void initShader() {
-        // Vertex shader source code
-        const char* vertexShaderSource = R"glsl(
-            #version 330 core
-            layout (location = 0) in vec3 aPos;
-            layout (location = 1) in vec2 aTexCoord;
-            out vec2 TexCoord;
-            uniform mat4 projection;
-            void main() {
-                gl_Position = projection * vec4(aPos, 1.0);
-                TexCoord = aTexCoord;
-            }
-        )glsl";
-
-        // Fragment shader source code
-        const char* fragmentShaderSource = R"glsl(
-            #version 330 core
-            in vec2 TexCoord;
-            out vec4 FragColor;
-            uniform sampler2D texture1;
-            void main() {
-                FragColor = texture(texture1, TexCoord);
-            }
-        )glsl";
-
-        // Compile vertex shader
-        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-        glCompileShader(vertexShader);
-
-        // Compile fragment shader
-        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-        glCompileShader(fragmentShader);
-
-        // Create shader program
-        default_shader = glCreateProgram();
-        glAttachShader(default_shader, vertexShader);
-        glAttachShader(default_shader, fragmentShader); 
-        glLinkProgram(default_shader);
-
-        // Delete shaders
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-
-        glUseProgram(default_shader);
-    }
-
 
     void init(){
         SDL_Init(SDL_INIT_VIDEO);
@@ -204,10 +188,12 @@ class Game{
         //renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
         glewExperimental = GL_TRUE;
         glewInit();
-        glEnable( GL_DEBUG_OUTPUT );
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_TEXTURE_2D);
 
         debugger = Debugger();
         debugger.register_basic();
+        
         glGenFramebuffers(1, &framebuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         glGenTextures(1, &screen_texture);
@@ -219,10 +205,9 @@ class Game{
         TTF_Init();
         font = TTF_OpenFont("assets/fonts/TinyUnicode.ttf", 16);
 
-        glEnable(GL_TEXTURE_2D);
         //glEnable(GL_BLEND);
         //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        //glBlendEquation(GL_FUNC_ADD);
+        //glBlendEquation(GL_BLEND_COLOR);
 
     }
 
@@ -275,40 +260,26 @@ class Game{
         int current_window_w;
         int current_window_h;
         SDL_GetWindowSize(window, &current_window_w, &current_window_h);
-        screen_rect.z = current_window_w;
-        screen_rect.w = current_window_h;
-        SDL_Rect garanteed_rect;
-        SDL_Rect main_rect;
-        //main_rect
+        vec2 garanteed_rect;
         float aspect = (float)current_window_w / (float)current_window_h;
         if (aspect <= TARGET_ASPECT){
-            if (true_scalling){
-                garanteed_rect.w = (int)floor((float)current_window_w / (float)TARGET_WIDTH) * TARGET_WIDTH;
-                if (garanteed_rect.w == 0) // check for resolution is lower than target
-                    garanteed_rect.w = current_window_w;
-            } else garanteed_rect.w = current_window_w;
-            garanteed_rect.h = garanteed_rect.w / TARGET_ASPECT;
+            garanteed_rect.x = (int)floor((float)current_window_w / (float)TARGET_WIDTH) * TARGET_WIDTH;
+            if (garanteed_rect.x == 0 || !true_scalling)
+                garanteed_rect.x = current_window_w;
+            garanteed_rect.y = garanteed_rect.x / TARGET_ASPECT;
         }
         else {
-            if (true_scalling){
-                garanteed_rect.h = (int)floor((float)current_window_h / (float)TARGET_HEIGHT) * TARGET_HEIGHT;
-                if (garanteed_rect.h == 0) // check for resolution is lower than target
-                    garanteed_rect.h = current_window_h;
-            } else garanteed_rect.h = current_window_h;
-            garanteed_rect.w = garanteed_rect.h * TARGET_ASPECT;
+            garanteed_rect.y = (int)floor((float)current_window_h / (float)TARGET_HEIGHT) * TARGET_HEIGHT;
+            if (garanteed_rect.y == 0 || !true_scalling)
+                garanteed_rect.y = current_window_h;
+            garanteed_rect.x = garanteed_rect.y * TARGET_ASPECT;
         }
-        garanteed_rect.x = floor(((float)current_window_w - (float)garanteed_rect.w) / 2.0f);
-        garanteed_rect.y = floor(((float)current_window_h - (float)garanteed_rect.h) / 2.0f);
-        float x_per_px = (float)garanteed_rect.w / (float)TARGET_WIDTH;
-        float y_per_px = (float)garanteed_rect.h / (float)TARGET_HEIGHT;
+        float x_per_px = (float)garanteed_rect.x / (float)TARGET_WIDTH; // ~dpi
+        float y_per_px = (float)garanteed_rect.y / (float)TARGET_HEIGHT;
         screen_rect.z = ceil(current_window_w / x_per_px) * x_per_px;
         screen_rect.w = ceil(current_window_h / y_per_px) * y_per_px;
         screen_rect.x = floor(((float)current_window_w - (float)screen_rect.z) / 2.0f);
         screen_rect.y = floor(((float)current_window_h - (float)screen_rect.w) / 2.0f);
-        uv_screen_rect.x = remap(screen_rect.x, 0, current_window_w, -1, 1);
-        uv_screen_rect.y = remap(screen_rect.y, 0, current_window_h, -1, 1);
-        uv_screen_rect.z = remap(screen_rect.z, 0, current_window_w, -1, 1);
-        uv_screen_rect.w = remap(screen_rect.w, 0, current_window_h, -1, 1);
         screen_pixel_size = {
             ceil(current_window_w / x_per_px),
             ceil(current_window_h / y_per_px)
@@ -336,15 +307,16 @@ class Game{
         return screen_pixel_size;
     }
 
-    void switch_to_main(){
+    void begin_main(){
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         glViewport(0, 0, screen_pixel_size.x, screen_pixel_size.y);
-        //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen_texture, 0);
     }
 
-    void apply_main(){
+    void end_main(){
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, screen_rect.z, screen_rect.w);
+    }
+    void draw_main(){
         glBindTexture(GL_TEXTURE_2D, screen_texture);
         glBegin(GL_QUADS);
         glColor3f(1., 1., 1.);
@@ -367,14 +339,7 @@ class Game{
     }
 };
 
-
-
-class Shader{};
-
-
 class SDF_Shader : public Shader{
-    string filePath;
-    string current_src;
     Debugger* debugger;
     GLuint scenebuffer;
     GLuint outputTexture;
@@ -383,24 +348,15 @@ class SDF_Shader : public Shader{
     SDL_Texture* sdl_output_texture = nullptr;
     int width;
     int height;
-    string read_shader(){
-        ifstream fileStream(filePath);
-        if (!fileStream.is_open()) {
-            cerr << "ERROR! Cant open file!" << endl;
-            return "";
-        }
-        std::stringstream buffer;
-        buffer << fileStream.rdbuf();
-        return buffer.str();
-    }
+    
     public:
-    GLuint computeProgram = glCreateProgram();
+    
     SDF_Shader(string path, Debugger* debugger){
         filePath = path;
         this->debugger = debugger;
         this->debugger->register_line("SDFshader","SDF shader status: ","NOT INITED!");
     }
-    ivec2 size(){return ivec2(width, height);}
+    
     void init(int w, int h, ivec3 binded_texture_size, GLubyte* binded_texture_data){
         this->debugger->register_line("SDFshader","SDF shader status: ","Initing...");
         width = w;
@@ -427,7 +383,7 @@ class SDF_Shader : public Shader{
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_3D, characterTexture);
-        glUniform1i(glGetUniformLocation(computeProgram, "character_texture"), 0);
+        glUniform1i(glGetUniformLocation(program, "character_texture"), 0);
     }
     void compile(){
         this->debugger->register_line("SDFshader","SDF shader status: ","Compiling...");
@@ -443,21 +399,19 @@ class SDF_Shader : public Shader{
             this->debugger->update_line("SDFshader", string("compilation failed! check console"));
             return;
         }
-        glAttachShader(computeProgram, computeShader);
-        glLinkProgram(computeProgram);
-        glGetProgramiv(computeProgram, GL_LINK_STATUS, &success);
+        glAttachShader(program, computeShader);
+        glLinkProgram(program);
+        glGetProgramiv(program, GL_LINK_STATUS, &success);
         if (!success) {
             GLchar infoLog[512];
-            glGetProgramInfoLog(computeProgram, 512, NULL, infoLog);
+            glGetProgramInfoLog(program, 512, NULL, infoLog);
             std::cerr << "Compute shader program linking failed: " << infoLog << std::endl;
             this->debugger->update_line("SDFshader", string("program linking failed! check console"));
             return;
         }
         glBindImageTexture(0, outputTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-
         glGenBuffers(1, &scenebuffer);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
-        
         this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
     }
     void destroy(){
@@ -466,10 +420,10 @@ class SDF_Shader : public Shader{
         glDeleteBuffers(1, &scenebuffer);
         SDL_DestroyTexture(sdl_output_texture);
         glDeleteShader(computeShader);
-        glDeleteProgram(computeProgram);
+        glDeleteProgram(program);
     }
     void use(){
-        glUseProgram(computeProgram);
+        glUseProgram(program);
     }
     
     void check_file_updates(){
@@ -508,12 +462,7 @@ class SDF_Shader : public Shader{
         return sdl_output_texture;
     }
 
-    void set_1f(const char* name, float value){
-        glUniform1f(glGetUniformLocation(computeProgram, name), value);
-    }
-    void set_2f(const char* name, float value1, float value2){
-        glUniform2f(glGetUniformLocation(computeProgram, name), value1, value2);
-    }
+
 
     void set_scene(PrimitiveScene* primitive_scene){
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
