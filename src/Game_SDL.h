@@ -14,13 +14,13 @@
 #include <stdio.h>
 
 SDL_Window* window;
-//SDL_Renderer* renderer;
+SDL_Renderer* renderer;
 SDL_GLContext context;
 TTF_Font* font;
 
 //480 * 270 ? 320 * 240
-int TARGET_WIDTH = 32; // always true :party_popper:
-int TARGET_HEIGHT = 24; // always true :party_popper:
+int TARGET_WIDTH = 320; // always true :party_popper:
+int TARGET_HEIGHT = 240; // always true :party_popper:
 
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
@@ -41,7 +41,7 @@ class Debugger{
         }
 
         // Create texture from surface pixels
-        SDL_Texture* texture = NULL;//SDL_CreateTextureFromSurface(renderer, textSurface);
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, textSurface);
         if (texture == NULL) {
             printf("Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError());
             return;
@@ -54,7 +54,7 @@ class Debugger{
         // Set rendering space and render to screen
         SDL_Rect renderQuad = {0, (textHeight - offset) * line, textWidth, textHeight - offset};
         SDL_Rect srcRect = {0, offset, textWidth, textHeight};
-        //SDL_RenderCopy(renderer, texture, &srcRect, &renderQuad);
+        SDL_RenderCopy(renderer, texture, &srcRect, &renderQuad);
 
         // Cleanup
         SDL_FreeSurface(textSurface);
@@ -127,103 +127,39 @@ class Debugger{
 
 };
 
-double remap(double value, double fromLow, double fromHigh, double toLow, double toHigh) {
-    double normalized = (value - fromLow) / (fromHigh - fromLow);
-    return toLow + normalized * (toHigh - toLow);
-}
 
 class Game{
-    public:
     bool running = true;
     bool true_scalling = false;
-    ivec2 screen_pixel_size = ivec2(TARGET_WIDTH, TARGET_HEIGHT);
-    ivec4 screen_rect = ivec4(0, 0, TARGET_WIDTH, TARGET_HEIGHT);
-    vec4 uv_screen_rect = vec4(-1, -1, 1, 1);
-    GLuint screen_texture = 0;
-    GLuint screen_normalmap = 0;
-    GLuint screen_depth = 0;
-    GLuint framebuffer = 0;
-    GLuint default_shader = 0;
-    
+    SDL_Rect main_rect;
+    ivec2 main_logical_size;
+    SDL_Rect garanteed_rect;
+    SDL_Texture* garanteed_texture = nullptr;
+    SDL_Texture* main_texture = nullptr;
+    public:
     Debugger debugger;
-
-    void initShader() {
-        // Vertex shader source code
-        const char* vertexShaderSource = R"glsl(
-            #version 330 core
-            layout (location = 0) in vec3 aPos;
-            layout (location = 1) in vec2 aTexCoord;
-            out vec2 TexCoord;
-            uniform mat4 projection;
-            void main() {
-                gl_Position = projection * vec4(aPos, 1.0);
-                TexCoord = aTexCoord;
-            }
-        )glsl";
-
-        // Fragment shader source code
-        const char* fragmentShaderSource = R"glsl(
-            #version 330 core
-            in vec2 TexCoord;
-            out vec4 FragColor;
-            uniform sampler2D texture1;
-            void main() {
-                FragColor = texture(texture1, TexCoord);
-            }
-        )glsl";
-
-        // Compile vertex shader
-        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-        glCompileShader(vertexShader);
-
-        // Compile fragment shader
-        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-        glCompileShader(fragmentShader);
-
-        // Create shader program
-        default_shader = glCreateProgram();
-        glAttachShader(default_shader, vertexShader);
-        glAttachShader(default_shader, fragmentShader); 
-        glLinkProgram(default_shader);
-
-        // Delete shaders
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-
-        glUseProgram(default_shader);
-    }
-
-
     void init(){
         SDL_Init(SDL_INIT_VIDEO);
         window = SDL_CreateWindow("Simple Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_OPENGL);
         SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
         context = SDL_GL_CreateContext(window);
-        //renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
         glewExperimental = GL_TRUE;
         glewInit();
         glEnable( GL_DEBUG_OUTPUT );
-
         debugger = Debugger();
         debugger.register_basic();
-        glGenFramebuffers(1, &framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glGenTextures(1, &screen_texture);
-        update_resolution();
+        update_resolution(); // !! before deleting this line, check if main_texture is created in any other way!
+        if (true_scalling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
+        else SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
         SDL_SetWindowResizable(window, SDL_bool::SDL_TRUE);
         SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SCALING, "1");
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
         TTF_Init();
         font = TTF_OpenFont("assets/fonts/TinyUnicode.ttf", 16);
-
-        glEnable(GL_TEXTURE_2D);
-        //glEnable(GL_BLEND);
-        //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        //glBlendEquation(GL_FUNC_ADD);
-
+        garanteed_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, TARGET_WIDTH, TARGET_HEIGHT);
     }
 
     typedef void (*Function)(void);
@@ -249,6 +185,8 @@ class Game{
         if (e.type == SDL_KEYDOWN){
             if (e.key.keysym.sym == SDLK_F2){
                 true_scalling = !true_scalling;
+                if (true_scalling) SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE);
+                else SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE);
                 update_resolution();
             }
             if (e.key.keysym.sym == SDLK_F3){
@@ -270,98 +208,96 @@ class Game{
         }
     }
 
-    void update_resolution(){ // mamma mia!
+    void update_resolution(){
         debugger.update_line(string("int_scale"), string(true_scalling?"TRUE":"FALSE"));
         int current_window_w;
         int current_window_h;
         SDL_GetWindowSize(window, &current_window_w, &current_window_h);
-        screen_rect.z = current_window_w;
-        screen_rect.w = current_window_h;
-        SDL_Rect garanteed_rect;
-        SDL_Rect main_rect;
         //main_rect
         float aspect = (float)current_window_w / (float)current_window_h;
         if (aspect <= TARGET_ASPECT){
             if (true_scalling){
                 garanteed_rect.w = (int)floor((float)current_window_w / (float)TARGET_WIDTH) * TARGET_WIDTH;
-                if (garanteed_rect.w == 0) // check for resolution is lower than target
+                if (garanteed_rect.w == 0){ // check for resolution is lower than ours
                     garanteed_rect.w = current_window_w;
+                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE); // todo: may be useless, because my implementation already garanteed square pixels
+                } else {
+                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE); // todo: may be useless, because my implementation already garanteed square pixels
+                }
             } else garanteed_rect.w = current_window_w;
             garanteed_rect.h = garanteed_rect.w / TARGET_ASPECT;
         }
         else {
             if (true_scalling){
                 garanteed_rect.h = (int)floor((float)current_window_h / (float)TARGET_HEIGHT) * TARGET_HEIGHT;
-                if (garanteed_rect.h == 0) // check for resolution is lower than target
+                if (garanteed_rect.h == 0){ // check for resolution is lower than ours
                     garanteed_rect.h = current_window_h;
+                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_FALSE); // todo: may be useless, because my implementation already garanteed square pixels
+                } else {
+                    SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE); // todo: may be useless, because my implementation already garanteed square pixels
+                }
             } else garanteed_rect.h = current_window_h;
             garanteed_rect.w = garanteed_rect.h * TARGET_ASPECT;
         }
+
         garanteed_rect.x = floor(((float)current_window_w - (float)garanteed_rect.w) / 2.0f);
         garanteed_rect.y = floor(((float)current_window_h - (float)garanteed_rect.h) / 2.0f);
+
         float x_per_px = (float)garanteed_rect.w / (float)TARGET_WIDTH;
         float y_per_px = (float)garanteed_rect.h / (float)TARGET_HEIGHT;
-        screen_rect.z = ceil(current_window_w / x_per_px) * x_per_px;
-        screen_rect.w = ceil(current_window_h / y_per_px) * y_per_px;
-        screen_rect.x = floor(((float)current_window_w - (float)screen_rect.z) / 2.0f);
-        screen_rect.y = floor(((float)current_window_h - (float)screen_rect.w) / 2.0f);
-        uv_screen_rect.x = remap(screen_rect.x, 0, current_window_w, -1, 1);
-        uv_screen_rect.y = remap(screen_rect.y, 0, current_window_h, -1, 1);
-        uv_screen_rect.z = remap(screen_rect.z, 0, current_window_w, -1, 1);
-        uv_screen_rect.w = remap(screen_rect.w, 0, current_window_h, -1, 1);
-        screen_pixel_size = {
+
+        main_rect.w = ceil(current_window_w / x_per_px) * x_per_px;
+        main_rect.h = ceil(current_window_h / y_per_px) * y_per_px;
+
+        main_rect.x = floor(((float)current_window_w - (float)main_rect.w) / 2.0f);
+        main_rect.y = floor(((float)current_window_h - (float)main_rect.h) / 2.0f);
+
+        main_logical_size = {
             ceil(current_window_w / x_per_px),
             ceil(current_window_h / y_per_px)
         };
-        if (screen_texture != 0)
-            glDeleteTextures(1, &screen_texture);
-        if (framebuffer != 0)
-            glDeleteFramebuffers(1, &framebuffer);
-        glGenTextures(1, &screen_texture);
-        glBindTexture(GL_TEXTURE_2D, screen_texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screen_pixel_size.x, screen_pixel_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glGenFramebuffers(1, &framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, screen_texture, 0);
-        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if (main_texture != nullptr) SDL_DestroyTexture(main_texture);
+        main_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, main_logical_size.x, main_logical_size.y);
         char buffer[20];
-        snprintf(buffer, sizeof(buffer), "%ix%i", screen_pixel_size.x, screen_pixel_size.y);
+        snprintf(buffer, sizeof(buffer), "%ix%i", main_logical_size.x, main_logical_size.y);
         debugger.update_line(string("resolution"), string(buffer));
     }
-    ivec2 get_screen_size(){
-        return screen_pixel_size;
+    ivec2 get_logical_size(){
+        return main_logical_size;
+    }
+    SDL_Rect get_rect(){
+        return main_rect;
+    }
+    ivec2 get_garanteed_logical_size(){ 
+        return {TARGET_WIDTH, TARGET_HEIGHT};
+    }
+    SDL_Rect get_garanteed_rect(){
+        return garanteed_rect;
     }
 
     void switch_to_main(){
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glViewport(0, 0, screen_pixel_size.x, screen_pixel_size.y);
-        //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen_texture, 0);
+        SDL_SetRenderTarget(renderer, main_texture);
     }
 
     void apply_main(){
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, screen_rect.z, screen_rect.w);
-        glBindTexture(GL_TEXTURE_2D, screen_texture);
-        glBegin(GL_QUADS);
-        glColor3f(1., 1., 1.);
-        glTexCoord2f(0, 0); glVertex2f(uv_screen_rect.x, uv_screen_rect.y);
-        glTexCoord2f(1, 0); glVertex2f(uv_screen_rect.z, uv_screen_rect.y);
-        glTexCoord2f(1, 1); glVertex2f(uv_screen_rect.z, uv_screen_rect.w);
-        glTexCoord2f(0, 1); glVertex2f(uv_screen_rect.x, uv_screen_rect.w);
-        glEnd();
-        glBindTexture(GL_TEXTURE_2D, 0);
+        SDL_SetRenderTarget(renderer, nullptr);
+        SDL_RenderCopy(renderer, main_texture, nullptr, &main_rect);
+    }
+    
+    void switch_to_garanteed(){ // todo: remove
+        SDL_SetRenderTarget(renderer, garanteed_texture);
+    }
+
+    void apply_garanteed(){ // todo: remove
+        SDL_SetRenderTarget(renderer, nullptr);
+        SDL_RenderCopy(renderer, garanteed_texture, nullptr, &garanteed_rect);
     }
 
     void destroy(){
-        if (screen_texture != 0) glDeleteTextures(1, &screen_texture);
-        if (screen_depth != 0) glDeleteTextures(1, &screen_depth);
-        if (screen_normalmap != 0) glDeleteTextures(1, &screen_normalmap);
         SDL_GL_DeleteContext(context);
         TTF_CloseFont(font);
+        SDL_DestroyTexture(garanteed_texture);
+        SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
     }
@@ -461,8 +397,6 @@ class SDF_Shader : public Shader{
         this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
     }
     void destroy(){
-        glDeleteTextures(1, &outputTexture);
-        glDeleteTextures(1, &characterTexture);
         glDeleteBuffers(1, &scenebuffer);
         SDL_DestroyTexture(sdl_output_texture);
         glDeleteShader(computeShader);
@@ -497,8 +431,7 @@ class SDF_Shader : public Shader{
         }
         if (sdl_output_texture != nullptr) SDL_DestroyTexture(sdl_output_texture);
         
-        sdl_output_texture = nullptr;//SDL_CreateTextureFromSurface(renderer, surface);
-        
+        sdl_output_texture = SDL_CreateTextureFromSurface(renderer, surface);
         delete[] pixels;
         SDL_FreeSurface(surface);
         if (!sdl_output_texture) {

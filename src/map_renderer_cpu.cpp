@@ -1,6 +1,6 @@
 #include "header.h"
 #include "sdf_primitives.h"
-#include "Game.h"
+#include "Game_SDL.h"
 #include "textre_drawer.h"
 
 #define PI 3.14159
