@@ -1,4 +1,4 @@
-#include "Game_SDL.h"
+#include "Game.h"
 #include "textre_drawer.h"
 
 #define PI 3.14159
@@ -9,142 +9,77 @@ const int CENTERY = TARGET_HEIGHT / 2;
 
 SDL_Event event;
 
-void init(){
-    SDL_Init(SDL_INIT_VIDEO);
-    window = SDL_CreateWindow("Map Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_SHOWN);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, 0);
-    SDL_SetWindowResizable(window, SDL_bool::SDL_TRUE);
-    SDL_SetHint(SDL_HINT_RENDER_LOGICAL_SIZE_MODE, 0);
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_RenderSetLogicalSize(renderer, TARGET_WIDTH, TARGET_HEIGHT);
-    //SDL_RenderSetIntegerScale(renderer, SDL_bool::SDL_TRUE); //for true pixel perfect
-}
-void cleanup(){
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-}
+Game game = Game();
+
 class Atlas{
-    SDL_Texture* texture_atlas;
-    ivec4 state_table[1][8]; // state -> [rects]
+    GLuint texture_atlas;
+
+
     public:
+    vec2 atlas_size = {0, 0};
     ivec3 tile_size;
     ivec3 tile_offsets;
-    SDL_Rect get_tile_rect(int i){
-        return SDL_Rect{i * (tile_size.x + tile_size.z), 0, tile_size.x + tile_size.z, tile_size.y + tile_size.z};
+
+    vec4 get_tile_rect(int i){
+        return vec4{i * (tile_size.x + tile_size.z), 0, tile_size.x + tile_size.z, tile_size.y + tile_size.z};
     }
+
     Atlas(const char* path, ivec3 tile_size, ivec3 tile_offsets){
         SDL_Surface *surface = IMG_Load(path);
-        texture_atlas = SDL_CreateTextureFromSurface(renderer, surface);
+        glGenTextures(1, &texture_atlas);
+        glBindTexture(GL_TEXTURE_2D, texture_atlas);
+        game.set_default_image_settings();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
+        atlas_size = {surface->w, surface->h};
         SDL_FreeSurface(surface);
+        glBindTexture(GL_TEXTURE_2D, 0);
         this->tile_size = tile_size;
         this->tile_offsets = tile_offsets;
     }
 
-    void generate_state_table(){
-        SDL_Rect tile_rect = get_tile_rect(0);
-        ivec4 tile = {0, 0, tile_rect.w, tile_rect.h};
+    void from_atlas_to_screen(vec4 src, vec4 dst, vec2 src_size, vec2 dst_size){
+        // x y w h -> x0 y0 x1 y1
+        src.z += src.x;
+        src.w += src.y;
+        dst.z += dst.x;
+        dst.w += dst.y;
+
+        vec4 uv_src = {
+            remap(src.x, 0, src_size.x, 0, 1),
+            remap(src.y, 0, src_size.y, 0, 1),
+            remap(src.z, 0, src_size.x, 0, 1),
+            remap(src.w, 0, src_size.y, 0, 1),
+        };
+        vec4 uv_dst = {
+            remap(dst.x, 0, dst_size.x, -1, 1),
+            remap(dst.y, 0, dst_size.y, 1, -1),
+            remap(dst.z, 0, dst_size.x, -1, 1),
+            remap(dst.w, 0, dst_size.y, 1, -1),
+        };
+        glVertexAttrib2f(1, uv_src.x, uv_src.y); glVertex2f(uv_dst.x, uv_dst.y);
+        glVertexAttrib2f(1, uv_src.z, uv_src.y); glVertex2f(uv_dst.z, uv_dst.y);
+        glVertexAttrib2f(1, uv_src.z, uv_src.w); glVertex2f(uv_dst.z, uv_dst.w);
+        glVertexAttrib2f(1, uv_src.x, uv_src.w); glVertex2f(uv_dst.x, uv_dst.w);
     }
 
-    void set_depth(int d){
-        SDL_SetTextureColorMod(texture_atlas, d, d, d);
-    }
-    void set_alpha(int a){
-        SDL_SetTextureAlphaMod(texture_atlas, a);
-    }
-    void draw_depth_tile(int i, ivec3 dest){
+    void draw_tile(vec2 dst_size, int i, ivec3 dest, GLuint shader){
+
         dest *= (tile_size - tile_offsets);
-        SDL_Rect src_rect = get_tile_rect(i);
-        src_rect.y += (tile_size.y + tile_size.z) * 4.;
-        SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
-        SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
-    }
-    void draw_tile_depth(int i, ivec3 dest){
-        dest *= (tile_size - tile_offsets);
-        SDL_Rect src_rect = get_tile_rect(i);
-        src_rect.y += (tile_size.y + tile_size.z) * 3.;
-        SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
-        SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
-    }
-
-    void draw_tile(int i, ivec3 dest, int state){ // todo: rewrite for gpu!
-        dest *= (tile_size - tile_offsets);
-        SDL_Rect src_rect = get_tile_rect(i);
-        SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
-        SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
-
-        src_rect.y += tile_size.y + tile_size.z;
-        // minimize draw calls!
-        /*if (state == 0){ 
-            SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
-            return;
-        }*/
-        /*
-
-        n   a    d
-        0   1   -X 
-        1+  2   -Y 
-        2+  4   -Z 
-        3+  8   +X 
-        4   16  +Y 
-        5   32  +Z 
-
-        */
-
-        if ((state & (1 << 2)) == 0){ // -Z
-            SDL_Rect src_rect_temp = src_rect;
-            src_rect_temp.w = 18;
-            src_rect_temp.h = 11;
-            SDL_Rect dest_rect_temp = dest_rect;
-            dest_rect_temp.w = 18;
-            dest_rect_temp.h = 11;
-            SDL_RenderCopy(renderer, texture_atlas, &src_rect_temp, &dest_rect_temp);
-        }
-        if ((state & (1 << 1)) == 0){ // -Y
-            SDL_Rect src_rect_temp = src_rect;
-            src_rect_temp.y += 11;
-            src_rect_temp.w = 25;
-            src_rect_temp.h = 9;
-            SDL_Rect dest_rect_temp = dest_rect;
-            dest_rect_temp.y += 11;
-            dest_rect_temp.w = 25;
-            dest_rect_temp.h = 9;
-            if ((state & (1 << 0)) != 0) { // -X // FIX
-                src_rect_temp.x += 9;
-                src_rect_temp.y += 7;
-                src_rect_temp.h = 2;
-                src_rect_temp.w = 16;
-                dest_rect_temp.x += 9;
-                dest_rect_temp.y += 7;
-                dest_rect_temp.h = 2;
-                dest_rect_temp.w = 16;
-            }
-            SDL_RenderCopy(renderer, texture_atlas, &src_rect_temp, &dest_rect_temp);
-        }
-        if ((state & (1 << 3)) == 0){ // +X
-            SDL_Rect src_rect_temp = src_rect;
-            src_rect_temp.x += 18;
-            src_rect_temp.w = 8;
-            src_rect_temp.h = 19;
-            SDL_Rect dest_rect_temp = dest_rect;
-            dest_rect_temp.x += 18;
-            dest_rect_temp.w = 8;
-            dest_rect_temp.h = 19;
-            SDL_RenderCopy(renderer, texture_atlas, &src_rect_temp, &dest_rect_temp);
-        }
-    }
-    void draw_tile_normals(int i, ivec3 dest){
-        dest *= (tile_size - tile_offsets);
-        SDL_Rect src_rect = get_tile_rect(i);
-        src_rect.y += tile_size.y + tile_size.z;
-        SDL_Rect dest_rect = SDL_Rect{1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.w, src_rect.h};
-        SDL_RenderCopy(renderer, texture_atlas, &src_rect, &dest_rect);
+        vec4 src_rect = get_tile_rect(i);
+        //glUniform4f(glGetUniformLocation(shader, "src_rect"), src_rect.x, src_rect.y, src_rect.z, src_rect.w);
+        vec4 dest_rect = {1 + dest.x + dest.z, 1 + dest.z - dest.y, src_rect.z, src_rect.w};
+        //glUniform4f(glGetUniformLocation(shader, "dst_rect"), dest_rect.x, dest_rect.y, dest_rect.z, dest_rect.w);
+        glBindTexture(GL_TEXTURE_2D, texture_atlas);
+        glBegin(GL_QUADS);
+        from_atlas_to_screen(src_rect, dest_rect, atlas_size, dst_size);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
     ~Atlas(){
-        SDL_DestroyTexture(texture_atlas);
+        glDeleteTextures(1, &texture_atlas);
     }
 };
+
 
 
 //*     Y
@@ -157,40 +92,153 @@ class Atlas{
 
 
 class Map{ 
-    // todo: caching map to texture and make depthmap for shadows and pure rendering
-    SDL_Texture *texture;
-    SDL_Texture *normals_texture;
-    SDL_Texture *depth_texture;
+    GLuint map_texture;
+    GLuint map_depth;
+    GLuint map_normalmap;
+    GLuint buffer;
 
-    ivec2 texture_size;
+    GLuint tile_shader;
+
+    const char* tile_shader_vert_src = R"(
+        #version 330 core
+        in vec2 in_tex;
+        layout(location = 0) in vec3 position;
+        layout(location = 1) in vec2 texCoord;
+
+        out vec2 fragTexCoord;
+
+        void main() {
+            fragTexCoord = texCoord;
+            gl_Position = vec4(position, 1.);
+        }
+    )";
+
+    const char* tile_shader_frag_src = R"(
+        #version 330 core
+        in vec2 fragTexCoord;
+        out vec4 map_texture;
+        out vec4 map_depth;
+        out vec4 map_normalmap;
+        uniform sampler2D texture_atlas;
+
+        uniform int neighbors;
+
+        uniform vec2 texture_size;
+        uniform vec2 tile_size;
+
+        uniform vec2 tile_depth_range;
+        
+        void main() {
+            //gl_FragCoord / texture_size
+            vec2 pixel = 1 / texture_size;
+
+            map_texture = texture(texture_atlas, fragTexCoord);
+            /*if (frag0.a == 0){
+                frag0 = texture(texture_atlas, fragTexCoord + (tile_size * vec2(0., 1.))*pixel);
+            }*/
+
+            map_depth = texture(texture_atlas, fragTexCoord + (tile_size * vec2(0., 1.)*pixel*2.));
+            map_depth.rgb *= (tile_depth_range.y - tile_depth_range.x);
+            map_depth.rgb += tile_depth_range.x;
+
+            map_texture *= map_depth;
+
+            map_normalmap = texture(texture_atlas, fragTexCoord + (tile_size * vec2(0., 1.)*pixel*3.));
+        }
+    )";
+
     Atlas *atlas;
     vector<vector<vector<int>>> data;
-    ivec3 size;
+    ivec3 map_size;
     public:
+    ivec2 texture_size;
     ivec3 offset = ivec3();
     Map(vector<vector<vector<int>>> new_data, Atlas* atlas){
         data = new_data;
         this->atlas = atlas;
         ivec3 tile_size = this->atlas->tile_size;
-        size = ivec3(data[0][0].size(), data.size(), data[0].size());
-        texture_size = ivec2(tile_size.x * size.x + tile_size.z * size.z + 2, tile_size.z * size.z + tile_size.y * size.y + 2);
-        texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_size.x, texture_size.y);
-        depth_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_size.x, texture_size.y);
-        normals_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_size.x, texture_size.y);
-        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+        map_size = ivec3(data[0][0].size(), data.size(), data[0].size());
+        texture_size = ivec2(tile_size.x * map_size.x + tile_size.z * map_size.z + 2, tile_size.z * map_size.z + tile_size.y * map_size.y + 2);
+
+        glGenTextures(1, &map_texture);
+        glBindTexture(GL_TEXTURE_2D, map_texture);
+        game.set_default_image_settings();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_size.x, texture_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
+        glGenTextures(1, &map_normalmap);
+        glBindTexture(GL_TEXTURE_2D, map_normalmap);
+        game.set_default_image_settings();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_size.x, texture_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
+        glGenTextures(1, &map_depth);
+        glBindTexture(GL_TEXTURE_2D, map_depth);
+        game.set_default_image_settings();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_size.x, texture_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
+        glGenFramebuffers(1, &buffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, buffer);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, map_texture, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, map_depth, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, map_normalmap, 0);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        GLint success;
+
+        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertexShader, 1, &tile_shader_vert_src, NULL);
+        glCompileShader(vertexShader);
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+         if (!success) {
+            GLchar infoLog[512];
+            glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+            std::cerr << "Tile shader compilation failed: " << infoLog << std::endl;
+        }
+
+        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, 1, &tile_shader_frag_src, NULL);
+        glCompileShader(fragmentShader);
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+        if (!success) {
+            GLchar infoLog[512];
+            glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+            std::cerr << "Tile shader compilation failed: " << infoLog << std::endl;
+        }
+
+
+        tile_shader = glCreateProgram();
+        glAttachShader(tile_shader, vertexShader);
+        glAttachShader(tile_shader, fragmentShader);
+        glLinkProgram(tile_shader);
+        glGetProgramiv(tile_shader, GL_LINK_STATUS, &success);
+        if (!success) {
+            GLchar infoLog[512];
+            glGetProgramInfoLog(tile_shader, 512, NULL, infoLog);
+            std::cerr << "Tile shader program linking failed: " << infoLog << std::endl;
+        }
+        glDeleteShader(fragmentShader);
+        glDeleteShader(vertexShader);
     }
     ivec2 get_texture_size(){return texture_size;}
-    void draw(){
-        SDL_Rect dstrect = SDL_Rect{offset.x, offset.y, texture_size.x, texture_size.y};
-        SDL_RenderCopy(renderer, texture, nullptr, &dstrect);
+    GLuint get_texture(){
+        return map_texture;
     }
-    void draw_normals(){
-        SDL_Rect dstrect = SDL_Rect{offset.x, offset.y, texture_size.x, texture_size.y};
-        SDL_RenderCopy(renderer, normals_texture, nullptr, &dstrect);
-    }
-    void draw_depth(){
-        SDL_Rect dstrect = SDL_Rect{offset.x, offset.y, texture_size.x, texture_size.y};
-        SDL_RenderCopy(renderer, depth_texture, nullptr, &dstrect);
+    void draw(vec2 dst_size){
+        vec4 dst = {offset.x, offset.y, texture_size.x, texture_size.y};
+        vec4 dst_uv = {
+            remap(dst.x, 0, dst_size.x, -1, 1),
+            remap(dst.y, 0, dst_size.y, -1, 1),
+            remap(dst.z, 0, dst_size.x, -1, 1),
+            remap(dst.w, 0, dst_size.y, -1, 1),
+        };
+        glBindTexture(GL_TEXTURE_2D, map_depth);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0, 0); glVertex2f(dst_uv.x, dst_uv.y);
+        glTexCoord2f(1, 0); glVertex2f(dst_uv.z, dst_uv.y);
+        glTexCoord2f(1, 1); glVertex2f(dst_uv.z, dst_uv.w);
+        glTexCoord2f(0, 1); glVertex2f(dst_uv.x, dst_uv.w);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     bool has_tile_wrapped(ivec3 pos){
@@ -220,70 +268,66 @@ class Map{
         return state;
     }
 
+    // ! warn ! loses fbo context!
     void render(Atlas* atlas){
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_SetRenderTarget(renderer, depth_texture);
-        SDL_RenderClear(renderer);
-        float depth_step = 1. / (float)(size.z+1) * 255.;
-        for (int z = 0; z < size.z; z++){
-            float depth = (float)(z+1) / (float)(size.z+1) * 255.;
-            atlas->set_depth(depth);
-            atlas->set_alpha(255);
-            for (int y = 0; y < size.y; y++){
-                for (int x = size.x - 1; x >= 0; x--){
+
+        /*
+        outdated....
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+        gl_FragData in shader
+        */
+        glBindFramebuffer(GL_FRAMEBUFFER, buffer);
+        GLenum attachments[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(3, attachments);  
+
+        glViewport(0, 0, texture_size.x, texture_size.y);
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendEquation(GL_BLEND_COLOR);
+        glUseProgram(tile_shader);
+        
+
+
+        vec4 tile_rect_size = atlas->get_tile_rect(0);
+        glBindTexture(GL_TEXTURE_2D, map_texture);
+
+        glUniform1i(glGetUniformLocation(tile_shader, "texture_atlas"), 0);
+        glUniform2f(glGetUniformLocation(tile_shader, "texture_size"), atlas->atlas_size.x, atlas->atlas_size.y);
+        glUniform2f(glGetUniformLocation(tile_shader, "tile_size"), tile_rect_size.z, tile_rect_size.w);
+
+        float depth_step = 1. / (float)(map_size.z+1);
+
+        for (int y = 0; y < map_size.y; y++){
+            for (int z = 0; z < map_size.z; z++){
+                float tile_depth = depth_step * z;
+                glUniform2f(glGetUniformLocation(tile_shader, "tile_depth_range"), tile_depth, tile_depth+depth_step);
+                for (int x = map_size.x - 1; x >= 0; x--){
                     int tile = data[y][z][x];
                     if (tile != 0){
-                        atlas->draw_tile_depth(tile - 1, ivec3(x, y - size.y + 1, z));
-                        //atlas->set_depth(255);
-                        //atlas->set_alpha(depth);
-                        //atlas->draw_depth_tile(tile - 1, ivec3(x, y - size.y + 1, z));
+                        vec4 rect = atlas->get_tile_rect(tile - 1);
+                        int neighbors_state = get_tile_neighbors_state({x, y, z});
+                        glUniform1i(glGetUniformLocation(tile_shader, "neighbors"), neighbors_state);
+                        atlas->draw_tile(get_texture_size(), tile - 1, ivec3(x, y - map_size.y + 1, z), tile_shader);
                     }
                 }
             }
         }
-        atlas->set_depth(255);
-        atlas->set_alpha(255);
-        SDL_SetRenderTarget(renderer, normals_texture);
-        SDL_RenderClear(renderer);
-        for (int y = 0; y < size.y; y++){
-            for (int z = 0; z < size.z; z++){
-                for (int x = size.x - 1; x >= 0; x--){
-                    int tile = data[y][z][x];
-                    if (tile != 0){
-                        atlas->draw_tile_normals(tile - 1, ivec3(x, y - size.y + 1, z));
-                    }
-                }
-            }
-        }
-        SDL_SetRenderTarget(renderer, texture);
-        SDL_RenderClear(renderer);
-        for (int y = 0; y < size.y; y++){
-            for (int z = 0; z < size.z; z++){
-                for (int x = size.x - 1; x >= 0; x--){
-                    int tile = data[y][z][x];
-                    if (tile != 0){
-                        atlas->draw_tile(tile - 1, ivec3(x, y - size.y + 1, z), get_tile_neighbors_state(ivec3(x, y, z)));
-                    }
-                }
-            }
-        }
-        SDL_SetRenderTarget(renderer, NULL);
+        glDisable(GL_BLEND);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     ~Map(){ // cleanup
-        SDL_DestroyTexture(texture);
+        if (map_texture != 0) glDeleteTextures(1, &map_texture);
+        if (map_normalmap != 0) glDeleteTextures(1, &map_normalmap);
+        if (map_depth != 0) glDeleteTextures(1, &map_depth);
+        glDeleteFramebuffers(1, &buffer);
     }
 };
 
-bool check_quit_event(){
-    SDL_PollEvent(&event);
-    switch (event.type)
-    {
-        case SDL_QUIT:
-            return true;
-    }
-    return false;
-}
+
 
 /*
     passes:
@@ -293,22 +337,10 @@ bool check_quit_event(){
         draw entities
         draw particles
         ??? reflections ???
-
-
-
-
-     
-
-    -> SDL_TEXTURE -> draw map ~> GL_TEXTURE     \
-    -> SDL_TEXTURE -> draw normals ~> GL_TEXTURE  } -> shader -> 
-    -> SDL_TEXTURE -> draw depth ~> GL_TEXTURE   /
-
-
 */
 
 
 
-Game game = Game();
 int main(int argc, char ** argv)
 {
     game.init();
@@ -404,28 +436,129 @@ int main(int argc, char ** argv)
     );
     scene.update_primitive_scene(&primitive_scene);
 
+    const char* vertexShaderSource = R"(
+        #version 330 core
+        layout(location = 0) in vec3 vertexPosition;
+        void main() {
+            gl_Position = vec4(vertexPosition, 1.0);
+        }
+    )";
+
+    const char* fragmentShaderSource = R"(
+        #version 330 core
+        out vec4 frag;
+        uniform vec2 size;
+        uniform vec2 target_size;
+        
+        mat4 bayerIndex = mat4(
+            vec4(00.0/16.0, 12.0/16.0, 03.0/16.0, 15.0/16.0),
+            vec4(08.0/16.0, 04.0/16.0, 11.0/16.0, 07.0/16.0),
+            vec4(02.0/16.0, 14.0/16.0, 01.0/16.0, 13.0/16.0),
+            vec4(10.0/16.0, 06.0/16.0, 09.0/16.0, 05.0/16.0));
+        
+        float dither8x8(float r) {    
+            float threshold = bayerIndex[int(gl_FragCoord.x)%4][int(gl_FragCoord.y)%4];
+            //return mix(r, r * floor(floor(r * 64.) / 64. + threshold) * 1.5, 1);
+            return r > threshold ? 1:0;
+        }
+
+        void main() {
+            vec3 color1 = vec3(0.7, 0.94, 0.99);
+            color1 = vec3(0.102, 0.6, 0.713);
+            vec3 color2 = vec3(0.04, 0.35, 0.45);
+            vec2 uv = gl_FragCoord.xy / size.xy;
+            float y = clamp((gl_FragCoord.y - size.y / 4.) / 32 - cos((gl_FragCoord.x-size.x/2.)/size.x * 4.) * 0.5, 0, 1);
+            frag = vec4(mix(color1, color2, dither8x8(y)), 1.);
+
+            //if (pixelPos.x < big.x && pixelPos.x > sml.x && pixelPos.y < big.y && pixelPos.y > sml.y) FragColor.b = 1.;
+
+            //frag = pixelPos.y > target_size.y / 2 ? vec4(0.7, 0.94, 0.99, 1.) : vec4(0.04, 0.35, 0.45, 1.);
+        }
+    )";
+
+    GLint success;
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        GLchar infoLog[512];
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cerr << "Compute shader compilation failed: " << infoLog << std::endl;
+    }
+
+
+
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        GLchar infoLog[512];
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        std::cerr << "Compute shader compilation failed: " << infoLog << std::endl;
+    }
+
+
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        GLchar infoLog[512];
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cerr << "Compute shader program linking failed: " << infoLog << std::endl;
+    }
     
 
     while (game.is_running())
     {
+
+        game.start_timer();
+
         float time = game.time();
+
+        
+
         while (SDL_PollEvent(&event))
         {
             game.handle_event(event);
         }
-        //SDL_Delay(10);
+
         map.render(&atlas);
 
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        game.switch_to_main();
-        
-        SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
-        SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
-        SDL_RenderFillRect(renderer, &rect);
-        ivec2 map_size = map.get_texture_size();
-        //map.offset = ivec3((float)(TARGET_WIDTH - map_size.x) / 2., (float)(TARGET_HEIGHT - map_size.y) / 2., 0);
-        map.draw_depth();
+        game.begin_main();
+        glClearColor(0, 0, 0, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(shaderProgram);
+        glUniform2f(glGetUniformLocation(shaderProgram, "target_size"), TARGET_WIDTH, TARGET_HEIGHT);
+        glUniform2f(glGetUniformLocation(shaderProgram, "size"), game.get_screen_size().x, game.get_screen_size().y);
+        game.draw_fullscreen_quad();
+        glUseProgram(0);
+        map.draw(game.screen_pixel_size);
+        game.end_main();
+        glClearColor(0, 0, 0, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        game.draw_main();
+        SDL_GL_SwapWindow(window);
+
+        cout << "Frame time: " << game.end_timer() << " us" << endl;
+        //SDL_Delay(10);
+        //map.render(&atlas);
+//
+        //SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        //SDL_RenderClear(renderer);
+        //game.switch_to_main();
+        //
+        //SDL_SetRenderDrawColor(renderer, 20, 20, 100, 255);
+        //SDL_Rect rect = SDL_Rect{0, 0, TARGET_WIDTH, TARGET_HEIGHT};
+        //SDL_RenderFillRect(renderer, &rect);
+        //ivec2 map_size = map.get_texture_size();
+        ////map.offset = ivec3((float)(TARGET_WIDTH - map_size.x) / 2., (float)(TARGET_HEIGHT - map_size.y) / 2., 0);
+        //map.draw_depth();
         //shader.check_file_updates();
         //shader.use();
         //shader.set_1f("time", time);
@@ -436,17 +569,16 @@ int main(int argc, char ** argv)
         //shader.wait();
         //rect = {20, 20, shader_texture_size.x, shader_texture_size.y};
         //SDL_RenderCopy(renderer, shader.get_texture(), nullptr, &rect);
-
-
         // todo: alpha checks for depth buffer draw
-        game.debugger.update_basic();
-        game.debugger.draw();
-        game.apply_main();
-
-        SDL_RenderPresent(renderer);
+        //game.debugger.update_basic();
+        //game.debugger.draw();
+        //game.apply_main();
     }
+    glDeleteProgram(shaderProgram);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
     IMG_Quit();
     game.destroy();
-    cleanup();
     return 0;
 }

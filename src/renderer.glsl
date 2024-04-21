@@ -147,6 +147,7 @@ void demo(out vec4 fragColor, in vec2 fragCoord) {
 
 void main() {
     ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
+    vec4(0.102, 0.6, 0.7137, 1.0);
     vec4 pixel = vec4(sin(float(storePos.x) * 0.1 + time) * 0.5 + 0.5, cos(float(storePos.y) * 0.1 + time) * 0.5 + 0.5, 0.0, 1.0);
     imageStore(destTex, storePos, pixel);
 }

@@ -171,14 +171,18 @@ class Game{
     ivec2 screen_pixel_size = ivec2(TARGET_WIDTH, TARGET_HEIGHT);
     ivec4 screen_rect = ivec4(0, 0, TARGET_WIDTH, TARGET_HEIGHT);
     vec4 uv_screen_rect = vec4(-1, -1, 1, 1);
+
     GLuint screen_texture = 0;
     GLuint screen_normalmap = 0;
     GLuint screen_depth = 0;
+
     GLuint framebuffer = 0;
+
     GLuint default_shader = 0;
     
     Debugger debugger;
 
+    
 
     void init(){
         SDL_Init(SDL_INIT_VIDEO);
@@ -194,9 +198,6 @@ class Game{
         debugger = Debugger();
         debugger.register_basic();
         
-        glGenFramebuffers(1, &framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glGenTextures(1, &screen_texture);
         update_resolution();
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
@@ -212,13 +213,25 @@ class Game{
     }
 
     typedef void (*Function)(void);
-    auto check_time(Function fn){
+    auto check_fn_time(Function fn){
         auto start = chrono::high_resolution_clock::now();
         fn();
         auto end = chrono::high_resolution_clock::now();
         auto duration = chrono::duration_cast<chrono::microseconds>(end - start);
         return duration.count();
+
     }
+
+    chrono::high_resolution_clock::time_point timer_start;
+    void start_timer(){
+        timer_start = chrono::high_resolution_clock::now();
+    }
+    auto end_timer(){
+        auto end = chrono::high_resolution_clock::now();
+        auto duration = chrono::duration_cast<chrono::microseconds>(end - timer_start);
+        return duration.count();
+    }
+
 
 
     bool is_running(){
@@ -255,6 +268,13 @@ class Game{
         }
     }
 
+    void set_default_image_settings(){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
     void update_resolution(){ // mamma mia!
         debugger.update_line(string("int_scale"), string(true_scalling?"TRUE":"FALSE"));
         int current_window_w;
@@ -284,20 +304,31 @@ class Game{
             ceil(current_window_w / x_per_px),
             ceil(current_window_h / y_per_px)
         };
-        if (screen_texture != 0)
-            glDeleteTextures(1, &screen_texture);
-        if (framebuffer != 0)
-            glDeleteFramebuffers(1, &framebuffer);
+        if (screen_texture != 0) glDeleteTextures(1, &screen_texture);
+        if (screen_normalmap != 0) glDeleteTextures(1, &screen_normalmap);
+        if (screen_depth != 0) glDeleteTextures(1, &screen_depth);
+        if (framebuffer != 0) glDeleteFramebuffers(1, &framebuffer);
+
         glGenTextures(1, &screen_texture);
         glBindTexture(GL_TEXTURE_2D, screen_texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screen_pixel_size.x, screen_pixel_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        set_default_image_settings();
+
+        glGenTextures(1, &screen_normalmap);
+        glBindTexture(GL_TEXTURE_2D, screen_normalmap);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screen_pixel_size.x, screen_pixel_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        set_default_image_settings();
+
+        glGenTextures(1, &screen_depth);
+        glBindTexture(GL_TEXTURE_2D, screen_depth);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screen_pixel_size.x, screen_pixel_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        set_default_image_settings();
+
         glGenFramebuffers(1, &framebuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, screen_texture, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, screen_depth, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, screen_normalmap, 0);
         GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         char buffer[20];
         snprintf(buffer, sizeof(buffer), "%ix%i", screen_pixel_size.x, screen_pixel_size.y);
@@ -311,7 +342,14 @@ class Game{
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         glViewport(0, 0, screen_pixel_size.x, screen_pixel_size.y);
     }
-
+    void draw_fullscreen_quad(){
+        glBegin(GL_QUADS);
+        glVertex3f(-1, 1, 0);
+        glVertex3f(1, 1, 0);
+        glVertex3f(1, -1, 0);
+        glVertex3f(-1, -1, 0);
+        glEnd();
+    }
     void end_main(){
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, screen_rect.z, screen_rect.w);
@@ -319,7 +357,6 @@ class Game{
     void draw_main(){
         glBindTexture(GL_TEXTURE_2D, screen_texture);
         glBegin(GL_QUADS);
-        glColor3f(1., 1., 1.);
         glTexCoord2f(0, 0); glVertex2f(uv_screen_rect.x, uv_screen_rect.y);
         glTexCoord2f(1, 0); glVertex2f(uv_screen_rect.z, uv_screen_rect.y);
         glTexCoord2f(1, 1); glVertex2f(uv_screen_rect.z, uv_screen_rect.w);
