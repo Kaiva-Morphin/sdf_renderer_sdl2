@@ -1,11 +1,7 @@
 #version 430 core
 
-layout (local_size_x = 16, local_size_y = 16) in;
-
 uniform float time;
 uniform vec2 texture_size;
-layout(rgba8, binding = 0) writeonly uniform image2D destTex;
-
 
 struct Primitive{
     mat4x4 transform;
@@ -219,8 +215,8 @@ SDFResponse SampleScene(vec3 point){
   return SDFResponse(colors[scene.operations-1], distances[scene.operations-1]);
 }
 
-const float near_z = 5.;
-const float far_z = -5.;
+const float near_z = 2.;  // todo: ???
+const float far_z = -2.;  // todo: ???
 const float min_dist = 0.01;
 const float max_dist = abs(near_z) + abs(far_z) + 1;
 const int steps = 128;
@@ -294,40 +290,27 @@ float remap(float value, float fromLow, float fromHigh, float toLow, float toHig
     return toLow + normalized * (toHigh - toLow);
 }
 
+
+
+out vec4 frag_color;
+in vec2 fragTexCoord;
+
+
 void main() {
-  /*perspective_matrix = mat3(
-    1., 0., 0.,
-    0., 1., 0.,
-    0., 0., 1
-  );*/
-  ivec2 pixel_pos = ivec2(gl_GlobalInvocationID.xy); // pixel pos
-  vec2 uv_pos = 1 - (pixel_pos / texture_size);
+  vec2 pixel_pos = fragTexCoord.xy * texture_size; // pixel pos
+  vec2 uv_pos = 1 - fragTexCoord;
   vec4 pixel_color = vec4(0.0863, 0.1765, 0.2549, 0.0);
   vec3 sun = vec3(1., 1., 1.); // sun direction
   vec3 start = vec3((pixel_pos.x - (texture_size.x * 0.5)) * scale_factor, (pixel_pos.y - (texture_size.y * 0.5)) * -scale_factor, near_z);
   vec3 point = start;
   vec3 direction = vec3(0., 0., -1.);
-  /*for (int i = 0; i < scene.operations; i ++){
-    scene.ordered_operations[i].value = (sin(time) * 0.5 + 0.5) * 2. + 1.;
-  }*/
-  //scene.ordered_operations[scene.operations - 1].value = pow(sin(time * 5.) * 1.5, 2.) + 0.5;
-
-  /*scene.primitives[0].transform = eulerXYZ(sin(time) * 90, cos(time) * 90, 0.) * mat4x4(
+  scene.primitives[0].transform = mat4x4( // todo: ???
     1., 0., 0., 0.,
     0., 1., 0., 0.,
-    -0.22, 0.22, 0.7, 0.,
-    0., 0., 0., 1.
-  );*/
-
-  //scene.primitives[0].rounding = 1;
-  //scene.primitives[0].primitive_type = 0;
-  
-  scene.primitives[0].transform = mat4x4(
-    1., 0., 0., 0.,
-    0., 1., 0., 0.,
-    0.22, 0.22, 0.5, 0.,
-    0., 0., 0., 1.
-  );/* mat4x4(
+    0.241, 0.241, 0.5, 0.,
+    0., -1., 0., 1.
+  );
+  /* mat4x4(
     1., 0., 0., 0.,
     0., 1., 0., 0.,
     0., 0., 1., 0.,
@@ -338,35 +321,34 @@ void main() {
   relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x);
   relative_uv.y = depth_texture_rect.y * -1 + uv_pos.y * (depth_texture_rect.w - depth_texture_rect.y);
   float texture_depth = texture(map_depth, relative_uv).r;
-  //pixel_color.rgba = vec4(texture_depth, texture_depth, texture_depth, 1.);
+  pixel_color.rgb = vec3(texture_depth);
   //scene.primitives[0].position = -vec4(2.4, -2.5, 0., 0.);
   for (int i=0;i<steps;i++) {
     SDFResponse r = SampleScene(point);
     if (r.dist > max_dist || point.z <= far_z){
-      //pixel.rgb = vec3(0.);
       break;
     }
     if (r.dist <= min_dist) {
       vec3 pos = point;
       vec3 nor = calcNormal(pos);
-      vec3  lig = normalize(sun);
+      vec3 lig = normalize(sun);
       float dif = clamp(dot(nor,lig),0.0,1.0);
       float sha = 1.;//calcSoftshadow( pos, lig, min_dist, max_dist, 16.0 );
       float amb = 0.9 + 0.1 * nor.y;
       float depth = 1. - length(start - pos) / (near_z - far_z);
-      /* 0 -> 1  ~>  self_depth_range.x -> self_depth_range.y*/
-      //depth *= self_depth_range.y - self_depth_range.x;
       depth = remap(depth, 0, 1, self_depth_range.x, self_depth_range.y);
       
       if (depth > texture_depth){
-      pixel_color.rgb =  vec3(0.2078, 0.2549, 0.298)*amb*r.color + vec3(1.00,0.9,0.80)*dif*sha*r.color; // color with shadows
-      pixel_color.a = 1;
-    }
+        pixel_color.rgb =  vec3(0.2078, 0.2549, 0.298)*amb*r.color + vec3(1.00,0.9,0.80)*dif*sha*r.color; // color with shadows
+        pixel_color.a = 1;
+      }
+      //pixel_color.rgb = vec3(depth);
       break;
     }
     point += direction * r.dist;
   }
-  //pixel_color.a = 0.5;
-  
-  imageStore(destTex, pixel_pos, pixel_color);
+  pixel_color.a = 1;
+  //pixel_color.rgba = vec4(texture_depth, texture_depth, texture_depth, 1.);
+  frag_color = pixel_color;
+  //frag_color = vec4(relative_uv, 0., 1.);
 }

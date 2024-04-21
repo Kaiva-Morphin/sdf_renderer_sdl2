@@ -31,8 +31,9 @@ class Shader{
     string current_src;
     int width;
     int height;
-    string read_shader(){
-        ifstream fileStream(filePath);
+    string read_shader(string path=""){
+        if (path=="") path = filePath;
+        ifstream fileStream(path);
         if (!fileStream.is_open()) {
             cerr << "ERROR! Cant open file!" << endl;
             return "";
@@ -50,6 +51,9 @@ class Shader{
     }
     void set_2f(const char* name, float value1, float value2){
         glUniform2f(glGetUniformLocation(program, name), value1, value2);
+    }
+    void set_4f(const char* name, float value1, float value2, float value3, float value4){
+        glUniform4f(glGetUniformLocation(program, name), value1, value2, value3, value4);
     }
 };
 
@@ -187,7 +191,6 @@ class Game{
     void init(){
         SDL_Init(SDL_INIT_VIDEO);
         window = SDL_CreateWindow("Simple Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_OPENGL);
-        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
         context = SDL_GL_CreateContext(window);
         //renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
         glewExperimental = GL_TRUE;
@@ -201,8 +204,10 @@ class Game{
         update_resolution();
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
         SDL_SetWindowResizable(window, SDL_bool::SDL_TRUE);
         SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SCALING, "1");
+        SDL_GL_SetSwapInterval(0);
         TTF_Init();
         font = TTF_OpenFont("assets/fonts/TinyUnicode.ttf", 16);
 
@@ -226,10 +231,13 @@ class Game{
     void start_timer(){
         timer_start = chrono::high_resolution_clock::now();
     }
-    auto end_timer(){
+    auto timer_end(){
         auto end = chrono::high_resolution_clock::now();
         auto duration = chrono::duration_cast<chrono::microseconds>(end - timer_start);
         return duration.count();
+    }
+    void print_timer_end(){
+        cout << "Elapsed time: " << timer_end() << " μs" << endl;
     }
 
 
@@ -355,6 +363,7 @@ class Game{
         glViewport(0, 0, screen_rect.z, screen_rect.w);
     }
     void draw_main(){
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, screen_texture);
         glBegin(GL_QUADS);
         glTexCoord2f(0, 0); glVertex2f(uv_screen_rect.x, uv_screen_rect.y);
@@ -364,6 +373,8 @@ class Game{
         glEnd();
         glBindTexture(GL_TEXTURE_2D, 0);
     }
+
+    
 
     void destroy(){
         if (screen_texture != 0) glDeleteTextures(1, &screen_texture);
@@ -379,13 +390,15 @@ class Game{
 class SDF_Shader : public Shader{
     Debugger* debugger;
     GLuint scenebuffer;
-    GLuint outputTexture;
+    GLuint scene_texture;
     GLuint characterTexture;
     GLuint computeShader = glCreateShader(GL_COMPUTE_SHADER);
     SDL_Texture* sdl_output_texture = nullptr;
     int width;
     int height;
-    
+    vec2 map_texture_size;
+    vec3 map_size;
+    vec3 position;
     public:
     
     SDF_Shader(string path, Debugger* debugger){
@@ -399,8 +412,8 @@ class SDF_Shader : public Shader{
         width = w;
         height = h;
         current_src = read_shader();
-        glGenTextures(1, &outputTexture);
-        glBindTexture(GL_TEXTURE_2D, outputTexture);
+        glGenTextures(1, &scene_texture);
+        glBindTexture(GL_TEXTURE_2D, scene_texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -415,9 +428,7 @@ class SDF_Shader : public Shader{
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
-        
         compile();
-
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_3D, characterTexture);
         glUniform1i(glGetUniformLocation(program, "character_texture"), 0);
@@ -438,6 +449,7 @@ class SDF_Shader : public Shader{
         }
         glAttachShader(program, computeShader);
         glLinkProgram(program);
+        glDeleteShader(computeShader);
         glGetProgramiv(program, GL_LINK_STATUS, &success);
         if (!success) {
             GLchar infoLog[512];
@@ -446,21 +458,27 @@ class SDF_Shader : public Shader{
             this->debugger->update_line("SDFshader", string("program linking failed! check console"));
             return;
         }
-        glBindImageTexture(0, outputTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+        glBindImageTexture(0, scene_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
         glGenBuffers(1, &scenebuffer);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
         this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
     }
     void destroy(){
-        glDeleteTextures(1, &outputTexture);
+        glDeleteTextures(1, &scene_texture);
         glDeleteTextures(1, &characterTexture);
         glDeleteBuffers(1, &scenebuffer);
         SDL_DestroyTexture(sdl_output_texture);
-        glDeleteShader(computeShader);
         glDeleteProgram(program);
     }
     void use(){
         glUseProgram(program);
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, scene_texture);
+        glUniform1i(glGetUniformLocation(program, "destTex"), 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_3D, characterTexture);
+        glUniform1i(glGetUniformLocation(program, "character_texture"), 1);
     }
     
     void check_file_updates(){
@@ -473,33 +491,256 @@ class SDF_Shader : public Shader{
     void run(){
         glDispatchCompute(ceil((float)width / 16.), ceil((float)height / 16.), 1);
     }
+
+    void draw(vec2 dst_size){
+        ivec3 tile_size = ivec3(16, 10, 8);
+        vec2 half_map_size = map_texture_size * 0.5f;
+        vec3 dest = position;
+        dest.y -= map_size.y;
+        dest.y += 1;
+        dest *= tile_size;
+        
+        
+        dest += ivec3(8, -5, 4); // centering
+
+        vec2 pos2d = ivec2{1 + dest.x + dest.z, (1 + dest.z - dest.y)};
+
+        glUniform4f(glGetUniformLocation(program, "depth_texture_rect"), 
+            remap(pos2d.x-width * 0.5, 0, map_texture_size.x, 0, 1),
+            remap(pos2d.y-height * 0.5 + 10, 0, map_texture_size.y, 0, 1),   //idk why 10, inv centering y?
+            remap(pos2d.x+width * 0.5, 0, map_texture_size.x, 0, 1),
+            remap(pos2d.y+height * 0.5 + 10, 0, map_texture_size.y, 0, 1)    //idk why 10, inv centering y?
+        );
+        pos2d.y = map_texture_size.y - pos2d.y;
+        pos2d = -half_map_size + pos2d;
+        pos2d += dst_size * 0.5f;
+        
+
+        vec4 dst_rect = {pos2d.x+width/2, pos2d.y+height/2, pos2d.x-width/2, pos2d.y-height/2};
+
+        vec4 dst_uv = {
+            remap(dst_rect.x, 0, dst_size.x, -1, 1),
+            remap(dst_rect.y, 0, dst_size.y, -1, 1),
+            remap(dst_rect.z, 0, dst_size.x, -1, 1),
+            remap(dst_rect.w, 0, dst_size.y, -1, 1),
+        };
+        glBindTexture(GL_TEXTURE_2D, scene_texture);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0, 0); glVertex2f(dst_uv.x, dst_uv.y);
+        glTexCoord2f(1, 0); glVertex2f(dst_uv.z, dst_uv.y);
+        glTexCoord2f(1, 1); glVertex2f(dst_uv.z, dst_uv.w);
+        glTexCoord2f(0, 1); glVertex2f(dst_uv.x, dst_uv.w);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glUseProgram(0);
+    }
+
+    void update_map(GLuint depth_texture, vec2 map_texture_size, vec3 map_size){
+        this->map_size = map_size;
+        this->map_texture_size = map_texture_size;
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, depth_texture);
+        glUniform1i(glGetUniformLocation(program, "map_depth"), 2);
+        glActiveTexture(GL_TEXTURE0);
+    }
+
+    void set_position(vec3 pos){
+        position = pos;
+        float depth_step = 1. / (float)(map_size.z+1);
+        float depth = depth_step * position.z;
+        glUniform2f(glGetUniformLocation(program, "self_depth_range"), depth, depth+depth_step);
+    }
+
     void wait(){
         glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
     }
-    SDL_Texture* get_texture(){
-        GLubyte* pixels = new GLubyte[width * height * 4];
-        glBindTexture(GL_TEXTURE_2D, outputTexture);
-        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-        SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(pixels, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32);
-        if (!surface) {
-            delete[] pixels;
-            printf("SDL Error: %s\n", SDL_GetError());
-            return nullptr;
+
+    void set_scene(PrimitiveScene* primitive_scene){
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(*primitive_scene), primitive_scene, GL_DYNAMIC_DRAW);
+    }
+};
+
+class SDF_Frag_Shader : public Shader{
+    Debugger* debugger;
+    GLuint scenebuffer;
+    GLuint scene_texture;
+    GLuint characterTexture;
+    GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
+    SDL_Texture* sdl_output_texture = nullptr;
+    int width;
+    int height;
+    vec2 map_texture_size;
+    vec3 map_size;
+    vec3 position;
+    string vertex_path;
+    public:
+    
+    SDF_Frag_Shader(string frag_path, string vert_path, Debugger* debugger){
+        filePath = frag_path;
+        vertex_path = vert_path;
+        this->debugger = debugger;
+        this->debugger->register_line("SDFshader","SDF shader status: ","NOT INITED!");
+    }
+    
+    void init(int w, int h, ivec3 binded_texture_size, GLubyte* binded_texture_data){
+        this->debugger->register_line("SDFshader","SDF shader status: ","Initing...");
+        width = w;
+        height = h;
+        current_src = read_shader();
+        glGenTextures(1, &scene_texture);
+        glBindTexture(GL_TEXTURE_2D, scene_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        glGenTextures(1, &characterTexture);
+        glBindTexture(GL_TEXTURE_3D, characterTexture);
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB8, binded_texture_size.x, binded_texture_size.y, binded_texture_size.z, 0, GL_RGB, GL_UNSIGNED_BYTE, binded_texture_data);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
+        compile();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_3D, characterTexture);
+        glUniform1i(glGetUniformLocation(program, "character_texture"), 0);
+    }
+    void compile(){
+        this->debugger->register_line("SDFshader","SDF shader status: ","Compiling...");
+        const GLchar* shaderSource = current_src.c_str();
+        glShaderSource(frag_shader, 1, &shaderSource, NULL);
+        glCompileShader(frag_shader);
+        GLint success;
+        glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &success);
+        if (!success) {
+            GLchar infoLog[512];
+            glGetShaderInfoLog(frag_shader, 512, NULL, infoLog);
+            std::cerr << "Fragment shader compilation failed: " << infoLog << std::endl;
+            this->debugger->update_line("SDFshader", string("compilation failed! check console"));
+            return;
         }
-        if (sdl_output_texture != nullptr) SDL_DestroyTexture(sdl_output_texture);
         
-        sdl_output_texture = nullptr;//SDL_CreateTextureFromSurface(renderer, surface);
-        
-        delete[] pixels;
-        SDL_FreeSurface(surface);
-        if (!sdl_output_texture) {
-            printf("SDL Error: %s\n", SDL_GetError());
-            return nullptr;
+        const GLchar* vert_shaderSource = read_shader(vertex_path).c_str();
+        glShaderSource(vert_shader, 1, &vert_shaderSource, NULL);
+        glCompileShader(vert_shader);
+        glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &success);
+        if (!success) {
+            GLchar infoLog[512];
+            glGetShaderInfoLog(vert_shader, 512, NULL, infoLog);
+            std::cerr << "Vertex shader compilation failed: " << infoLog << std::endl;
+            this->debugger->update_line("SDFshader", string("compilation failed! check console"));
+            return;
         }
-        return sdl_output_texture;
+        glAttachShader(program, vert_shader);
+        glAttachShader(program, frag_shader);
+        glLinkProgram(program);
+        glDeleteShader(vert_shader);
+        glDeleteShader(frag_shader);
+        glGetProgramiv(program, GL_LINK_STATUS, &success);
+        if (!success) {
+            GLchar infoLog[512];
+            glGetProgramInfoLog(program, 512, NULL, infoLog);
+            std::cerr << "Shader program linking failed: " << infoLog << std::endl;
+            this->debugger->update_line("SDFshader", string("program linking failed! check console"));
+            return;
+        }
+        glBindImageTexture(0, scene_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+        glGenBuffers(1, &scenebuffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
+        this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
+    }
+    void destroy(){
+        glDeleteTextures(1, &scene_texture);
+        glDeleteTextures(1, &characterTexture);
+        glDeleteBuffers(1, &scenebuffer);
+        SDL_DestroyTexture(sdl_output_texture);
+        glDeleteProgram(program);
+    }
+    void use(){
+        glUseProgram(program);
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, scene_texture);
+        glUniform1i(glGetUniformLocation(program, "destTex"), 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_3D, characterTexture);
+        glUniform1i(glGetUniformLocation(program, "character_texture"), 1);
+    }
+    
+    void check_file_updates(){
+        string new_src = read_shader();
+        if (new_src != current_src){
+            current_src = new_src;
+            compile();
+        }
+    }
+    
+
+    void draw(vec2 dst_size){
+        vec3 tile_size = vec3(16, 10, 8);
+        vec2 half_map_size = map_texture_size * 0.5f;
+        vec3 dest = position;
+        dest.y -= map_size.y;
+        dest.y += 1;
+        dest *= tile_size;
+        
+        
+        dest += vec3(8, -5, 4); // centering
+
+        vec2 pos2d = vec2{1 + dest.x + dest.z, (1 + dest.z - dest.y)};
+
+        glUniform4f(glGetUniformLocation(program, "depth_texture_rect"), 
+            remap(pos2d.x-width * 0.5, 0, map_texture_size.x, 0, 1),
+            remap(pos2d.y-height * 0.5 + 10, 0, map_texture_size.y, 0, 1),   //idk why 10, inv centering y?
+            remap(pos2d.x+width * 0.5, 0, map_texture_size.x, 0, 1),
+            remap(pos2d.y+height * 0.5 + 10, 0, map_texture_size.y, 0, 1)    //idk why 10, inv centering y?
+        );
+        pos2d.y = map_texture_size.y - pos2d.y;
+        pos2d = -half_map_size + pos2d;
+        pos2d += dst_size * 0.5f;
+        
+
+        vec4 dst_rect = {pos2d.x+width/2, pos2d.y+height/2, pos2d.x-width/2, pos2d.y-height/2};
+
+        vec4 dst_uv = {
+            remap(dst_rect.x, 0, dst_size.x, -1, 1),
+            remap(dst_rect.y, 0, dst_size.y, -1, 1),
+            remap(dst_rect.z, 0, dst_size.x, -1, 1),
+            remap(dst_rect.w, 0, dst_size.y, -1, 1),
+        };
+        //glBindTexture(GL_TEXTURE_2D, scene_texture);
+        glBegin(GL_QUADS);
+        glVertexAttrib2f(1, 0, 0); glVertex2f(dst_uv.x, dst_uv.y);
+        glVertexAttrib2f(1, 1, 0); glVertex2f(dst_uv.z, dst_uv.y);
+        glVertexAttrib2f(1, 1, 1); glVertex2f(dst_uv.z, dst_uv.w);
+        glVertexAttrib2f(1, 0, 1); glVertex2f(dst_uv.x, dst_uv.w);
+        glEnd();
+        glUseProgram(0);
+        //glBindTexture(GL_TEXTURE_2D, 0);
     }
 
+    void update_map(GLuint depth_texture, vec2 map_texture_size, vec3 map_size){
+        this->map_size = map_size;
+        this->map_texture_size = map_texture_size;
 
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, depth_texture);
+        glUniform1i(glGetUniformLocation(program, "map_depth"), 2);
+        glActiveTexture(GL_TEXTURE0);
+    }
+
+    void set_position(vec3 pos){
+        position = pos;
+        float depth_step = 1. / (float)(map_size.z+1);
+        float depth = depth_step * position.z;
+        glUniform2f(glGetUniformLocation(program, "self_depth_range"), depth, depth+depth_step);
+    }
 
     void set_scene(PrimitiveScene* primitive_scene){
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, scenebuffer);
