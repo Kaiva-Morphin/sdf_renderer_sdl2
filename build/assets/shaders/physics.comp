@@ -1,0 +1,45 @@
+#version 430 core
+
+#define FIXED 0
+#define MOVING 1
+#define RIGID 2
+
+#define CAPSULE 0
+#define BOX 1
+#define PYRAMID 2
+
+struct PhysicsPrimitive{
+    vec4 position;
+    vec4 velocity;
+    vec4 a;
+    vec4 b;
+    vec4 c;
+    float rounding;
+    float bounciness;
+    float mass;
+    int type;
+    int shape;
+};
+
+
+layout(std140, binding = 0) buffer InputBuffer {
+    PhysicsPrimitive objecs[];
+};
+layout(std140, binding = 1) buffer OutputBuffer {
+    PhysicsPrimitive next_objecs[];
+};
+
+uniform float delta;
+uniform vec3 gravity;
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    PhysicsPrimitive object = objecs[index];
+    if (object.type == RIGID){
+        object.velocity.xyz += gravity * delta;
+        object.position += object.velocity * delta;
+    }
+    next_objecs[index] = object;
+}

@@ -29,12 +29,6 @@ struct PrimitiveScene{
     PrimitiveOperation ordered_operations[32];
 };
 
-struct SDFResponse{
-  vec3 color;
-  float dist;
-};
-
-
 float sdSphere( vec3 p, float s )
 {
   return length(p)-s;
@@ -130,7 +124,7 @@ vec3 in_primitive_space(vec3 point, Primitive primitive){
 }
 
 
-SDFResponse SampleScene(vec3 point){
+vec4 SampleScene(vec3 point){
   float new_dist = 0.;
   float mindist = 100.;
   vec3 color = vec3(0., 0., 0.);
@@ -140,52 +134,36 @@ SDFResponse SampleScene(vec3 point){
     Primitive primitive = scene.primitives[i];
     //vec3 tex_color = vec3(sin(i / 3.14), cos(i / 3.14), sin(i));
     colors[i] = texture(character_texture,  vec3(0.5) - (-primitive.texture_transform * vec4(in_primitive_space(point, primitive), 1.)).xyz).rgb; // 0.1 scale ~ 5. render_units && 1 scale ~ 0.5 render_units
-    
-    switch (primitive.primitive_type){
-      case 0: //sphere
-        new_dist = sdSphere(in_primitive_space(point, primitive), primitive.rounding);
-        break;
-      case 1: //capsule
-        new_dist = sdCapsule(
+    new_dist = primitive.primitive_type == 0 ?
+      sdSphere(in_primitive_space(point, primitive), primitive.rounding)
+    :
+    primitive.primitive_type == 1 ?
+    sdCapsule(
             in_primitive_space(point, primitive),
             -primitive.a.xyz,
             -primitive.b.xyz,
             primitive.rounding
-          );
-        break;
-      case 2: //box
-        new_dist = sdBox(in_primitive_space(point, primitive), primitive.a.xyz) - primitive.rounding;
-        break;
-      case 3: //cyl
-        new_dist = sdCappedCylinder(
+          )
+    :
+    primitive.primitive_type == 2 ?
+    sdBox(in_primitive_space(point, primitive), primitive.a.xyz) - primitive.rounding
+    :
+    primitive.primitive_type == 3 ?
+    sdCappedCylinder(
             in_primitive_space(point, primitive),
             -primitive.a.xyz,
             -primitive.b.xyz,
             primitive.rounding
-          );
-        break;
-      case 4: //triangle
-        new_dist = 
-          udTriangle(
+          )
+    :
+    udTriangle(
             in_primitive_space(point, primitive),
             -primitive.a.xyz,
             -primitive.b.xyz,
             -primitive.c.xyz
         ) - primitive.rounding;
-        break;
-      default:
-        break;
-    }
     distances[i] = new_dist;
-    //float interpolation = clamp(0.5 + 0.5 * (mindist - new_dist) / 0.1, 0.0, 1.0);
-    /*mindist = opSmoothUnion(mindist, new_dist, 0.1);
-    color = mix(color, colors[i], interpolation);*/
   }
-  /*
-  float interpolation = clamp(0.5 + 0.5 * (mindist - new_dist) / 0.1, 0.0, 1.0);
-    mindist = sdf_smoothunion(mindist, new_dist, 0.1);
-    color = mix(color, tex_color, interpolation);
-  */
   for (int i=0;i<scene.operations;i++) {
     PrimitiveOperation op = scene.ordered_operations[i];
     float left = op.left_member != -1 ? distances[op.left_member] : 100.;
@@ -212,11 +190,13 @@ SDFResponse SampleScene(vec3 point){
     }
   }
   //mindist = opSmoothSubtraction(distances[0], distances[1], 0.1);
-  return SDFResponse(colors[scene.operations-1], distances[scene.operations-1]);
+  return vec4(colors[scene.operations-1], distances[scene.operations-1]);
 }
 
-const float near_z = 2.;  // todo: ???
-const float far_z = -2.;  // todo: ???
+const float near_z = 4.;
+const float far_z = -4.;
+const float max_depth = 2.;
+const float min_depth = -2.;
 const float min_dist = 0.01;
 const float max_dist = abs(near_z) + abs(far_z) + 1;
 const int steps = 128;
@@ -225,9 +205,9 @@ vec3 calcNormal( in vec3 p )
 {
     const float eps = 0.001; 
     const vec2 h = vec2(eps,0);
-    return normalize( vec3(SampleScene(p+h.xyy).dist - SampleScene(p-h.xyy).dist,
-                           SampleScene(p+h.yxy).dist - SampleScene(p-h.yxy).dist,
-                           SampleScene(p+h.yyx).dist - SampleScene(p-h.yyx).dist ) );
+    return normalize( vec3(SampleScene(p+h.xyy).w - SampleScene(p-h.xyy).w,
+                           SampleScene(p+h.yxy).w - SampleScene(p-h.yxy).w,
+                           SampleScene(p+h.yyx).w - SampleScene(p-h.yyx).w ) );
 }
 
 float calcSoftshadow( in vec3 ro, in vec3 rd, float tmin, float tmax, const float k )
@@ -236,7 +216,7 @@ float calcSoftshadow( in vec3 ro, in vec3 rd, float tmin, float tmax, const floa
     float t = tmin;
     for( int i=0; i<50; i++ )
     {
-		float h = SampleScene( ro + rd*t ).dist;
+		float h = SampleScene( ro + rd*t ).w;
         res = min( res, k*h/t );
         t += clamp( h, 0.02, 0.20 );
         if( res<0.005 || t>tmax ) break;
@@ -308,7 +288,7 @@ void main() {
     1., 0., 0., 0.,
     0., 1., 0., 0.,
     0.241, 0.241, 0.5, 0.,
-    0., -1., 0., 1.
+    0., 0., 0, 1.
   );
   /* mat4x4(
     1., 0., 0., 0.,
@@ -321,34 +301,29 @@ void main() {
   relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x);
   relative_uv.y = depth_texture_rect.y * -1 + uv_pos.y * (depth_texture_rect.w - depth_texture_rect.y);
   float texture_depth = texture(map_depth, relative_uv).r;
-  pixel_color.rgb = vec3(texture_depth);
-  //scene.primitives[0].position = -vec4(2.4, -2.5, 0., 0.);
   for (int i=0;i<steps;i++) {
-    SDFResponse r = SampleScene(point);
-    if (r.dist > max_dist || point.z <= far_z){
+    vec4 r = SampleScene(point);
+    float dist = r.w;
+    vec3 color = r.rgb;
+    if (dist > max_dist || point.z <= far_z){
       break;
     }
-    if (r.dist <= min_dist) {
+    if (dist <= min_dist) {
       vec3 pos = point;
       vec3 nor = calcNormal(pos);
       vec3 lig = normalize(sun);
       float dif = clamp(dot(nor,lig),0.0,1.0);
       float sha = 1.;//calcSoftshadow( pos, lig, min_dist, max_dist, 16.0 );
       float amb = 0.9 + 0.1 * nor.y;
-      float depth = 1. - length(start - pos) / (near_z - far_z);
-      depth = remap(depth, 0, 1, self_depth_range.x, self_depth_range.y);
+      float depth = remap((near_z - start.z - pos.z) * -1, min_depth, max_depth, self_depth_range.x, self_depth_range.y);
       
       if (depth > texture_depth){
-        pixel_color.rgb =  vec3(0.2078, 0.2549, 0.298)*amb*r.color + vec3(1.00,0.9,0.80)*dif*sha*r.color; // color with shadows
+        pixel_color.rgb =  vec3(0.2078, 0.2549, 0.298)*amb*color + vec3(1.00,0.9,0.80)*dif*sha*color; // color with shadows
         pixel_color.a = 1;
       }
-      //pixel_color.rgb = vec3(depth);
       break;
     }
-    point += direction * r.dist;
+    point += direction * dist;
   }
-  pixel_color.a = 1;
-  //pixel_color.rgba = vec4(texture_depth, texture_depth, texture_depth, 1.);
   frag_color = pixel_color;
-  //frag_color = vec4(relative_uv, 0., 1.);
 }

@@ -101,9 +101,6 @@ class PhysicsObject{
 };
 
 
-
-
-
 class PhysicsScene{
     public:
     vec2 gravity_vector = vec2(0., 1000.);
@@ -130,8 +127,6 @@ class PhysicsScene{
                     if (second_object_aabb.is_point_inside(center1)){
                         
                     }
-
-
 
                     vec2 closest_point1 = object->closest_point(center2);
                     vec2 closest_point2 = second_object->closest_point(closest_point1);

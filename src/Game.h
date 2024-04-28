@@ -575,12 +575,10 @@ class SDF_Frag_Shader : public Shader{
     vec2 map_texture_size;
     vec3 map_size;
     vec3 position;
-    string vertex_path;
     public:
     
-    SDF_Frag_Shader(string frag_path, string vert_path, Debugger* debugger){
+    SDF_Frag_Shader(string frag_path, Debugger* debugger){
         filePath = frag_path;
-        vertex_path = vert_path;
         this->debugger = debugger;
         this->debugger->register_line("SDFshader","SDF shader status: ","NOT INITED!");
     }
@@ -626,7 +624,19 @@ class SDF_Frag_Shader : public Shader{
             return;
         }
         
-        const GLchar* vert_shaderSource = read_shader(vertex_path).c_str();
+        const GLchar* vert_shaderSource = R"(
+            #version 430 core
+            in vec2 in_tex;
+            layout(location = 0) in vec3 position;
+            layout(location = 1) in vec2 texCoord;
+
+            out vec2 fragTexCoord;
+
+            void main() {
+                fragTexCoord = texCoord;
+                gl_Position = vec4(position, 1.);
+            }
+        )";
         glShaderSource(vert_shader, 1, &vert_shaderSource, NULL);
         glCompileShader(vert_shader);
         glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &success);

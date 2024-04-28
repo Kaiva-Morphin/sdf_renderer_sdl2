@@ -418,7 +418,7 @@ int main(int argc, char ** argv)
     for (int x = 0; x < TEX_SIZE; x++)
     drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
     GLubyte* character_texture_data = drawer.get_data();
-    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag", "assets/shaders/sdf_scene.vert", &game.debugger);
+    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag", &game.debugger);
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
     shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
@@ -520,8 +520,8 @@ int main(int argc, char ** argv)
         map.offset = (game.screen_pixel_size - map.get_texture_size());
         map.offset /= 2;
         glEnable(GL_BLEND);
-        glDisable(GL_BLEND);
         map.draw(game.screen_pixel_size);
+        glDisable(GL_BLEND);
         game.end_main();
         game.begin_main();
         shader.check_file_updates();
@@ -532,7 +532,7 @@ int main(int argc, char ** argv)
         scene.update_primitive_scene(&primitive_scene);
         shader.set_scene(&primitive_scene);
         shader.set_position({cos(time) * 4 + 4, sin(time * 2) * 2 + 2, sin(time) * 4 + 4});
-        shader.set_position({2, 0, 2});
+        //shader.set_position({7, 2, 5});
         shader.update_map(map.get_depth(), map.get_texture_size(), map.get_map_size());
         glEnable(GL_BLEND);
 
@@ -542,7 +542,7 @@ int main(int argc, char ** argv)
 
         glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-
+        
         game.draw_main();
         
         SDL_GL_SwapWindow(window);
