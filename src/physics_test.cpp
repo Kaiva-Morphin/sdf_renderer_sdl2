@@ -47,6 +47,7 @@ int main(int argc, char ** argv)
     physics.push(&floor);
 
 
+    //PhysicsPrimitive player = physics.box(vec3(20., 20., 20.));
     PhysicsPrimitive player = physics.capsule(8, 8);
     player.type = RIGID;
     physics.push(&player);

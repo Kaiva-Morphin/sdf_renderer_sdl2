@@ -356,7 +356,7 @@ class PhysicsSolver{
         return vec4(0);
     }
 
-    bool intersects(PhysicsPrimitive p1, PhysicsPrimitive p2){
+    bool intersects(PhysicsPrimitive p1, PhysicsPrimitive p2){ // todo: make for 3d
         vec4 aabb_min_1 = get_aabb_min(p1);
         vec4 aabb_max_1 = get_aabb_max(p1);
         vec4 aabb_min_2 = get_aabb_min(p2);
@@ -365,7 +365,7 @@ class PhysicsSolver{
                 aabb_max_1.x >= aabb_min_2.x && aabb_max_1.y >= aabb_min_2.y && aabb_max_1.z >= aabb_min_2.z;
     }
 
-    bool is_point_inside(PhysicsPrimitive p1, vec4 p2){
+    bool is_point_in_AABB(PhysicsPrimitive p1, vec4 p2){ // todo: make for 3d
         vec4 aabb_min_1 = get_aabb_min(p1);
         vec4 aabb_max_1 = get_aabb_max(p1);
         return aabb_min_1.x <= p2.x && aabb_min_1.y <= p2.y && aabb_min_1.z <= p2.z &&
@@ -378,8 +378,15 @@ class PhysicsSolver{
         vec4 vector = destination - position;
         return position + normalize(vector) * rounding;
     };
+    vec4 apply_inv_rounding(vec4 position, vec4 destination, float rounding){
+        if (rounding == 0.){return position;};
+        if (destination == position){return position;};
+        vec4 vector = destination - position;
+        return position - normalize(vector) * rounding;
+    };
 
-    vec4 closest_point(PhysicsPrimitive p1, vec4 point){
+
+    vec4 closest_point(PhysicsPrimitive p1, vec4 point){ // todo: make for 3d
         switch (p1.shape){
             case CAPSULE:{
                 float y = point.y;
@@ -399,7 +406,7 @@ class PhysicsSolver{
                 float x = point.x;
                 float y = point.y;
                 float z = point.z;
-                if (is_point_inside(p1, point)){
+                if (is_point_in_AABB(p1, point)){ // todo: make for 3d
                     float dx1 = abs(x - aabb_min.x);
                     float dx2 = abs(x - aabb_max.x);
                     float dy1 = abs(y - aabb_min.y);
@@ -448,8 +455,73 @@ class PhysicsSolver{
         }
         
         for (int a=0;a<objects.size();a++){
+            // !ONLY CAPSULES CAN BE RIGID?
+            PhysicsPrimitive first = PhysicsPrimitive{*objects[a]}; // clone?
+            if (first.type != RIGID) continue; // iter only RIGID BODIES (update only self)
+            for (int b=0;b<objects.size();b++){
+                if (a==b) continue; // dont  iter self.
+                PhysicsPrimitive second = PhysicsPrimitive{*objects[b]};
+                if (!intersects(first, second)) continue; // check AABBs
+                vec4 first_center = first.position;
+                vec4 closest_point2 = closest_point(second, first_center);
+                vec4 closest_point1 = closest_point(first, closest_point2);
+
+                vec3 c = {};
+                vec4 result1 = (closest_point1 == closest_point2) ? 
+                    closest_point1 + normalize(closest_point1 - first.position) * first.rounding
+                    :
+                    (((is_point_in_AABB(second, closest_point1) != is_point_in_AABB(second, first.position))) && second.shape == BOX) ?
+                        apply_inv_rounding(closest_point1, closest_point2, first.rounding)
+                        :
+                        apply_rounding(closest_point1, closest_point2, first.rounding);
+
+
+
+                /*if (closest_point1 == closest_point2){
+                    result1 = closest_point1 + normalize(closest_point1 - first.position) * first.rounding;
+                } else {
+                    if (((is_point_in_AABB(second, closest_point1) != is_point_in_AABB(second, first.position)))&& second.shape == BOX) { // todo c?t:f in shader
+                        c = {1, 0, 0};
+                        //result1 = apply_inv_rounding(closest_point1, closest_point2, first.rounding);
+                        result1 = apply_inv_rounding(closest_point1, closest_point2, first.rounding);
+                    } else result1 = apply_rounding(closest_point1, closest_point2, first.rounding);
+                }*/
+
+                /* ALMOST WORKING
+                if (((is_point_in_AABB(second, closest_point1) != is_point_in_AABB(second, first.position)) || (closest_point1 == closest_point2))&& second.shape == BOX) { // todo c?t:f in shader
+                    c = {1, 0, 0};
+                    //result1 = apply_inv_rounding(closest_point1, closest_point2, first.rounding);
+                    result1 = closest_point1 != closest_point2 ? apply_inv_rounding(closest_point1, closest_point2, first.rounding) : closest_point1 + normalize(closest_point1 - first.position) * first.rounding;
+                } else result1 = apply_rounding(closest_point1, closest_point2, first.rounding);*/
+                
+                draw_capsule(closest_point1, {2, 0}, screen_size, c);
+                draw_capsule(result1, {4, 0}, screen_size, {});
+                //draw_capsule(closest_point2, {4, 0}, screen_size, {});
+
+
+
+                dereferenced[a] = first; // write changes
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        for (int a=0;a<objects.size();a++){
             PhysicsPrimitive obj1 = *objects[a];
             for (int b=0;b<objects.size();b++){
+                continue;
+
                 if (a == b) continue;
                 PhysicsPrimitive obj2 = *objects[b];
                 if (!(obj1.type == RIGID || obj2.type == RIGID)) continue;
@@ -464,7 +536,7 @@ class PhysicsSolver{
                 draw_capsule(closest_point2, {2, 0}, screen_size, c2);
 
                 vec4 result1;
-                if ((obj1.shape == CAPSULE) && (obj2.shape == BOX) && is_point_inside(obj2, closest_point1)) result1 = apply_rounding(closest_point2 + (closest_point1 - closest_point2), closest_point1 + (closest_point1 - closest_point2), obj1.rounding);
+                if ((obj1.shape == CAPSULE) && (obj2.shape == BOX) && is_point_in_AABB(obj2, closest_point1)) result1 = apply_rounding(closest_point2 + (closest_point1 - closest_point2), closest_point1 + (closest_point1 - closest_point2), obj1.rounding);
                 else result1 = apply_rounding(closest_point1, closest_point2, obj1.rounding);
                 vec4 result2 = apply_rounding(closest_point2, closest_point1, obj2.rounding);
 
