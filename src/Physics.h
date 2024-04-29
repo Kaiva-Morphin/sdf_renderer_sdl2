@@ -5,6 +5,7 @@
 #include "cmath"
 
 #include "glm/glm.hpp"
+#include <glm/gtc/matrix_transform.hpp>
 using namespace glm;
 
 #include <iostream>
@@ -28,7 +29,8 @@ using namespace std;
 
 #define CAPSULE 1
 #define BOX 2
-#define PYRAMID 4
+#define PYRAMID 4 // 1 vert
+#define RAMP 8 // 2 vert
 
 struct alignas(16) PhysicsPrimitive{
     vec4 position = vec4(0.);
@@ -41,6 +43,7 @@ struct alignas(16) PhysicsPrimitive{
     float mass = 1.;
     int type = FIXED;
     int shape = CAPSULE;
+    bool y_slopes = false;
 };
 
 class PhysicsSolver{
@@ -236,8 +239,24 @@ class PhysicsSolver{
             glColor3f(1., 1., 1.);
         glEnd();
     }
-    void draw_pyramid(){
-
+    void draw_pyramid(vec2 pos, vec2 plane, vec2 vertex, vec2 screen_size, vec3 color){
+        vec2 half_sreen = screen_size * 0.5f;
+        vec2 plane_left = pos - vec2{plane.x * 0.5f, -plane.y};
+        vec2 plane_right = pos + vec2{plane.x * 0.5f, plane.y};
+        vec2 vertex_offset = pos + vertex;
+        vec2 uv_plane_l = remap_vec2(plane_left, -half_sreen, half_sreen, vec2(-1), vec2(1));
+        vec2 uv_plane_r = remap_vec2(plane_right, -half_sreen, half_sreen, vec2(-1), vec2(1));
+        vec2 uv_vert = remap_vec2(vertex_offset, -half_sreen, half_sreen, vec2(-1), vec2(1));
+        glBegin(GL_LINES);
+            glColor3f(color.r, color.g, color.b);
+            glVertex2f(uv_plane_l.x, uv_plane_l.y);
+            glVertex2f(uv_plane_r.x, uv_plane_r.y);
+            glVertex2f(uv_plane_r.x, uv_plane_r.y);
+            glVertex2f(uv_vert.x, uv_vert.y);
+            glVertex2f(uv_vert.x, uv_vert.y);
+            glVertex2f(uv_plane_l.x, uv_plane_l.y);
+            glColor3f(1., 1., 1.);
+        glEnd();
     }
     vec3 get_color(int type){
         switch (type){
@@ -266,6 +285,7 @@ class PhysicsSolver{
                     draw_box(pos, vec2(object->a.x, object->a.y), screen_size, color);
                     break;
                 case PYRAMID:
+                    draw_pyramid(pos, {object->a.x, object->a.y}, {object->b.x, object->b.y}, screen_size, color);
                     break;
             }
         }
@@ -304,14 +324,15 @@ class PhysicsSolver{
             CAPSULE
         };
     }
-    PhysicsPrimitive pyramid(
-        
+    PhysicsPrimitive pyramid( // !WARN! CENTER MUST BE INSIDE PRIMITIVE!
+        vec3 base, // xz is plane size, y is y offset 
+        vec3 vert // vertex offset
     ){
         return PhysicsPrimitive{
             vec4(0.),
             vec4(0.),
-            vec4(0.),
-            vec4(0.),
+            vec4(base, 0.),
+            vec4(vert, 0.),
             vec4(0.),
             0.,
             1.,
@@ -335,7 +356,7 @@ class PhysicsSolver{
                 return p.position + vec4(p.rounding, p.rounding, p.rounding, 0.) + vec4(0., p.a.x * 0.5, 0., 0.);
                 break;
             case PYRAMID:
-                return vec4(0);
+                return p.position + glm::max(p.a, p.b) * vec4(0.5, 1, 0.5, 1);
                 break;
         }
         return vec4(0);
@@ -350,7 +371,7 @@ class PhysicsSolver{
                 return p.position - vec4(p.rounding, p.rounding, p.rounding, 0.) - vec4(0., p.a.x * 0.5, 0., 0.);
                 break;
             case PYRAMID:
-                return vec4(0);
+                return p.position - glm::max(p.a, p.b) * vec4(0.5, 1, 0.5, 1);
                 break;
         }
         return vec4(0);
@@ -385,8 +406,23 @@ class PhysicsSolver{
         return position - normalize(vector) * rounding;
     };
 
+    float length_squared(vec2 vec){
+        return vec.x * vec.x + vec.y * vec.y;
+    }
+    float length_squared(vec3 vec){
+        return vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
+    }
+    float length_squared(vec4 vec){
+        return vec.x * vec.x + vec.y * vec.y + vec.z * vec.z + vec.w * vec.w;
+    }
 
-    vec4 closest_point(PhysicsPrimitive p1, vec4 point){ // todo: make for 3d
+    float clamp(float v, float minv, float maxv){
+        return glm::min(glm::max(v, minv), maxv);
+    }
+
+    
+
+    vec4 closest_point(PhysicsPrimitive p1, vec4 point){ // todo: make for 3d, split to shape-specific
         switch (p1.shape){
             case CAPSULE:{
                 float y = point.y;
@@ -437,10 +473,91 @@ class PhysicsSolver{
                 return vec4(x, y, z, p1.position.w);
                 break;
             }
-            //case PYRAMID:
-            //    break;
+            case PYRAMID:
+                //PhysicsPrimitive p1, vec4 point
+                vec4 vertex1 = p1.position - vec4{p1.a.x * 0.5f, -p1.a.y, 0., 0.};
+                vec4 vertex2 = p1.position + vec4{p1.a.x * 0.5f, p1.a.y, 0., 0.};
+                vec4 vertex3 = p1.position + p1.b;
+            
+                vec4 closestPoint1 = closest_point_on_capped_line(vertex1, vertex2, point);
+                vec4 closestPoint2 = closest_point_on_capped_line(vertex1, vertex3, point);
+                vec4 closestPoint3 = closest_point_on_capped_line(vertex2, vertex3, point);
+
+                vec4 closest1 = length_squared(point - vertex1) < length_squared(point - vertex2) ? vertex1 : vertex2;
+                vec4 maxima = length_squared(point - vertex1) < length_squared(point - vertex2) ? vertex2 : vertex1;
+                vec4 closest2 = length_squared(point - vertex3) < length_squared(point - maxima) ? vertex3 : maxima;
+
+                vec4 minima = length_squared(point - closestPoint1) < length_squared(point - closestPoint2) ? closestPoint1 : closestPoint2;
+                vec4 result = length_squared(point - closestPoint3) < length_squared(point - minima) ? closestPoint3 : minima;
+
+
+                return result;
+
+                
+                break;
         }
         return vec4(0);
+    }
+
+    vec4 inv_closest_capsule_point(PhysicsPrimitive p1, vec4 point){ // todo: make for 3d
+        float y = point.y;
+        if (p1.position.x == point.x) {
+            if (point.y < p1.position.y) return p1.position + vec4(0., p1.a.x*0.5f, 0., 0.);
+            else                         return p1.position - vec4(0., p1.a.x*0.5f, 0., 0.);
+        } else {
+            y = glm::max(y, p1.position.y-p1.a.x*0.5f);
+            y = glm::min(y, p1.position.y+p1.a.x*0.5f);
+        }
+        return vec4(p1.position.x, y, p1.position.z, p1.position.w);
+    }
+
+    vec4 closest_point_on_capped_line(vec4 a, vec4 b, vec4 point){
+        vec4 AB = a - b;
+        vec4 AC = point - b;
+        float t = dot(AC, AB) / dot(AB, AB);
+        t = clamp(t, 0.0, 1.0);
+        return b + t * AB;
+    }
+
+    float cross_product(vec2 v1, vec2 v2){
+        return v1.x * v2.y - v1.y * v2.x;
+    }
+
+    vec4 capsule_vs_line_closest_point(PhysicsPrimitive p1, vec4 a, vec4 b, vec4 center){
+        vec4 upper = p1.position;
+        upper.y += p1.a.x * 0.5;
+        vec4 lower = p1.position;
+        lower.y -= p1.a.x * 0.5;
+        bool same_side = on_same_side(a, b, p1.position, center);
+        if (a.x == b.x || (a.y == b.y && (p1.position.x < glm::min(a.x, b.x) || p1.position.x > glm::max(a.x, b.x)))) { // if x line and x center is out of bounds
+            float y = clamp(a.y, lower.y, upper.y);
+            return p1.position * vec4(1, 0, 1, 1) + vec4(0, y, 0, 0);
+        } else {
+            float k = (a.y - b.y) / (a.x - b.x);
+            float line_y = b.y + k * (p1.position.x - b.x);
+            if (same_side) line_y = b.y - k * (p1.position.x - b.x);
+            line_y = glm::min(line_y, glm::max(b.y, a.y));
+            line_y = glm::max(line_y, glm::min(b.y, a.y));
+            // clamp(line_y, p1.position.y - p1.a.x * 0.5, p1.position.y + p1.a.x * 0.5
+            line_y = abs(lower.y - line_y) < abs(upper.y - line_y)?same_side?upper.y:lower.y:same_side?lower.y:upper.y;
+            return p1.position * vec4(1, 0, 1, 1) + vec4(0, line_y, 0, 0);
+        }
+    }
+
+    bool on_same_side(vec2 a, vec2 b, vec2 center, vec2 point){
+        float A = a.y - b.y;
+        float B = b.x - a.x;
+        float C = a.x * b.y - b.x * a.y;
+        float r1 = A * center.x + B * center.y + C;
+        float r2 = A * point.x + B * point.y + C;
+        return (r1 * r2) > 0;
+    }
+
+    bool on_same_side_and_line(vec2 a, vec2 b, vec2 center, vec2 point){
+        vec2 AB = a - b;
+        vec2 AC = point - b;
+        float t = dot(AC, AB) / dot(AB, AB);
+        return !((t < 0) || (t > 1)) && on_same_side(a, b, center, point);
     }
 
     void step(float delta, vec2 screen_size){
@@ -459,120 +576,147 @@ class PhysicsSolver{
             PhysicsPrimitive first = PhysicsPrimitive{*objects[a]}; // clone?
             if (first.type != RIGID) continue; // iter only RIGID BODIES (update only self)
             for (int b=0;b<objects.size();b++){
-                if (a==b) continue; // dont  iter self.
+                if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive second = PhysicsPrimitive{*objects[b]};
-                if (!intersects(first, second)) continue; // check AABBs
-                vec4 first_center = first.position;
-                vec4 closest_point2 = closest_point(second, first_center);
-                vec4 closest_point1 = closest_point(first, closest_point2);
+                //if (!intersects(first, second)) continue; // check AABBs
 
-                vec3 c = {};
-                vec4 result1 = (closest_point1 == closest_point2) ? 
-                    closest_point1 + normalize(closest_point1 - first.position) * first.rounding
-                    :
-                    (((is_point_in_AABB(second, closest_point1) != is_point_in_AABB(second, first.position))) && second.shape == BOX) ?
-                        apply_inv_rounding(closest_point1, closest_point2, first.rounding)
-                        :
-                        apply_rounding(closest_point1, closest_point2, first.rounding);
+                if (second.shape == CAPSULE){
+                    vec4 first_center = first.position;
+                    vec4 closest_point2 = closest_point(second, first_center);
+                    vec4 closest_point1 = closest_point(first, closest_point2);
+                    vec4 result1 = apply_rounding(closest_point1, closest_point2, first.rounding);
+                    vec4 result2 = apply_rounding(closest_point2, closest_point1, second.rounding);
+                    //draw_line(result1, result2, screen_size, {1, 0, 1});
+                    vec4 vec = result1 - result2;
+                    if (dot(vec, first.position - second.position) > 0) continue; // prevent pushing inside
+                    if (second.type != RIGID){
+                        first.position -= vec;
+                    } else {
+                        first.position -= vec * 0.5f;
+                    }
+                }
 
 
+                if (second.shape == BOX){
+                    vec4 first_center = first.position;
+                    vec4 closest_point2 = closest_point(second, first_center);
+                    vec3 c = {};
 
-                /*if (closest_point1 == closest_point2){
-                    result1 = closest_point1 + normalize(closest_point1 - first.position) * first.rounding;
-                } else {
-                    if (((is_point_in_AABB(second, closest_point1) != is_point_in_AABB(second, first.position)))&& second.shape == BOX) { // todo c?t:f in shader
-                        c = {1, 0, 0};
-                        //result1 = apply_inv_rounding(closest_point1, closest_point2, first.rounding);
+                    vec4 closest_point1 = (is_point_in_AABB(second, first_center)) ? inv_closest_capsule_point(first, closest_point2) : closest_point(first, closest_point2);
+                    vec4 result1 = vec4();
+                    if ((is_point_in_AABB(second, closest_point1) || (!is_point_in_AABB(second, closest_point1) && is_point_in_AABB(second, first_center)))){
+                        if (closest_point1 == closest_point2 || first_center == closest_point2){
+                            vec4 to_center = normalize(second.position - first.position);
+                            vec4 miss = {};
+                            if (abs(to_center.x) > abs(to_center.y)) {// todo: incorrect for non-rectangle
+                                miss.x = to_center.x;
+                                closest_point1 = first_center + miss;
+                            } else {
+                                miss.y = to_center.y;
+                                closest_point1 = first_center + miss + vec4(0, (miss.y > 0)?first.a.x*0.5:-first.a.x*0.5, 0, 0);
+                            };
+                        }
                         result1 = apply_inv_rounding(closest_point1, closest_point2, first.rounding);
-                    } else result1 = apply_rounding(closest_point1, closest_point2, first.rounding);
-                }*/
+                    } else {
+                        result1 = apply_rounding(closest_point1, closest_point2, first.rounding);
+                    }
+                    
 
-                /* ALMOST WORKING
-                if (((is_point_in_AABB(second, closest_point1) != is_point_in_AABB(second, first.position)) || (closest_point1 == closest_point2))&& second.shape == BOX) { // todo c?t:f in shader
-                    c = {1, 0, 0};
-                    //result1 = apply_inv_rounding(closest_point1, closest_point2, first.rounding);
-                    result1 = closest_point1 != closest_point2 ? apply_inv_rounding(closest_point1, closest_point2, first.rounding) : closest_point1 + normalize(closest_point1 - first.position) * first.rounding;
-                } else result1 = apply_rounding(closest_point1, closest_point2, first.rounding);*/
-                
-                draw_capsule(closest_point1, {2, 0}, screen_size, c);
-                draw_capsule(result1, {4, 0}, screen_size, {});
-                //draw_capsule(closest_point2, {4, 0}, screen_size, {});
+                    vec4 result2 = apply_rounding(closest_point2, closest_point1, second.rounding);
 
+                    vec4 vec = result1 - result2;
 
+                    if (dot(vec, first.position - second.position) > 0) continue; // prevent pushing inside
+                    if (second.type != RIGID){
+                        first.position -= vec;
+                    } else {
+                        first.position -= vec * 0.5f;
+                    }
 
+                }
+
+                if (second.shape == PYRAMID){
+                    vec4 vertex1 = second.position - vec4{second.a.x * 0.5f, -second.a.y, 0., 0.};
+                    vec4 vertex2 = second.position + vec4{second.a.x * 0.5f, second.a.y, 0., 0.};
+                    vec4 vertex3 = second.position + second.b;
+                    vec4 center = (vertex1 + vertex2 + vertex3) / 3.0f;
+                    vec4 closest_point_a = capsule_vs_line_closest_point(first, vertex1, vertex2, center);
+                    vec4 closest_point_b = capsule_vs_line_closest_point(first, vertex1, vertex3, center);
+                    vec4 closest_point_c = capsule_vs_line_closest_point(first, vertex2, vertex3, center);
+
+                    vec4 result_a = closest_point_on_capped_line(vertex1, vertex2, closest_point_a);
+                    vec4 result_b = closest_point_on_capped_line(vertex1, vertex3, closest_point_b);
+                    vec4 result_c = closest_point_on_capped_line(vertex2, vertex3, closest_point_c);
+
+                    //if ((is_point_in_AABB(second, closest_point1) || (!is_point_in_AABB(second, closest_point1) && is_point_in_AABB(second, first_center)))){
+                    vec4 result;
+                    vec4 point;
+                    vec4 vertexA;
+                    vec4 vertexB;
+                    if (length_squared(closest_point_a - result_a) < length_squared(closest_point_b - result_b)){
+                        result = result_a;
+                        point = closest_point_a;
+                        vertexA = vertex1;
+                        vertexB = vertex2;
+                    } else {
+                        result = result_b;
+                        point = closest_point_b;
+                        vertexA = vertex1;
+                        vertexB = vertex3;
+                    }
+                    if (length_squared(closest_point_c - result_c) < length_squared(point - result)){
+                        result = result_c;
+                        point = closest_point_c;
+                        vertexA = vertex2;
+                        vertexB = vertex3;
+                    }
+                    //vec2 a, vec2 b, vec2 point1, vec2 point2
+
+                    vec4 rounded = vec4();
+                    if ((on_same_side_and_line(vertexA, vertexB, center, point) || (!on_same_side_and_line(vertexA, vertexB, center, point) && on_same_side_and_line(vertexA, vertexB, center, first.position)))){
+                        rounded = apply_inv_rounding(point, result, first.rounding);
+                        // todo: fix first_center == closest_point2 for boxes (align to center by one shortest axis)
+                    } else {
+                        if (point == result){
+                            draw_capsule(point, {6, 0}, screen_size, {1, 0, 1});
+                            vec4 to_center = normalize(center - first.position);
+                            vec4 miss = {};
+                            if (abs(to_center.x) > abs(to_center.y)) {
+                                miss.x = to_center.x;
+                                point = first.position + miss;
+                            } else {
+                                miss.y = to_center.y;
+                                point = first.position + miss + vec4(0, (miss.y > 0)?first.a.x*0.5:-first.a.x*0.5, 0, 0);
+                            };
+                        }
+                        rounded = apply_rounding(point, result, first.rounding);
+                    }
+                    draw_line(first.position, center, screen_size, {});
+                    vec4 vec = rounded - result;
+                    if (length_squared(second.position - (first.position - vec)) < length_squared(second.position - first.position)) continue; // prevent pushing inside
+                    if (second.type != RIGID){
+                        if (first.y_slopes && (abs(vec.y) > 0.1) ) {
+                            float x = vec.x;
+                            float y = vec.y;
+                            float aspect = x / y;
+                            float c = sqrt(x*x + y*y);
+                            float d = aspect*c;
+                            float result = sqrt(c*c+d*d);
+                            first.position.y += (vec.y > 0)?-result:result;
+                        } else first.position -= vec;
+                    } else {
+                        first.position -= vec * 0.5f;
+                    }
+                }
                 dereferenced[a] = first; // write changes
             }
         }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-        for (int a=0;a<objects.size();a++){
-            PhysicsPrimitive obj1 = *objects[a];
-            for (int b=0;b<objects.size();b++){
-                continue;
-
-                if (a == b) continue;
-                PhysicsPrimitive obj2 = *objects[b];
-                if (!(obj1.type == RIGID || obj2.type == RIGID)) continue;
-                if (!intersects(obj1, obj2)) continue;
-                vec4 center1 = obj1.position;
-                vec4 center2 = obj2.position;
-                vec4 closest_point1 = closest_point(obj1, center2);
-                vec4 closest_point2 = closest_point(obj2, closest_point1);
-                vec3 c1 = get_color(obj1.type);
-                vec3 c2 = get_color(obj2.type);
-                draw_capsule(closest_point1, {2, 0}, screen_size, c1);
-                draw_capsule(closest_point2, {2, 0}, screen_size, c2);
-
-                vec4 result1;
-                if ((obj1.shape == CAPSULE) && (obj2.shape == BOX) && is_point_in_AABB(obj2, closest_point1)) result1 = apply_rounding(closest_point2 + (closest_point1 - closest_point2), closest_point1 + (closest_point1 - closest_point2), obj1.rounding);
-                else result1 = apply_rounding(closest_point1, closest_point2, obj1.rounding);
-                vec4 result2 = apply_rounding(closest_point2, closest_point1, obj2.rounding);
-
-                draw_capsule(result1, {4, 0}, screen_size, c1);
-                draw_capsule(result2, {4, 0}, screen_size, c2);
-
-                vec4 vec = result1 - result2;
-
-                if (dot(vec, center1 - center2) > 0) continue; // <- ->
-                draw_line(result1, result2, screen_size, {0, 1, 1});
-                if (obj1.type != RIGID){
-                    obj2.position += vec;
-                    //obj2.velocity = obj2.velocity - 2 * clamp(dot(obj2.velocity, vec), -1.0f, 1.0f) * vec;
-                }
-                else if (obj2.type != RIGID){
-                    obj1.position -= vec;
-                    //obj1.velocity = obj1.velocity - 2 * clamp(dot(obj1.velocity, vec), -1.0f, 1.0f) * vec;
-                }
-                else {
-                    obj1.position -= vec * 0.5f;
-
-                    //obj1.velocity = obj1.velocity - 2 * clamp(dot(obj1.velocity, -vec), -1.0f, 1.0f) * -vec;
-
-                    obj2.position += vec * 0.5f;
-                    
-                    //reflect(vec2(0, 1), vec2(1, 0));
-                    //obj2.velocity = obj2.velocity - 2 * clamp(dot(obj2.velocity, vec), -1.0f, 1.0f) * vec; // 
-                }
-                dereferenced[a] = obj1;
-                dereferenced[b] = obj2;
-            }
-        }
         // sync
         for (int i=0;i<objects.size();i++){
             *objects[i] = dereferenced[i];
         }
+        dereferenced.clear();
         /*glUseProgram(program);
         vector<PhysicsPrimitive> dereferenced;
         for (auto obj: objects) dereferenced.push_back(*obj);

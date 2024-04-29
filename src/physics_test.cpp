@@ -25,21 +25,30 @@ int main(int argc, char ** argv)
     physics.init();
 
 
-    PhysicsPrimitive box1 = physics.box(vec3(100., 100., 100.));
-    box1.position.y = 50;
-    box1.position.x = 50;
-    physics.push(&box1);
+    /*PhysicsPrimitive box1 = physics.box(vec3(100., 100., 100.));
+    box1.position.x = 100;
+    physics.push(&box1);*/
 
-    PhysicsPrimitive caps1 = physics.capsule(25, 20);
-    caps1.position.y = 50;
-    caps1.position.x = -50;
+    /*PhysicsPrimitive caps1 = physics.capsule(25, 20);
+    caps1.position.y = 100;
+    caps1.position.x = -100;
     physics.push(&caps1);
 
     PhysicsPrimitive caps2 = physics.capsule(24, 12);
     caps2.position.y = 0;
     caps2.position.x =-0;
     caps2.type = RIGID;
-    physics.push(&caps2);
+    physics.push(&caps2);*/
+
+    /*PhysicsPrimitive prmd1 = physics.pyramid({120., -60., 0.}, {90., 60., 0.});
+    prmd1.position.y = 0;
+    prmd1.position.x = -90;
+    physics.push(&prmd1);*/
+
+    PhysicsPrimitive prmd = physics.pyramid({200., -30., 0.}, {100., 60., 0.});
+    prmd.position.y = 0;
+    prmd.position.x = 0;
+    physics.push(&prmd);
 
 
     PhysicsPrimitive floor = physics.box(vec3(200., 10., 200.));
@@ -48,8 +57,9 @@ int main(int argc, char ** argv)
 
 
     //PhysicsPrimitive player = physics.box(vec3(20., 20., 20.));
-    PhysicsPrimitive player = physics.capsule(8, 8);
+    PhysicsPrimitive player = physics.capsule(32, 16);
     player.type = RIGID;
+    player.y_slopes = true;
     physics.push(&player);
 
     int xMouse, yMouse;
@@ -63,9 +73,9 @@ int main(int argc, char ** argv)
         player.position.y = remap(yMouse, 0, h,  half_screen.y, -half_screen.y);
 
         if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-            player.type = RIGID;
-        } else {
             player.type = MOVING;
+        } else {
+            player.type = RIGID;
         }
 
         float time = game.time();
@@ -75,9 +85,7 @@ int main(int argc, char ** argv)
         glClearColor(0.7843, 0.7333, 0.5882, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
         physics.check_file_updates();
-        
         physics.step(0.01, game.screen_pixel_size);
-        
         physics.draw(game.screen_pixel_size);
         //physics.draw_box(vec2(0.), vec2(10.), game.screen_pixel_size, vec3(1., 0., 0.));
         //physics.draw_capsule(vec2(0., 0.), vec2(6., 30.), game.screen_pixel_size, vec3(1., 0., 0.));
