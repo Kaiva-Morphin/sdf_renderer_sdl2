@@ -1,4 +1,5 @@
 #include "header.h"
+#include "Functions.h"
 #include "sdf_primitives.h"
 
 #include <iostream>
@@ -162,11 +163,6 @@ class Debugger{
     };
 
 };
-
-double remap(double value, double fromLow, double fromHigh, double toLow, double toHigh) {
-    double normalized = (value - fromLow) / (fromHigh - fromLow);
-    return toLow + normalized * (toHigh - toLow);
-}
 
 class Game{
     public:
@@ -373,8 +369,6 @@ class Game{
         glEnd();
         glBindTexture(GL_TEXTURE_2D, 0);
     }
-
-    
 
     void destroy(){
         if (screen_texture != 0) glDeleteTextures(1, &screen_texture);

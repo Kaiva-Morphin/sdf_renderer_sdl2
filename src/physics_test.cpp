@@ -1,6 +1,11 @@
 #include "Game.h"
 #include "Physics.h"
 
+#include "BdfFont.h"
+
+
+
+
 #define PI 3.14159
 #define HALF_PI PI / 2.
 
@@ -32,7 +37,7 @@ int main(int argc, char ** argv)
     PhysicsPrimitive slope_inv = physics.pyramid(vec3(grid_size.x, -grid_size.y*0.5f, 0.),vec3(-grid_size.x*0.5f, grid_size.y*0.5f, 0.));
     for (int x = -map_size; x <= map_size; x++){
         for (int y = -map_size; y <= map_size; y++){
-            if (y == -map_size || x == -map_size || x == map_size){
+            if (y == -map_size || x == -map_size || x == map_size || y == map_size){
                 PhysicsPrimitive* new_box = new PhysicsPrimitive(box);
                 new_box->position.x = x * grid_size.x;
                 new_box->position.y = y * grid_size.y;
@@ -51,8 +56,9 @@ int main(int argc, char ** argv)
 
 
 
-    PhysicsPrimitive capsule = physics.capsule(32, 16);
+    /*PhysicsPrimitive capsule = physics.capsule(32, 16);
     capsule.type = RIGID;
+    capsule.mass = 1;
     capsule.position.x = -40;
     capsule.position.y = -10;
     capsule.y_slopes = false;
@@ -64,16 +70,36 @@ int main(int argc, char ** argv)
 
     PhysicsPrimitive player = physics.capsule(32, 16);
     player.type = RIGID;
+    player.mass = 1;
     player.bounciness = 1.;
     player.friction = 0.99;
     player.y_slopes = true;
-    physics.push(&player);
+    physics.push(&player);*/
+
+    PhysicsPrimitive sphere = physics.capsule(10, 32);
+    sphere.type = RIGID;
+    sphere.mass = 1;
+    sphere.bounciness = 1.;
+    sphere.friction = 1;
+    sphere.velocity.x = 10;
+    sphere.position.x = 10;
+    physics.push(&sphere);
+    PhysicsPrimitive sphere2 = physics.capsule(10, 20);
+    sphere2.type = RIGID;
+    sphere2.velocity.x = -10;
+    sphere2.mass = 10;
+    sphere2.bounciness = 1.;
+    sphere2.friction = 1;
+    sphere2.position.x = -10;
+    physics.push(&sphere2);
+
 
 
     PhysicsPrimitive cursor = physics.box(vec3(20., 20., 20.));
     cursor.type = RIGID;
     
     physics.push(&cursor);
+
 
     int xMouse, yMouse;
     while (game.is_running())
@@ -88,7 +114,7 @@ int main(int argc, char ** argv)
         if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
             cursor.type = RIGID;
             cursor.shape = CAPSULE;
-            cursor.velocity = vec4(10., 10., 0., 0.);
+            cursor.velocity = {0, 10, 0, 0};
             cursor.rounding = 10;
         } else {
             cursor.type = MOVING;
@@ -107,6 +133,7 @@ int main(int argc, char ** argv)
         physics.draw(game.screen_pixel_size);
         //physics.draw_box(vec2(0.), vec2(10.), game.screen_pixel_size, vec3(1., 0., 0.));
         //physics.draw_capsule(vec2(0., 0.), vec2(6., 30.), game.screen_pixel_size, vec3(1., 0., 0.));
+
         game.end_main();
         glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);

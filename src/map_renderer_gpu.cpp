@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "BdfFont.h"
 #include "textre_drawer.h"
 
 #define PI 3.14159
@@ -284,7 +285,7 @@ class Map{
         */
         glBindFramebuffer(GL_FRAMEBUFFER, buffer);
         GLenum attachments[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-        glDrawBuffers(3, attachments);  
+        glDrawBuffers(3, attachments);
         glViewport(0, 0, texture_size.x, texture_size.y);
         glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -293,8 +294,6 @@ class Map{
         glBlendEquation(GL_BLEND_COLOR);
         glUseProgram(tile_shader);
         vec4 tile_rect_size = atlas->get_tile_rect(0);
-
-        
 
         glUniform1i(glGetUniformLocation(tile_shader, "texture_atlas"), 0);
         glUniform2f(glGetUniformLocation(tile_shader, "texture_size"), atlas->atlas_size.x, atlas->atlas_size.y);
@@ -495,7 +494,7 @@ int main(int argc, char ** argv)
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         std::cerr << "Compute shader program linking failed: " << infoLog << std::endl;
     }
-
+    BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/profont.bdf", 1536);
     map.render(&atlas);
     while (game.is_running())
     {
@@ -534,19 +533,31 @@ int main(int argc, char ** argv)
         shader.set_position({cos(time) * 4 + 4, sin(time * 2) * 2 + 2, sin(time) * 4 + 4});
         //shader.set_position({7, 2, 5});
         shader.update_map(map.get_depth(), map.get_texture_size(), map.get_map_size());
+        
         glEnable(GL_BLEND);
-
         shader.draw(game.screen_pixel_size);
         glDisable(GL_BLEND);
+        font_atlas.draw_char_centered('V', {}, game.get_screen_size());
+
         game.end_main();
 
         glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        
         game.draw_main();
-        
-        SDL_GL_SwapWindow(window);
 
+        /*glBindTexture(GL_TEXTURE_2D, font_atlas.get_texture());
+        vec2 src = font_atlas.get_glyph_size() * 8.0f / font_atlas.get_atlas_size();
+        glBegin(GL_QUADS);
+        glColor3f(1, 1, 1);
+        glTexCoord2f(src.x, src.y); glVertex2f(-1, -1);
+        glTexCoord2f(0, src.y); glVertex2f(1, -1);
+        glTexCoord2f(0, 0); glVertex2f(1, 1);
+        glTexCoord2f(src.x, 0); glVertex2f(-1, 1);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, 0);*/
+
+
+        SDL_GL_SwapWindow(window);
         // todo: alpha checks for depth buffer draw :D
     }
     shader.destroy();

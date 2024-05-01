@@ -3,6 +3,7 @@
 #include <SDL2/SDL_opengl.h>
 
 #include "cmath"
+#include "Functions.h"
 
 #include "glm/glm.hpp"
 #include <glm/gtc/matrix_transform.hpp>
@@ -48,15 +49,6 @@ struct alignas(16) PhysicsPrimitive{
 };
 
 class PhysicsSolver{
-    double remap(double value, double fromLow, double fromHigh, double toLow, double toHigh) {
-        double normalized = (value - fromLow) / (fromHigh - fromLow);
-        return toLow + normalized * (toHigh - toLow);
-    }
-
-    vec2 remap_vec2(vec2 value, vec2 fromLow, vec2 fromHigh, vec2 toLow, vec2 toHigh) {
-        vec2 normalized = (value - fromLow) / (fromHigh - fromLow);
-        return toLow + normalized * (toHigh - toLow);
-    }
 
     // shader
     private:
@@ -272,6 +264,15 @@ class PhysicsSolver{
         }
         return vec3(0.);
     }
+    void draw_point(vec2 pos, vec2 screen_size, vec3 color){
+        vec2 half_screen = screen_size * 0.5f;
+        vec2 pos_uv = remap_vec2(pos, -half_screen, half_screen, {-1, -1}, {1, 1});
+        glBegin(GL_POINTS);
+            glColor3f(color.r, color.g, color.b);
+            glVertex2f(pos_uv.x, pos_uv.y);
+            glColor3f(1., 1., 1.);
+        glEnd();
+    }
     void draw_arrow(vec4 from, vec4 to, vec2 screen_size, vec3 color){
         vec2 half_sreen = screen_size * 0.5f;
         float a = remap(from.x, -half_sreen.x, half_sreen.x, -1, 1);
@@ -296,11 +297,12 @@ class PhysicsSolver{
             switch (object->shape){
                 case CAPSULE:
                     draw_capsule(pos, vec2(object->rounding, object->a.x), screen_size, color);
-                    draw_capsule(pos, {1, 0}, screen_size, color);
+                    draw_point(pos, screen_size, color);
                     break;
+                
                 case BOX:
                     draw_box(pos, vec2(object->a.x, object->a.y), screen_size, color);
-                    draw_capsule(pos, {1, 0}, screen_size, color);
+                    draw_point(pos, screen_size, color);
                     break;
                 case PYRAMID:
                     draw_pyramid(pos, {object->a.x, object->a.y}, {object->b.x, object->b.y}, screen_size, color);
@@ -308,7 +310,7 @@ class PhysicsSolver{
                     vec4 vertex2 = object->position + vec4{object->a.x * 0.5f, object->a.y, 0., 0.};
                     vec4 vertex3 = object->position + object->b;
                     vec4 center = (vertex1 + vertex2 + vertex3) / 3.0f;
-                    draw_capsule(center, {1, 0}, screen_size, color);
+                    draw_point(pos, screen_size, color);
                     break;
             }
         }
@@ -513,10 +515,7 @@ class PhysicsSolver{
                 vec4 minima = length_squared(point - closestPoint1) < length_squared(point - closestPoint2) ? closestPoint1 : closestPoint2;
                 vec4 result = length_squared(point - closestPoint3) < length_squared(point - minima) ? closestPoint3 : minima;
 
-
                 return result;
-
-                
                 break;
         }
         return vec4(0);
@@ -596,13 +595,13 @@ class PhysicsSolver{
         
         for (int a=0;a<objects.size();a++){
             // !ONLY CAPSULES CAN BE RIGID?
-            PhysicsPrimitive first = PhysicsPrimitive{*objects[a]}; // clone?
+            PhysicsPrimitive first = PhysicsPrimitive{*objects[a]};
             if (first.type != RIGID) continue; // iter only RIGID BODIES (update only self)
             vec4 vec = {};
             for (int b=0;b<objects.size();b++){
                 if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive second = PhysicsPrimitive{*objects[b]};
-                //if (!intersects(first, second)) continue; // check AABBs
+                if (!intersects(first, second)) continue; // check AABBs
                 if (second.shape == CAPSULE){
                     vec4 first_center = first.position;
                     vec4 closest_point2 = closest_point(second, first_center);
@@ -613,7 +612,7 @@ class PhysicsSolver{
                     if (dot(vec, first.position - second.position) > 0) continue; // prevent pushing inside
                     if (second.type != RIGID) first.position -= vec;
                     else first.position -= vec * 0.5f;
-                    
+                    dereferenced[a] = first; // write changes
                 }
 
 
@@ -649,6 +648,7 @@ class PhysicsSolver{
                     if (dot(vec, first.position - second.position) > 0) continue; // prevent pushing inside
                     if (second.type != RIGID) first.position -= vec;
                     else first.position -= vec * 0.5f;
+                    dereferenced[a] = first; // write changes
                 }
 
                 if (second.shape == PYRAMID){
@@ -720,26 +720,54 @@ class PhysicsSolver{
                     } else {
                         first.position -= vec * 0.5f;
                     }
+                    dereferenced[a] = first; // write changes
                 }
-                if (vec != vec4(0.)){
+                if (second.type == RIGID){
                     vec4 vel = first.velocity;
                     vec4 norm = normalize(-vec); // almost in all cases it will be right
                     vec2 projected = (dot(vel, norm) / dot(norm, norm)) * vec2(norm);
                     vec4 y_component = vec4(projected, 0, 0);
                     vec4 plane_component = vel - vec4(projected, 0, 0);
 
-                    //draw_arrow(first.position, first.position + vel * 20.0f, screen_size, {1, 0, 0});
-                    //draw_arrow(first.position, first.position + norm * 20.0f, screen_size, {0, 1, 0});
-                    //draw_arrow(first.position, first.position + vec4(projected * 20.0f, 0, 0), screen_size, {0, 0, 1});
-                    
                     if (dot(y_component, vel) > 0) y_component = -y_component;
 
-                    //first.velocity = y_component * first.bounciness + plane_component * first.friction;
-                    first.velocity = y_component * first.bounciness + plane_component * first.friction;
-                    //draw_arrow(first.position, first.position + normalize(plane_component) * 20.0f, screen_size, {1, 0, 0});
-                    //draw_arrow(first.position, first.position + normalize(projected) * 20.0f, screen_size, {0, 0, 1});
+                    float avg_bounciness = (first.bounciness + second.bounciness) * 0.5;
+
+                    float energy_amount = second.mass / (first.mass + second.mass);
+
+                    vel = normalize(y_component + plane_component) * (length(first.velocity) + length(second.velocity)) * avg_bounciness * energy_amount;
+                    if (dot(second.position - first.position, first.velocity) < 0) continue;
+                    first.velocity = vel;
+                    dereferenced[a] = first; // write changes
+
+
+                    //vec4 new_vel = y_component * first.bounciness + plane_component * first.friction;
+                    
+
+                    
+                } else {
+                    if (vec != vec4(0.)){
+                        vec4 vel = first.velocity;
+                        vec4 norm = normalize(-vec); // almost in all cases it will be right
+                        vec2 projected = (dot(vel, norm) / dot(norm, norm)) * vec2(norm);
+                        vec4 y_component = vec4(projected, 0, 0);
+                        vec4 plane_component = vel - vec4(projected, 0, 0);
+
+                        //draw_arrow(first.position, first.position + vel * 20.0f, screen_size, {1, 0, 0});
+                        //draw_arrow(first.position, first.position + norm * 20.0f, screen_size, {0, 1, 0});
+                        //draw_arrow(first.position, first.position + vec4(projected * 20.0f, 0, 0), screen_size, {0, 0, 1});
+                        
+                        if (dot(y_component, vel) > 0) y_component = -y_component;
+
+                        //first.velocity = y_component * first.bounciness + plane_component * first.friction;
+                        first.velocity = y_component * first.bounciness + plane_component * first.friction;
+                        dereferenced[a] = first; // write changes
+                        //draw_arrow(first.position, first.position + normalize(plane_component) * 20.0f, screen_size, {1, 0, 0});
+                        //draw_arrow(first.position, first.position + normalize(projected) * 20.0f, screen_size, {0, 0, 1});
+                    }
                 }
-                dereferenced[a] = first; // write changes
+                
+                 
             }
         }
 
