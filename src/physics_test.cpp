@@ -24,43 +24,56 @@ int main(int argc, char ** argv)
     PhysicsSolver physics = PhysicsSolver("assets/shaders/physics.comp");
     physics.init();
 
+    vec3 grid_size = vec3(40, 20, 40);
+    int map_size = 5;
 
-    /*PhysicsPrimitive box1 = physics.box(vec3(100., 100., 100.));
-    box1.position.x = 100;
-    physics.push(&box1);*/
-
-    /*PhysicsPrimitive caps1 = physics.capsule(25, 20);
-    caps1.position.y = 100;
-    caps1.position.x = -100;
-    physics.push(&caps1);
-
-    PhysicsPrimitive caps2 = physics.capsule(24, 12);
-    caps2.position.y = 0;
-    caps2.position.x =-0;
-    caps2.type = RIGID;
-    physics.push(&caps2);*/
-
-    /*PhysicsPrimitive prmd1 = physics.pyramid({120., -60., 0.}, {90., 60., 0.});
-    prmd1.position.y = 0;
-    prmd1.position.x = -90;
-    physics.push(&prmd1);*/
-
-    PhysicsPrimitive prmd = physics.pyramid({200., -30., 0.}, {100., 60., 0.});
-    prmd.position.y = 0;
-    prmd.position.x = 0;
-    physics.push(&prmd);
+    PhysicsPrimitive box = physics.box(grid_size);
+    PhysicsPrimitive slope = physics.pyramid(vec3(grid_size.x, -grid_size.y*0.5f, 0.),vec3(grid_size.x*0.5f, grid_size.y*0.5f, 0.));
+    PhysicsPrimitive slope_inv = physics.pyramid(vec3(grid_size.x, -grid_size.y*0.5f, 0.),vec3(-grid_size.x*0.5f, grid_size.y*0.5f, 0.));
+    for (int x = -map_size; x <= map_size; x++){
+        for (int y = -map_size; y <= map_size; y++){
+            if (y == -map_size || x == -map_size || x == map_size){
+                PhysicsPrimitive* new_box = new PhysicsPrimitive(box);
+                new_box->position.x = x * grid_size.x;
+                new_box->position.y = y * grid_size.y;
+                physics.push(new_box);
+            }
+            if (x-4 == y && y > -map_size){
+                PhysicsPrimitive* new_slope = new PhysicsPrimitive(slope);
+                new_slope->position.x = x * grid_size.x;
+                new_slope->position.y = y * grid_size.y;
+                physics.push(new_slope);
+            }
 
 
-    PhysicsPrimitive floor = physics.box(vec3(200., 10., 200.));
-    floor.position.y = -100;
-    physics.push(&floor);
+        }
+    }
 
 
-    //PhysicsPrimitive player = physics.box(vec3(20., 20., 20.));
+
+    PhysicsPrimitive capsule = physics.capsule(32, 16);
+    capsule.type = RIGID;
+    capsule.position.x = -40;
+    capsule.position.y = -10;
+    capsule.y_slopes = false;
+    capsule.bounciness = 1.;
+    capsule.friction = 0.99;
+    physics.push(&capsule);
+
+
+
     PhysicsPrimitive player = physics.capsule(32, 16);
     player.type = RIGID;
+    player.bounciness = 1.;
+    player.friction = 0.99;
     player.y_slopes = true;
     physics.push(&player);
+
+
+    PhysicsPrimitive cursor = physics.box(vec3(20., 20., 20.));
+    cursor.type = RIGID;
+    
+    physics.push(&cursor);
 
     int xMouse, yMouse;
     while (game.is_running())
@@ -69,13 +82,18 @@ int main(int argc, char ** argv)
         int w, h;
         SDL_GetWindowSizeInPixels(window, &w, &h);
         vec2 half_screen = vec2(game.screen_pixel_size) * 0.5f;
-        player.position.x = remap(xMouse, 0, w, -half_screen.x,  half_screen.x);
-        player.position.y = remap(yMouse, 0, h,  half_screen.y, -half_screen.y);
+        cursor.position.x = remap(xMouse, 0, w, -half_screen.x,  half_screen.x);
+        cursor.position.y = remap(yMouse, 0, h,  half_screen.y, -half_screen.y);
 
         if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-            player.type = MOVING;
+            cursor.type = RIGID;
+            cursor.shape = CAPSULE;
+            cursor.velocity = vec4(10., 10., 0., 0.);
+            cursor.rounding = 10;
         } else {
-            player.type = RIGID;
+            cursor.type = MOVING;
+            cursor.shape = BOX;
+            cursor.rounding = 0;
         }
 
         float time = game.time();
@@ -89,8 +107,6 @@ int main(int argc, char ** argv)
         physics.draw(game.screen_pixel_size);
         //physics.draw_box(vec2(0.), vec2(10.), game.screen_pixel_size, vec3(1., 0., 0.));
         //physics.draw_capsule(vec2(0., 0.), vec2(6., 30.), game.screen_pixel_size, vec3(1., 0., 0.));
-        
-        
         game.end_main();
         glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);

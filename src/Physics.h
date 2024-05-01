@@ -39,11 +39,12 @@ struct alignas(16) PhysicsPrimitive{
     vec4 b = vec4(0.);
     vec4 c = vec4(0.);
     float rounding = 0.;
-    float bounciness = 1.;
+    float bounciness = 0.1;
     float mass = 1.;
     int type = FIXED;
     int shape = CAPSULE;
     bool y_slopes = false;
+    float friction = 0.;
 };
 
 class PhysicsSolver{
@@ -142,7 +143,6 @@ class PhysicsSolver{
             glVertex2f(c, d);
             glColor3f(1., 1., 1.);
         glEnd();
-
     }
 
     void draw_box(vec2 pos, vec2 size, vec2 screen_size, vec3 color){
@@ -272,6 +272,22 @@ class PhysicsSolver{
         }
         return vec3(0.);
     }
+    void draw_arrow(vec4 from, vec4 to, vec2 screen_size, vec3 color){
+        vec2 half_sreen = screen_size * 0.5f;
+        float a = remap(from.x, -half_sreen.x, half_sreen.x, -1, 1);
+        float b = remap(from.y, -half_sreen.y, half_sreen.y, -1, 1);
+        float c = remap(to.x, -half_sreen.x, half_sreen.x, -1, 1);
+        float d = remap(to.y, -half_sreen.y, half_sreen.y, -1, 1);
+
+
+        glBegin(GL_LINES);
+            glColor3f(0, 0, 0);
+            glVertex2f(a, b);
+            glColor3f(color.r, color.g, color.b);
+            glVertex2f(c, d);
+            glColor3f(1., 1., 1.);
+        glEnd();
+    }
     void draw(vec2 screen_size){
         for (PhysicsPrimitive* object: objects){
             vec3 color = get_color(object->type);
@@ -280,12 +296,19 @@ class PhysicsSolver{
             switch (object->shape){
                 case CAPSULE:
                     draw_capsule(pos, vec2(object->rounding, object->a.x), screen_size, color);
+                    draw_capsule(pos, {1, 0}, screen_size, color);
                     break;
                 case BOX:
                     draw_box(pos, vec2(object->a.x, object->a.y), screen_size, color);
+                    draw_capsule(pos, {1, 0}, screen_size, color);
                     break;
                 case PYRAMID:
                     draw_pyramid(pos, {object->a.x, object->a.y}, {object->b.x, object->b.y}, screen_size, color);
+                    vec4 vertex1 = object->position - vec4{object->a.x * 0.5f, -object->a.y, 0., 0.};
+                    vec4 vertex2 = object->position + vec4{object->a.x * 0.5f, object->a.y, 0., 0.};
+                    vec4 vertex3 = object->position + object->b;
+                    vec4 center = (vertex1 + vertex2 + vertex3) / 3.0f;
+                    draw_capsule(center, {1, 0}, screen_size, color);
                     break;
             }
         }
@@ -301,7 +324,7 @@ class PhysicsSolver{
             vec4(0.),
             vec4(0.),
             0.,
-            1.,
+            0.1,
             1.,
             FIXED,
             BOX
@@ -318,7 +341,7 @@ class PhysicsSolver{
             vec4(0.),
             vec4(0.),
             radius,
-            1.,
+            0.1,
             1.,
             FIXED,
             CAPSULE
@@ -335,7 +358,7 @@ class PhysicsSolver{
             vec4(vert, 0.),
             vec4(0.),
             0.,
-            1.,
+            0.1,
             1.,
             FIXED,
             PYRAMID
@@ -565,8 +588,8 @@ class PhysicsSolver{
         vector<PhysicsPrimitive> dereferenced;
         for (auto obj: objects) {
             if (obj->type == RIGID){
-                //obj->velocity += gravity * delta;
-                //obj->position += obj->velocity * delta;
+                obj->velocity += gravity * delta;
+                obj->position += obj->velocity * delta;
             }
             dereferenced.push_back(*obj);
         }
@@ -575,25 +598,22 @@ class PhysicsSolver{
             // !ONLY CAPSULES CAN BE RIGID?
             PhysicsPrimitive first = PhysicsPrimitive{*objects[a]}; // clone?
             if (first.type != RIGID) continue; // iter only RIGID BODIES (update only self)
+            vec4 vec = {};
             for (int b=0;b<objects.size();b++){
                 if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive second = PhysicsPrimitive{*objects[b]};
                 //if (!intersects(first, second)) continue; // check AABBs
-
                 if (second.shape == CAPSULE){
                     vec4 first_center = first.position;
                     vec4 closest_point2 = closest_point(second, first_center);
                     vec4 closest_point1 = closest_point(first, closest_point2);
                     vec4 result1 = apply_rounding(closest_point1, closest_point2, first.rounding);
                     vec4 result2 = apply_rounding(closest_point2, closest_point1, second.rounding);
-                    //draw_line(result1, result2, screen_size, {1, 0, 1});
-                    vec4 vec = result1 - result2;
+                    vec = (result1 - result2) * 1.001f;
                     if (dot(vec, first.position - second.position) > 0) continue; // prevent pushing inside
-                    if (second.type != RIGID){
-                        first.position -= vec;
-                    } else {
-                        first.position -= vec * 0.5f;
-                    }
+                    if (second.type != RIGID) first.position -= vec;
+                    else first.position -= vec * 0.5f;
+                    
                 }
 
 
@@ -608,7 +628,7 @@ class PhysicsSolver{
                         if (closest_point1 == closest_point2 || first_center == closest_point2){
                             vec4 to_center = normalize(second.position - first.position);
                             vec4 miss = {};
-                            if (abs(to_center.x) > abs(to_center.y)) {// todo: incorrect for non-rectangle
+                            if (abs(to_center.x) > abs(to_center.y)) {// todo: incorrect for non-rectangle ??? maybe correct...
                                 miss.x = to_center.x;
                                 closest_point1 = first_center + miss;
                             } else {
@@ -624,15 +644,11 @@ class PhysicsSolver{
 
                     vec4 result2 = apply_rounding(closest_point2, closest_point1, second.rounding);
 
-                    vec4 vec = result1 - result2;
+                    vec = (result1 - result2) * 1.001f;
 
                     if (dot(vec, first.position - second.position) > 0) continue; // prevent pushing inside
-                    if (second.type != RIGID){
-                        first.position -= vec;
-                    } else {
-                        first.position -= vec * 0.5f;
-                    }
-
+                    if (second.type != RIGID) first.position -= vec;
+                    else first.position -= vec * 0.5f;
                 }
 
                 if (second.shape == PYRAMID){
@@ -671,17 +687,15 @@ class PhysicsSolver{
                         vertexB = vertex3;
                     }
                     //vec2 a, vec2 b, vec2 point1, vec2 point2
-
                     vec4 rounded = vec4();
                     if ((on_same_side_and_line(vertexA, vertexB, center, point) || (!on_same_side_and_line(vertexA, vertexB, center, point) && on_same_side_and_line(vertexA, vertexB, center, first.position)))){
                         rounded = apply_inv_rounding(point, result, first.rounding);
-                        // todo: fix first_center == closest_point2 for boxes (align to center by one shortest axis)
                     } else {
                         if (point == result){
                             draw_capsule(point, {6, 0}, screen_size, {1, 0, 1});
                             vec4 to_center = normalize(center - first.position);
                             vec4 miss = {};
-                            if (abs(to_center.x) > abs(to_center.y)) {
+                            if (abs(to_center.x) > abs(to_center.y)) { // todo: incorrect for non-rectangle
                                 miss.x = to_center.x;
                                 point = first.position + miss;
                             } else {
@@ -691,8 +705,7 @@ class PhysicsSolver{
                         }
                         rounded = apply_rounding(point, result, first.rounding);
                     }
-                    draw_line(first.position, center, screen_size, {});
-                    vec4 vec = rounded - result;
+                    vec = (rounded - result) * 1.001f;
                     if (length_squared(second.position - (first.position - vec)) < length_squared(second.position - first.position)) continue; // prevent pushing inside
                     if (second.type != RIGID){
                         if (first.y_slopes && (abs(vec.y) > 0.1) ) {
@@ -708,9 +721,28 @@ class PhysicsSolver{
                         first.position -= vec * 0.5f;
                     }
                 }
+                if (vec != vec4(0.)){
+                    vec4 vel = first.velocity;
+                    vec4 norm = normalize(-vec); // almost in all cases it will be right
+                    vec2 projected = (dot(vel, norm) / dot(norm, norm)) * vec2(norm);
+                    vec4 y_component = vec4(projected, 0, 0);
+                    vec4 plane_component = vel - vec4(projected, 0, 0);
+
+                    //draw_arrow(first.position, first.position + vel * 20.0f, screen_size, {1, 0, 0});
+                    //draw_arrow(first.position, first.position + norm * 20.0f, screen_size, {0, 1, 0});
+                    //draw_arrow(first.position, first.position + vec4(projected * 20.0f, 0, 0), screen_size, {0, 0, 1});
+                    
+                    if (dot(y_component, vel) > 0) y_component = -y_component;
+
+                    //first.velocity = y_component * first.bounciness + plane_component * first.friction;
+                    first.velocity = y_component * first.bounciness + plane_component * first.friction;
+                    //draw_arrow(first.position, first.position + normalize(plane_component) * 20.0f, screen_size, {1, 0, 0});
+                    //draw_arrow(first.position, first.position + normalize(projected) * 20.0f, screen_size, {0, 0, 1});
+                }
                 dereferenced[a] = first; // write changes
             }
         }
+
 
         // sync
         for (int i=0;i<objects.size();i++){
@@ -730,16 +762,13 @@ class PhysicsSolver{
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, output_buffer);
         glDispatchCompute(objects.size(), 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        
         vector<PhysicsPrimitive> new_objects(objects.size());
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, output_buffer);
         glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, objects.size() * sizeof(PhysicsPrimitive), &new_objects[0]);
-        
         for (int i=0;i<objects.size();i++){
             cout << new_objects[i].type << endl;
             *objects[i] = new_objects[i];
         }
-
         dereferenced.clear();*/
     }
 
