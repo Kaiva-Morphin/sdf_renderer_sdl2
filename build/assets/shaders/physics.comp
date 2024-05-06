@@ -5,8 +5,7 @@
 #define RIGID 2
 
 #define CAPSULE 0
-#define BOX 1
-#define PYRAMID 2
+#define LINE 1
 
 struct PhysicsPrimitive{
     vec4 position;
@@ -19,6 +18,8 @@ struct PhysicsPrimitive{
     float mass;
     int type;
     int shape;
+    bool y_slopes;
+    float friction;
 };
 
 
@@ -29,17 +30,46 @@ layout(std140, binding = 1) buffer OutputBuffer {
     PhysicsPrimitive next_objecs[];
 };
 
+uniform int scene_size;
 uniform float delta;
 uniform vec3 gravity;
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
+vec4 closest_point_on_capped_line(vec4 a, vec4 b, vec4 point){
+    vec4 AB = a - b;
+    vec4 AC = point - b;
+    float t = dot(AC, AB) / dot(AB, AB);
+    t = clamp(t, 0.0, 1.0);
+    return b + t * AB;
+}
+
+vec4 normal_of_line(vec4 a, vec4 b){
+    vec4 vec = a - b;
+    return normalize(vec4(-vec.y, vec.x, 0, 0));
+}
+
+
 void main() {
     uint index = gl_GlobalInvocationID.x;
-    PhysicsPrimitive object = objecs[index];
-    if (object.type == RIGID){
-        object.velocity.xyz += gravity * delta;
-        object.position += object.velocity * delta;
+    next_objecs[index] = objecs[index];
+    PhysicsPrimitive first = next_objecs[index];
+    if (index == 0) first.type = RIGID;
+    if (first.type == RIGID){
+        //objecs[index].velocity.xyz += vec3(0, 1, 0) * delta;
+        first.position += first.velocity * delta;
+        for (int i = 0; i < scene_size; i++){
+            PhysicsPrimitive second = objecs[index];
+            switch (second.shape){
+                case CAPSULE: continue;
+                case LINE:
+                    {
+
+                    }
+                    break;
+            }
+        }
+
     }
-    next_objecs[index] = object;
+    next_objecs[index] = first;
 }

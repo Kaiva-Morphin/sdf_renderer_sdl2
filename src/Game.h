@@ -13,6 +13,7 @@
 
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
+#include "BdfFont.h"
 
 SDL_Window* window;
 //SDL_Renderer* renderer;
@@ -67,40 +68,19 @@ class PassShader : public Shader {
 class Debugger{
     unordered_map<string, tuple<string, string>> lines; // todo: add destroying!
     vector<string> line_order; // todo: add destroying!
-    void draw_line(int line, const char* text){
-        SDL_Color textColor = {200, 200, 200}; // Black color
-        SDL_Color bgColor = {30, 30, 30}; 
-        
-        SDL_Surface* textSurface = TTF_RenderText_Shaded(font, text, textColor, bgColor);
-        if (textSurface == NULL) {
-            printf("Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError());
-            return;
-        }
-
-        // Create texture from surface pixels
-        SDL_Texture* texture = NULL;//SDL_CreateTextureFromSurface(renderer, textSurface);
-        if (texture == NULL) {
-            printf("Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError());
-            return;
-        }
-        
-        // Get width and height of text surface
-        int textWidth = textSurface->w;
-        int textHeight = textSurface->h;
-        int offset = 5;
-        // Set rendering space and render to screen
-        SDL_Rect renderQuad = {0, (textHeight - offset) * line, textWidth, textHeight - offset};
-        SDL_Rect srcRect = {0, offset, textWidth, textHeight};
-        //SDL_RenderCopy(renderer, texture, &srcRect, &renderQuad);
-
-        // Cleanup
-        SDL_FreeSurface(textSurface);
-        SDL_DestroyTexture(texture);
+    vec2 screen_size = {0, 0};
+    void draw_line(int line, string text){
+        font_atlas->draw_text(text, {0, screen_size.y - (line + 1) * font_atlas->get_glyph_size().y}, screen_size);
+        //font_atlas->draw_text(L"ZXC", {0, 0}, screen_size);
     }
     int startTime = SDL_GetTicks();
     int endTime = 0;
     int frameCount = 0;
     public:
+    BDFAtlas* font_atlas = nullptr;
+    void init(BDFAtlas* font_atlas){
+        this->font_atlas = font_atlas;
+    };
     bool enabled = false;
     void register_basic(){
         register_line(string("fps"), string("FPS: "), string("?"));
@@ -150,14 +130,15 @@ class Debugger{
     void destroy_line(string name){
         lines.erase(name);
     }
-    void draw(){
+    void draw(vec2 screen_size){
+        this->screen_size = screen_size;
         if (!enabled){return;}
         int line = 0;
         for (const auto& line_name : line_order) {
             string text;
             string data;
             tie(text, data) = lines[line_name];
-            draw_line(line, (text + data).c_str());
+            draw_line(line, (text + data));
             line += 1;
         }
     };
@@ -181,9 +162,7 @@ class Game{
     GLuint default_shader = 0;
     
     Debugger debugger;
-
-    
-
+    Game(){};
     void init(){
         SDL_Init(SDL_INIT_VIDEO);
         window = SDL_CreateWindow("Simple Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_OPENGL);
@@ -193,8 +172,8 @@ class Game{
         glewInit();
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_TEXTURE_2D);
-
         debugger = Debugger();
+        //debugger.init(&font_atlas);
         debugger.register_basic();
         
         update_resolution();
@@ -204,8 +183,9 @@ class Game{
         SDL_SetWindowResizable(window, SDL_bool::SDL_TRUE);
         SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SCALING, "1");
         SDL_GL_SetSwapInterval(0);
-        TTF_Init();
-        font = TTF_OpenFont("assets/fonts/TinyUnicode.ttf", 16);
+
+        //TTF_Init();
+        //font = TTF_OpenFont("assets/fonts/TinyUnicode.ttf", 16);
 
         //glEnable(GL_BLEND);
         //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -375,7 +355,7 @@ class Game{
         if (screen_depth != 0) glDeleteTextures(1, &screen_depth);
         if (screen_normalmap != 0) glDeleteTextures(1, &screen_normalmap);
         SDL_GL_DeleteContext(context);
-        TTF_CloseFont(font);
+        //TTF_CloseFont(font);
         SDL_DestroyWindow(window);
         SDL_Quit();
     }

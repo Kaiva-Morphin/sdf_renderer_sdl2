@@ -24,14 +24,14 @@ using namespace std;
 
 #include <thread>
 
-#define ALMOST_ZERO 0.001
+#define FIXED 1
+#define MOVING 2
+#define RIGID 4
 
-#define FIXED 0
-#define MOVING 1
-#define RIGID 2
-
-#define CAPSULE 0
-#define LINE 1
+#define CAPSULE 1
+#define BOX 2
+#define PYRAMID 4 // 1 vert
+#define RAMP 8 // 2 vert
 
 struct alignas(16) PhysicsPrimitive{
     vec4 position = vec4(0.);
@@ -39,7 +39,6 @@ struct alignas(16) PhysicsPrimitive{
     vec4 a = vec4(0.);
     vec4 b = vec4(0.);
     vec4 c = vec4(0.);
-    vec4 normal = vec4(0.);
     float rounding = 0.;
     float bounciness = 0.1;
     float mass = 1.;
@@ -100,9 +99,6 @@ class PhysicsSolver{
     }
     void set_1f(const char* name, float value){
         glUniform1f(glGetUniformLocation(program, name), value);
-    }
-    void set_1i(const char* name, int value){
-        glUniform1i(glGetUniformLocation(program, name), value);
     }
     void set_3f(const char* name, vec3 value){
         glUniform3f(glGetUniformLocation(program, name), value.x, value.y, value.z);
@@ -277,10 +273,7 @@ class PhysicsSolver{
             glColor3f(1., 1., 1.);
         glEnd();
     }
-
-    
-
-    void draw_arrow(vec2 from, vec2 to, vec2 screen_size, vec3 color){
+    void draw_arrow(vec4 from, vec4 to, vec2 screen_size, vec3 color){
         vec2 half_sreen = screen_size * 0.5f;
         float a = remap(from.x, -half_sreen.x, half_sreen.x, -1, 1);
         float b = remap(from.y, -half_sreen.y, half_sreen.y, -1, 1);
@@ -306,52 +299,110 @@ class PhysicsSolver{
                     draw_capsule(pos, vec2(object->rounding, object->a.x), screen_size, color);
                     draw_point(pos, screen_size, color);
                     break;
-                case LINE:
-                    draw_line(pos+vec2(object->a), pos+vec2(object->b), screen_size, color);
-                    vec2 center = (pos+vec2(object->a) + pos+vec2(object->b)) / 2.0f;
-                    vec4 norm = normal_of_line(object->a, object->b);
-                    draw_arrow(center, center+vec2(norm)*10.0f, screen_size, color);
+                
+                case BOX:
+                    draw_box(pos, vec2(object->a.x, object->a.y), screen_size, color);
+                    draw_point(pos, screen_size, color);
+                    break;
+                case PYRAMID:
+                    draw_pyramid(pos, {object->a.x, object->a.y}, {object->b.x, object->b.y}, screen_size, color);
+                    vec4 vertex1 = object->position - vec4{object->a.x * 0.5f, -object->a.y, 0., 0.};
+                    vec4 vertex2 = object->position + vec4{object->a.x * 0.5f, object->a.y, 0., 0.};
+                    vec4 vertex3 = object->position + object->b;
+                    vec4 center = (vertex1 + vertex2 + vertex3) / 3.0f;
+                    draw_point(pos, screen_size, color);
                     break;
             }
         }
     }
     // constructors
-    PhysicsPrimitive box(vec3 size=vec3(10.)){return PhysicsPrimitive{};}// todo: bundle
-    PhysicsPrimitive line(vec3 a, vec3 b){
-        PhysicsPrimitive p;
-        p.a = vec4(a, 0);
-        p.b = vec4(b, 0);
-        p.shape = LINE;
-        p.normal = normal_of_line(p.a, p.b);
-        return p;
-
-    }// todo: bundle
-    PhysicsPrimitive capsule(float height = 10., float radius = 10){
-        PhysicsPrimitive p;
-        p.a = vec4(height);
-        p.rounding = radius;
-        p.shape = CAPSULE;
-        return p;
+    PhysicsPrimitive box(
+        vec3 size=vec3(10.)
+    ){
+        return PhysicsPrimitive{
+            vec4(0.),
+            vec4(0.),
+            vec4(size, 0.),
+            vec4(0.),
+            vec4(0.),
+            0.,
+            0.1,
+            1.,
+            FIXED,
+            BOX
+        };
     }
-    // todo: bundle
-    PhysicsPrimitive pyramid( // !WARN! CENTER MUST BE INSIDE PRIMITIVE! 
+    PhysicsPrimitive capsule(
+        float height = 10.,
+        float radius = 10
+    ){
+        return PhysicsPrimitive{
+            vec4(0.),
+            vec4(0.),
+            vec4(height),
+            vec4(0.),
+            vec4(0.),
+            radius,
+            0.1,
+            1.,
+            FIXED,
+            CAPSULE
+        };
+    }
+    PhysicsPrimitive pyramid( // !WARN! CENTER MUST BE INSIDE PRIMITIVE!
         vec3 base, // xz is plane size, y is y offset 
         vec3 vert // vertex offset
-    ){return PhysicsPrimitive{};}
+    ){
+        return PhysicsPrimitive{
+            vec4(0.),
+            vec4(0.),
+            vec4(base, 0.),
+            vec4(vert, 0.),
+            vec4(0.),
+            0.,
+            0.1,
+            1.,
+            FIXED,
+            PYRAMID
+        };
+    }
 
     void push(PhysicsPrimitive* p){
         objects.push_back(p);
     }
 
-    vec4 get_aabb_max(PhysicsPrimitive p){ // todo: switch case
-        return p.position + vec4(p.rounding, p.rounding, p.rounding, 0.) + vec4(0., p.a.x * 0.5, 0., 0.);
+
+    vec4 get_aabb_max(PhysicsPrimitive p){
+        switch (p.shape) {
+            case BOX:
+                return p.position + p.a * 0.5f;
+                break;
+            case CAPSULE:
+                return p.position + vec4(p.rounding, p.rounding, p.rounding, 0.) + vec4(0., p.a.x * 0.5, 0., 0.);
+                break;
+            case PYRAMID:
+                return p.position + glm::max(p.a, p.b) * vec4(0.5, 1, 0.5, 1);
+                break;
+        }
+        return vec4(0);
     }
 
-    vec4 get_aabb_min(PhysicsPrimitive p){ // todo: switch case
-        return p.position - vec4(p.rounding, p.rounding, p.rounding, 0.) - vec4(0., p.a.x * 0.5, 0., 0.);
+    vec4 get_aabb_min(PhysicsPrimitive p){
+        switch (p.shape) {
+            case BOX:
+                return p.position - p.a * 0.5f;
+                break;
+            case CAPSULE:
+                return p.position - vec4(p.rounding, p.rounding, p.rounding, 0.) - vec4(0., p.a.x * 0.5, 0., 0.);
+                break;
+            case PYRAMID:
+                return p.position - glm::max(p.a, p.b) * vec4(0.5, 1, 0.5, 1);
+                break;
+        }
+        return vec4(0);
     }
 
-    bool intersects(PhysicsPrimitive p1, PhysicsPrimitive p2){ // todo: make for 3d 
+    bool intersects(PhysicsPrimitive p1, PhysicsPrimitive p2){ // todo: make for 3d
         vec4 aabb_min_1 = get_aabb_min(p1);
         vec4 aabb_max_1 = get_aabb_max(p1);
         vec4 aabb_min_2 = get_aabb_min(p2);
@@ -383,11 +434,9 @@ class PhysicsSolver{
     float length_squared(vec2 vec){
         return vec.x * vec.x + vec.y * vec.y;
     }
-
     float length_squared(vec3 vec){
         return vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
     }
-    
     float length_squared(vec4 vec){
         return vec.x * vec.x + vec.y * vec.y + vec.z * vec.z + vec.w * vec.w;
     }
@@ -396,10 +445,7 @@ class PhysicsSolver{
         return glm::min(glm::max(v, minv), maxv);
     }
 
-    vec4 normal_of_line(vec4 a, vec4 b){
-        vec4 vec = a - b;
-        return normalize(vec4(-vec.y, vec.x, 0, 0));
-    }
+    
 
     vec4 closest_point(PhysicsPrimitive p1, vec4 point){ // todo: make for 3d, split to shape-specific
         switch (p1.shape){
@@ -415,6 +461,62 @@ class PhysicsSolver{
                 return vec4(p1.position.x, y, p1.position.z, p1.position.w);
                 break;
             }
+            case BOX:{
+                vec4 aabb_min = get_aabb_min(p1);
+                vec4 aabb_max = get_aabb_max(p1);
+                float x = point.x;
+                float y = point.y;
+                float z = point.z;
+                if (is_point_in_AABB(p1, point)){ // todo: make for 3d
+                    float dx1 = abs(x - aabb_min.x);
+                    float dx2 = abs(x - aabb_max.x);
+                    float dy1 = abs(y - aabb_min.y);
+                    float dy2 = abs(y - aabb_max.y);
+                    if (std::min(dx1, dx2) < std::min(dy1, dy2)){
+                        if (dx1 > dx2){
+                            x = aabb_max.x;
+                        } else {
+                            x = aabb_min.x;
+                        }
+                        return vec4(x, y, z, p1.position.w);
+                    } else {
+                        if (dy1 > dy2){
+                            y = aabb_max.y;
+                        } else {
+                            y = aabb_min.y;
+                        }
+                        return vec4(x, y, z, p1.position.w);
+                    }
+                    return vec4(x, y, z, p1.position.w);
+                }
+                x = std::min(x, aabb_max.x);
+                x = std::max(x, aabb_min.x);
+                y = std::min(y, aabb_max.y);
+                y = std::max(y, aabb_min.y);
+                z = std::min(z, aabb_max.z);
+                z = std::max(z, aabb_min.z);
+                return vec4(x, y, z, p1.position.w);
+                break;
+            }
+            case PYRAMID:
+                //PhysicsPrimitive p1, vec4 point
+                vec4 vertex1 = p1.position - vec4{p1.a.x * 0.5f, -p1.a.y, 0., 0.};
+                vec4 vertex2 = p1.position + vec4{p1.a.x * 0.5f, p1.a.y, 0., 0.};
+                vec4 vertex3 = p1.position + p1.b;
+            
+                vec4 closestPoint1 = closest_point_on_capped_line(vertex1, vertex2, point);
+                vec4 closestPoint2 = closest_point_on_capped_line(vertex1, vertex3, point);
+                vec4 closestPoint3 = closest_point_on_capped_line(vertex2, vertex3, point);
+
+                vec4 closest1 = length_squared(point - vertex1) < length_squared(point - vertex2) ? vertex1 : vertex2;
+                vec4 maxima = length_squared(point - vertex1) < length_squared(point - vertex2) ? vertex2 : vertex1;
+                vec4 closest2 = length_squared(point - vertex3) < length_squared(point - maxima) ? vertex3 : maxima;
+
+                vec4 minima = length_squared(point - closestPoint1) < length_squared(point - closestPoint2) ? closestPoint1 : closestPoint2;
+                vec4 result = length_squared(point - closestPoint3) < length_squared(point - minima) ? closestPoint3 : minima;
+
+                return result;
+                break;
         }
         return vec4(0);
     }
@@ -431,42 +533,11 @@ class PhysicsSolver{
         return vec4(p1.position.x, y, p1.position.z, p1.position.w);
     }
 
-    vec4 closest_point_on_capped_line(vec4 point, vec4 a, vec4 b){
+    vec4 closest_point_on_capped_line(vec4 a, vec4 b, vec4 point){
         vec4 AB = a - b;
         vec4 AC = point - b;
         float t = dot(AC, AB) / dot(AB, AB);
         t = clamp(t, 0.0, 1.0);
-        return b + t * AB;
-    }
-
-    vec4 closest_vertex_on_capped_line(vec4 point, vec4 a, vec4 b){
-        vec4 AB = a - b;
-        vec4 AC = point - b;
-        float t = dot(AC, AB) / dot(AB, AB);
-        if (t > 0.5) t = 1;
-        else t = 0;
-        return b + t * AB;
-    }
-
-    vec3 closest_point_on_capped_line(vec3 point, vec3 a, vec3 b){
-        vec3 AB = a - b;
-        vec3 AC = point - b;
-        float t = dot(AC, AB) / dot(AB, AB);
-        t = clamp(t, 0.0, 1.0);
-        return b + t * AB;
-    }
-
-    vec4 closest_point_on_line(vec4 point, vec4 a, vec4 b){
-        vec4 AB = a - b;
-        vec4 AC = point - b;
-        float t = dot(AC, AB) / dot(AB, AB);
-        return b + t * AB;
-    }
-
-    vec3 closest_point_on_line(vec3 point, vec3 a, vec3 b){
-        vec3 AB = a - b;
-        vec3 AC = point - b;
-        float t = dot(AC, AB) / dot(AB, AB);
         return b + t * AB;
     }
 
@@ -495,7 +566,6 @@ class PhysicsSolver{
         }
     }
 
-
     bool on_same_side(vec2 a, vec2 b, vec2 center, vec2 point){
         float A = a.y - b.y;
         float B = b.x - a.x;
@@ -505,127 +575,6 @@ class PhysicsSolver{
         return (r1 * r2) > 0;
     }
 
-    void lines2(vec2 screen_size, BDFAtlas* font_atlas, vec2 cursor){
-        static float time = 0;
-        time += 0.001;
-        vec3 a1 = { 0, 0, 0};
-        vec3 a2 = vec3(cursor, 0);
-        vec3 b1 = { 0, 0, 0};
-        vec3 b2 = { 0, -50, 0};
-
-        draw_line(a1, a2, screen_size, {1, 0, 0});
-        draw_line(b1, b2, screen_size, {0, 1, 0});
-
-        vec3 result = inv_projection(b2, normalize(a2));
-
-        draw_line(a1, result, screen_size, {0, 0, 1});
-
-
-    }
-
-    void lines(vec2 screen_size, BDFAtlas* font_atlas){
-        static float time = 0;
-        time += 0.001;
-        vec3 a1 = { sin(time) * 60, 0, 0};
-        vec3 a2 = { 30 + sin(time) * 60, cos(time * 4) * 30, 0};
-        vec3 b1 = { 30, -50, 0};
-        vec3 b2 = {-30, -50, 0};
-        draw_line(a1, a2, screen_size, {1, 0, 0});
-        draw_line(b1, b2, screen_size, {0, 1, 0});
-        vec3 end_a, end_b;
-        tie(end_a, end_b) = closest_points_between_lines(a1, a2, b1, b2);
-        
-        vec3 B = closest_point_on_line(a1, b1, b2);
-        vec3 AB = B - a1;
-        vec3 result = a1 + inv_projection(AB, end_b - end_a);
-
-
-        
-        draw_line(result, a1, screen_size, {1, 1, 1});
-
-        draw_line(end_b, end_a, screen_size, {0, 1, 1});
-
-
-
-
-        //draw_capsule(a1 + result - b1, {10, 0}, screen_size, {0, 0, 1});
-        //draw_line(a, b, screen_size, {0, 0, 1});
-    }
-
-    vec3 inv_projection(vec3 a, vec3 dir) {
-        float target_len = length(a);
-        float cos_ = (dot(a, dir) / (length(dir) * target_len));
-        return target_len / cos_ * normalize(dir);
-    }
-
-    vec4 inv_projection(vec4 a, vec4 dir) {
-        float target_len = length(a);
-        float cos_ = (dot(a, dir) / (length(dir) * target_len));
-        return target_len / cos_ * normalize(dir);
-    }
-
-    float angle(vec4 a, vec4 b){
-        return acos(dot(a, b) / (length(a) * length(b)));
-    }
-
-    std::tuple<vec4, vec4> closest_points_between_lines(vec3 a0, vec3 a1, vec3 b0, vec3 b1){
-        vec3 A = a1 - a0;
-        vec3 B = b1 - b0;
-        float magA = length(A);
-        float magB = length(B);
-        vec3 _A = A / magA;
-        vec3 _B = B / magB;
-        vec3 crs = cross(_A, _B);
-        float denom = length(crs); 
-        denom *= denom;
-        if (denom == 0){
-            float d0 = dot(_A, (b0-a0));
-            float d1 = dot(_A, (b1-a0));
-            if ((d0 <= 0) && (0 >= d1)){
-                if (abs(d0) < abs(d1)){
-                    return std::make_tuple(vec4(a0, 0), vec4(b0, 0));
-                } else {
-                    return std::make_tuple(vec4(a0, 0), vec4(b1, 0));
-                }
-            } else if ((d0 >= magA) && (magA <= d1)) {
-                if (abs(d0) < abs(d1)){
-                    return std::make_tuple(vec4(a1, 0), vec4(b0, 0));
-                } else {
-                    return std::make_tuple(vec4(a1, 0), vec4(b1, 0));
-                }
-            }
-            vec3 p = closest_point_on_capped_line((a0 + a1) / 2.0f, b0, b1);
-            return std::make_tuple(vec4(0), vec4(0));
-        }
-        vec3 t = b0 - a0;
-        float detA = determinant(mat3(t, _B, crs));
-        float detB = determinant(mat3(t, _A, crs));
-        
-        float t0 = detA/denom;
-        float t1 = detB/denom;
-        vec3 pA = a0 + (_A * t0);
-        vec3 pB = b0 + (_B * t1);
-        if (t0 < 0)  pA = a0;
-        else if (t0 > magA)  pA = a1;
-        if (t1 < 0)  pB = b0;
-        else if (t1 > magB)  pB = b1;
-
-        if ((t0 < 0) || (t0 > magA)) {
-            float _dot = dot(_B, (pA-b0));
-            if (_dot < 0) _dot = 0;
-            else if (_dot > magB) _dot = magB;
-            pB = b0 + (_B * _dot);
-        }
-        if ((t1 < 0) || (t1 > magB)) {
-            float _dot = dot(_A, (pB-a0));
-            if (_dot < 0) _dot = 0;
-            else if (_dot > magA) _dot = magA;
-            pA = a0 + (_A * _dot);
-        }
-        return std::make_tuple(vec4(pA, 0), vec4(pB, 0));
-    }
-
-
     bool on_same_side_and_line(vec2 a, vec2 b, vec2 center, vec2 point){
         vec2 AB = a - b;
         vec2 AC = point - b;
@@ -633,22 +582,13 @@ class PhysicsSolver{
         return !((t < 0) || (t > 1)) && on_same_side(a, b, center, point);
     }
 
-    bool is_point_on_capped_line(vec2 point, vec2 a, vec2 b){
-        vec2 AB = a - b;
-        vec2 AC = point - b;
-        float t = dot(AC, AB) / dot(AB, AB);
-        return !((t < 0) || (t > 1));
-    }
-
-     
-
-    void step(float delta, vec2 screen_size, BDFAtlas* font_atlas){
+    void step(float delta, vec2 screen_size){
         // copy
         vector<PhysicsPrimitive> dereferenced;
         for (auto obj: objects) {
             if (obj->type == RIGID){
-                //obj->velocity += gravity * delta;
-                //obj->position += obj->velocity * delta;
+                obj->velocity += gravity * delta;
+                obj->position += obj->velocity * delta;
             }
             dereferenced.push_back(*obj);
         }
@@ -657,14 +597,12 @@ class PhysicsSolver{
             // !ONLY CAPSULES CAN BE RIGID?
             PhysicsPrimitive first = PhysicsPrimitive{*objects[a]};
             if (first.type != RIGID) continue; // iter only RIGID BODIES (update only self)
-            vec4 starting_point = first.position;
-            first.position += first.velocity * delta;
+            vec4 vec = {};
             for (int b=0;b<objects.size();b++){
                 if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive second = PhysicsPrimitive{*objects[b]};
-                //if (!intersects(first, second)) continue; // todo: check AABBs
-
-                /*if (second.shape == CAPSULE){
+                if (!intersects(first, second)) continue; // check AABBs
+                if (second.shape == CAPSULE){
                     vec4 first_center = first.position;
                     vec4 closest_point2 = closest_point(second, first_center);
                     vec4 closest_point1 = closest_point(first, closest_point2);
@@ -675,58 +613,162 @@ class PhysicsSolver{
                     if (second.type != RIGID) first.position -= vec;
                     else first.position -= vec * 0.5f;
                     dereferenced[a] = first; // write changes
-                }*/
+                }
 
-                if (second.shape == LINE){
-                    vec4 vertex1 = second.position + second.a;
-                    vec4 vertex2 = second.position + second.b;
-                    vec4 translation_point, line_point;
-                    tie(translation_point, line_point) = closest_points_between_lines(starting_point, first.position, vertex1, vertex2);
-                    float endpoint_distance_sqared = length_squared(translation_point - line_point);
-                    float radius_squared = (first.rounding * first.rounding);
-                    float radius = first.rounding;
 
-                    bool endpoint_collision = endpoint_distance_sqared < radius_squared;
-                    bool startpoint_collision = length(starting_point - closest_point_on_capped_line(starting_point, vertex1, vertex2)) < first.rounding;
-                    
-                    //draw_arrow(starting_point, first.position, screen_size, {1, 0, 0});
-                    
-                    if ((endpoint_collision && !startpoint_collision) && dot(first.position-starting_point, second.normal) < 0){ // check normals
-                        
-                        vec4 B = closest_point_on_line(starting_point, vertex1, vertex2);
-                        vec4 AB = B - starting_point;
-                        vec4 dir = (endpoint_distance_sqared < ALMOST_ZERO) ? normal_of_line(starting_point, line_point) : normalize(line_point - translation_point);
-                        vec4 result = inv_projection(AB, dir); // starting_point + 
-                        vec4 inv_proj_radius = inv_projection(/*normal_of_line(vertex1, vertex2)*/second.normal * radius, dir);
-                        float projected_radius = length(inv_proj_radius); //length(inv_projection({radius, 0, 0, 0}, dir));
+                if (second.shape == BOX){
+                    vec4 first_center = first.position;
+                    vec4 closest_point2 = closest_point(second, first_center);
+                    vec3 c = {};
 
-                        //draw_line(starting_point + result, starting_point, screen_size, {1, 1, 1});
-                        //draw_line(translation_point + projected_radius * dir, translation_point, screen_size, {0, 1, 0});
-                        float startpoint_dist = length(result);
-                        float endpoint_dist = sqrt(endpoint_distance_sqared);
-                        float point_eq_radius_u = remap(projected_radius, startpoint_dist, endpoint_dist, 0, 1);
-                        
-                        vec4 point_eq_radius = starting_point + (translation_point - starting_point) * point_eq_radius_u;
-                        if (dot(vertex1-vertex2, starting_point - first.position) == 0){ // parrallel wrapper
-                            vec4 temp = closest_point_on_capped_line(starting_point, vertex1, vertex2);
-                            point_eq_radius = normalize(starting_point-temp)*radius + temp;
+                    vec4 closest_point1 = (is_point_in_AABB(second, first_center)) ? inv_closest_capsule_point(first, closest_point2) : closest_point(first, closest_point2);
+                    vec4 result1 = vec4();
+                    if ((is_point_in_AABB(second, closest_point1) || (!is_point_in_AABB(second, closest_point1) && is_point_in_AABB(second, first_center)))){
+                        if (closest_point1 == closest_point2 || first_center == closest_point2){
+                            vec4 to_center = normalize(second.position - first.position);
+                            vec4 miss = {};
+                            if (abs(to_center.x) > abs(to_center.y)) {// todo: incorrect for non-rectangle ??? maybe correct...
+                                miss.x = to_center.x;
+                                closest_point1 = first_center + miss;
+                            } else {
+                                miss.y = to_center.y;
+                                closest_point1 = first_center + miss + vec4(0, (miss.y > 0)?first.a.x*0.5:-first.a.x*0.5, 0, 0);
+                            };
                         }
-                        vec3 color = (is_point_on_capped_line(point_eq_radius, vertex1, vertex2))?vec3{0, 1, 0}:vec3{1, 0, 0};
+                        result1 = apply_inv_rounding(closest_point1, closest_point2, first.rounding);
+                    } else {
+                        result1 = apply_rounding(closest_point1, closest_point2, first.rounding);
+                    }
+                    
 
-                        // if point out of line bounds (intersection with point)
-                        vec4 nearest_vertex = closest_vertex_on_capped_line(starting_point, vertex1, vertex2);
-                        vec4 nearest_vertex_point = closest_point_on_line(nearest_vertex, starting_point, first.position);
-                        float x = sqrt(radius*radius - length_squared(nearest_vertex_point - nearest_vertex));
-                        vec4 oob_point_eq_radius = nearest_vertex_point - normalize(translation_point - starting_point) * x;
-                        if ((length_squared(oob_point_eq_radius - starting_point) <= length_squared(point_eq_radius- starting_point)) || !is_point_on_capped_line(point_eq_radius, vertex1, vertex2)) point_eq_radius = oob_point_eq_radius * (1.0f + 1e-6f); // sometimes calculations return negative miss...
-                        //draw_line(nearest_vertex_point, nearest_vertex, screen_size, {1, 0, 1});
-                        //draw_capsule(point_eq_radius, {radius, 0}, screen_size, color);
-                        first.position = point_eq_radius;
+                    vec4 result2 = apply_rounding(closest_point2, closest_point1, second.rounding);
+
+                    vec = (result1 - result2) * 1.001f;
+
+                    if (dot(vec, first.position - second.position) > 0) continue; // prevent pushing inside
+                    if (second.type != RIGID) first.position -= vec;
+                    else first.position -= vec * 0.5f;
+                    dereferenced[a] = first; // write changes
+                }
+
+                if (second.shape == PYRAMID){
+                    vec4 vertex1 = second.position - vec4{second.a.x * 0.5f, -second.a.y, 0., 0.};
+                    vec4 vertex2 = second.position + vec4{second.a.x * 0.5f, second.a.y, 0., 0.};
+                    vec4 vertex3 = second.position + second.b;
+                    vec4 center = (vertex1 + vertex2 + vertex3) / 3.0f;
+                    vec4 closest_point_a = capsule_vs_line_closest_point(first, vertex1, vertex2, center);
+                    vec4 closest_point_b = capsule_vs_line_closest_point(first, vertex1, vertex3, center);
+                    vec4 closest_point_c = capsule_vs_line_closest_point(first, vertex2, vertex3, center);
+
+                    vec4 result_a = closest_point_on_capped_line(vertex1, vertex2, closest_point_a);
+                    vec4 result_b = closest_point_on_capped_line(vertex1, vertex3, closest_point_b);
+                    vec4 result_c = closest_point_on_capped_line(vertex2, vertex3, closest_point_c);
+
+                    //if ((is_point_in_AABB(second, closest_point1) || (!is_point_in_AABB(second, closest_point1) && is_point_in_AABB(second, first_center)))){
+                    vec4 result;
+                    vec4 point;
+                    vec4 vertexA;
+                    vec4 vertexB;
+                    if (length_squared(closest_point_a - result_a) < length_squared(closest_point_b - result_b)){
+                        result = result_a;
+                        point = closest_point_a;
+                        vertexA = vertex1;
+                        vertexB = vertex2;
+                    } else {
+                        result = result_b;
+                        point = closest_point_b;
+                        vertexA = vertex1;
+                        vertexB = vertex3;
+                    }
+                    if (length_squared(closest_point_c - result_c) < length_squared(point - result)){
+                        result = result_c;
+                        point = closest_point_c;
+                        vertexA = vertex2;
+                        vertexB = vertex3;
+                    }
+                    //vec2 a, vec2 b, vec2 point1, vec2 point2
+                    vec4 rounded = vec4();
+                    if ((on_same_side_and_line(vertexA, vertexB, center, point) || (!on_same_side_and_line(vertexA, vertexB, center, point) && on_same_side_and_line(vertexA, vertexB, center, first.position)))){
+                        rounded = apply_inv_rounding(point, result, first.rounding);
+                    } else {
+                        if (point == result){
+                            draw_capsule(point, {6, 0}, screen_size, {1, 0, 1});
+                            vec4 to_center = normalize(center - first.position);
+                            vec4 miss = {};
+                            if (abs(to_center.x) > abs(to_center.y)) { // todo: incorrect for non-rectangle
+                                miss.x = to_center.x;
+                                point = first.position + miss;
+                            } else {
+                                miss.y = to_center.y;
+                                point = first.position + miss + vec4(0, (miss.y > 0)?first.a.x*0.5:-first.a.x*0.5, 0, 0);
+                            };
+                        }
+                        rounded = apply_rounding(point, result, first.rounding);
+                    }
+                    vec = (rounded - result) * 1.001f;
+                    if (length_squared(second.position - (first.position - vec)) < length_squared(second.position - first.position)) continue; // prevent pushing inside
+                    if (second.type != RIGID){
+                        if (first.y_slopes && (abs(vec.y) > 0.1) ) {
+                            float x = vec.x;
+                            float y = vec.y;
+                            float aspect = x / y;
+                            float c = sqrt(x*x + y*y);
+                            float d = aspect*c;
+                            float result = sqrt(c*c+d*d);
+                            first.position.y += (vec.y > 0)?-result:result;
+                        } else first.position -= vec;
+                    } else {
+                        first.position -= vec * 0.5f;
+                    }
+                    dereferenced[a] = first; // write changes
+                }
+                if (second.type == RIGID){
+                    vec4 vel = first.velocity;
+                    vec4 norm = normalize(-vec); // almost in all cases it will be right
+                    vec2 projected = (dot(vel, norm) / dot(norm, norm)) * vec2(norm);
+                    vec4 y_component = vec4(projected, 0, 0);
+                    vec4 plane_component = vel - vec4(projected, 0, 0);
+
+                    if (dot(y_component, vel) > 0) y_component = -y_component;
+
+                    float avg_bounciness = (first.bounciness + second.bounciness) * 0.5;
+
+                    float energy_amount = second.mass / (first.mass + second.mass);
+
+                    vel = normalize(y_component + plane_component) * (length(first.velocity) + length(second.velocity)) * avg_bounciness * energy_amount;
+                    if (dot(second.position - first.position, first.velocity) < 0) continue;
+                    first.velocity = vel;
+                    dereferenced[a] = first; // write changes
+
+
+                    //vec4 new_vel = y_component * first.bounciness + plane_component * first.friction;
+                    
+
+                    
+                } else {
+                    if (vec != vec4(0.)){
+                        vec4 vel = first.velocity;
+                        vec4 norm = normalize(-vec); // almost in all cases it will be right
+                        vec2 projected = (dot(vel, norm) / dot(norm, norm)) * vec2(norm);
+                        vec4 y_component = vec4(projected, 0, 0);
+                        vec4 plane_component = vel - vec4(projected, 0, 0);
+
+                        //draw_arrow(first.position, first.position + vel * 20.0f, screen_size, {1, 0, 0});
+                        //draw_arrow(first.position, first.position + norm * 20.0f, screen_size, {0, 1, 0});
+                        //draw_arrow(first.position, first.position + vec4(projected * 20.0f, 0, 0), screen_size, {0, 0, 1});
+                        
+                        if (dot(y_component, vel) > 0) y_component = -y_component;
+
+                        //first.velocity = y_component * first.bounciness + plane_component * first.friction;
+                        first.velocity = y_component * first.bounciness + plane_component * first.friction;
+                        dereferenced[a] = first; // write changes
+                        //draw_arrow(first.position, first.position + normalize(plane_component) * 20.0f, screen_size, {1, 0, 0});
+                        //draw_arrow(first.position, first.position + normalize(projected) * 20.0f, screen_size, {0, 0, 1});
                     }
                 }
+                
+                 
             }
-            //first.position = starting_point;
-            dereferenced[a] = first;
         }
 
 
@@ -758,31 +800,6 @@ class PhysicsSolver{
         dereferenced.clear();*/
     }
 
-    void gpu_step(float delta, vec2 screen_size){
-        glUseProgram(program);
-        vector<PhysicsPrimitive> dereferenced;
-        for (auto obj: objects) dereferenced.push_back(*obj);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, input_buffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, objects.size() * sizeof(PhysicsPrimitive), dereferenced.data(), GL_STATIC_DRAW);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, output_buffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, objects.size() * sizeof(PhysicsPrimitive), nullptr, GL_STATIC_DRAW);
-        set_1i("scene_size", objects.size());
-        set_1f("delta", delta);
-        set_3f("gravity", gravity);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, input_buffer);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, output_buffer);
-        glDispatchCompute(objects.size(), 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        vector<PhysicsPrimitive> new_objects(objects.size());
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, output_buffer);
-        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, objects.size() * sizeof(PhysicsPrimitive), &new_objects[0]);
-        for (int i=0;i<objects.size();i++){
-            //cout << new_objects[i].type << endl;
-            *objects[i] = new_objects[i];
-        }
-        dereferenced.clear();
-    }
-
     // physics logic
     private:
     vec4 gravity = vec4(0., -9.8, 0., 0.);
@@ -790,6 +807,3 @@ class PhysicsSolver{
     public:
 
 };
-
-
-// todo: if collisions between two rigids will exists, i must order primitives by type (rigid steps first)

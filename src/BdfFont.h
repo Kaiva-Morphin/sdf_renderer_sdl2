@@ -8,8 +8,8 @@ using namespace std;
 #include <glm/glm.hpp>
 using namespace glm;
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+#ifndef MY_BDF
+#define MY_BDF
 
 struct BDFChar{
     int encoding;
@@ -25,7 +25,6 @@ struct BDFFont{
 
 
 class BDFAtlas{
-
     double remap(double value, double fromLow, double fromHigh, double toLow, double toHigh) {
         double normalized = (value - fromLow) / (fromHigh - fromLow);
         return toLow + normalized * (toHigh - toLow);
@@ -110,10 +109,8 @@ class BDFAtlas{
                 glyph_size.x = stoi(token);
                 iss >> token;
                 glyph_size.y = stoi(token);
-                cout << glyph_size.x << ' ' << glyph_size.y << endl;
             };
         }
-        cout << font.chars.size() << endl;
         return font;
     }
     vec2 get_glyph_pos(int i){
@@ -128,7 +125,6 @@ class BDFAtlas{
             glyph_size.y * (std::ceil((float)font.chars.size() / (float)atlas_width)),
         };
         if (atlas_size_px.y == 0) atlas_size_px.y = glyph_size.y;
-        cout << atlas_size_px.x << ' ' << atlas_size_px.y << endl;
         glGenTextures(1, &atlas_texture);
         glBindTexture(GL_TEXTURE_2D, atlas_texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, atlas_size_px.x, atlas_size_px.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -170,11 +166,11 @@ class BDFAtlas{
                 int line = glyph.bitmap[y];
                 for (int x = glyph.startx; x >= glyph.endx; --x) {
                     if (((line >> x) & 1) != 0){
-                        ivec2 pos = offset + ivec2{glyph.endx-x, y};
+                        ivec2 pos = offset + ivec2{glyph.startx-x, y};
                         vec2 uv_pos = remap_vec2(pos, {0, 0}, atlas_size_px, {-1, -1}, {1, 1});
                         glColor3f(1, 1, 1); glVertex2f(uv_pos.x, uv_pos.y);
                     } else {
-                        ivec2 pos = offset + ivec2{glyph.endx-x, y};
+                        ivec2 pos = offset + ivec2{glyph.startx-x, y};
                         vec2 uv_pos = remap_vec2(pos, {0, 0}, atlas_size_px, {-1, -1}, {1, 1});
                         glColor3f(0, 0, 0); glVertex2f(uv_pos.x, uv_pos.y);
                     }
@@ -210,13 +206,23 @@ class BDFAtlas{
     BDFAtlas(string path, int number_of_glyphs = 0){
         read_bdf_font(path, number_of_glyphs);
         render_font();
-
-
     }
 
-    void draw_char_centered(wchar_t c, vec2 dst, vec2 screen_size){
+
+
+
+    void draw_text(string text, vec2 dst, vec2 screen_size){
+        int i = 0;
+        for (wchar_t c : text){
+            vec2 offset = {glyph_size.x * i, 0};
+            draw_char(c, dst+offset, screen_size);
+            i++;
+        }
+    }
+
+    void draw_char(wchar_t c, vec2 dst, vec2 screen_size){
         int i = int(c);
-        BDFChar char_data = i >= font.chars.size()?font.chars[0]:font.chars[i]; // todo: freeing after generating texture
+        //BDFChar char_data = (i >= font.chars.size())?font.chars[0]:font.chars[i]; // todo: freeing after generating texture
         vec2 pos = get_glyph_pos(i);
         vec4 uv_src = vec4{
             remap_vec2(pos, {}, get_atlas_size(), {0, 0}, {1, 1}),
@@ -230,21 +236,22 @@ class BDFAtlas{
         glBindTexture(GL_TEXTURE_2D, get_texture());
         glBegin(GL_QUADS);
         glColor3f(1, 1, 1);
-        glTexCoord2f(uv_src.x, uv_src.y); glVertex2f(uv_dst.x, uv_dst.y);
-        glTexCoord2f(uv_src.z, uv_src.y); glVertex2f(uv_dst.z, uv_dst.y);
-        glTexCoord2f(uv_src.z, uv_src.w); glVertex2f(uv_dst.z, uv_dst.w);
-        glTexCoord2f(uv_src.x, uv_src.w); glVertex2f(uv_dst.x, uv_dst.w);
+        glTexCoord2f(uv_src.x, uv_src.w); glVertex2f(uv_dst.x, uv_dst.y);
+        glTexCoord2f(uv_src.z, uv_src.w); glVertex2f(uv_dst.z, uv_dst.y);
+        glTexCoord2f(uv_src.z, uv_src.y); glVertex2f(uv_dst.z, uv_dst.w);
+        glTexCoord2f(uv_src.x, uv_src.y); glVertex2f(uv_dst.x, uv_dst.w);
         glEnd();
         glBindTexture(GL_TEXTURE_2D, 0);
     }
-    void save_texture(){
+    /*void save_texture(){
         glBindTexture(GL_TEXTURE_2D, get_texture());
         GLubyte* textureData = new GLubyte[atlas_size_px.x * atlas_size_px.y * 4];
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData);
         stbi_write_png("texture.png", get_atlas_size().x, get_atlas_size().y, 4, textureData, get_atlas_size().x * 4);
-    }
+    }*/
     vec2 get_atlas_size() {return atlas_size_px;}
     vec2 get_glyph_size() {return glyph_size;}
     BDFFont get_font() {return font;}
     GLuint get_texture() {return atlas_texture;}
 };
+#endif

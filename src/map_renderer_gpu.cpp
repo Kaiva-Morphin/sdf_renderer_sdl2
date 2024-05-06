@@ -15,7 +15,6 @@ Game game = Game();
 class Atlas{
     GLuint texture_atlas;
 
-
     public:
     vec2 atlas_size = {0, 0};
     ivec3 tile_size;
@@ -344,6 +343,7 @@ class Map{
 
 int main(int argc, char ** argv)
 {
+    
     game.init();
     
     IMG_Init(IMG_INIT_PNG);
@@ -494,7 +494,11 @@ int main(int argc, char ** argv)
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         std::cerr << "Compute shader program linking failed: " << infoLog << std::endl;
     }
-    BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/profont.bdf", 1536);
+    
+    BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/orp-italic.bdf", 1536);
+    game.debugger.init(&font_atlas);
+    
+
     map.render(&atlas);
     while (game.is_running())
     {
@@ -537,7 +541,9 @@ int main(int argc, char ** argv)
         glEnable(GL_BLEND);
         shader.draw(game.screen_pixel_size);
         glDisable(GL_BLEND);
-        font_atlas.draw_char_centered('V', {}, game.get_screen_size());
+
+        game.debugger.update_basic();
+        game.debugger.draw(game.screen_pixel_size);
 
         game.end_main();
 
@@ -555,7 +561,7 @@ int main(int argc, char ** argv)
         glTexCoord2f(src.x, 0); glVertex2f(-1, 1);
         glEnd();
         glBindTexture(GL_TEXTURE_2D, 0);*/
-
+        
 
         SDL_GL_SwapWindow(window);
         // todo: alpha checks for depth buffer draw :D

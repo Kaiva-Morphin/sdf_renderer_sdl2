@@ -25,80 +25,31 @@ Game game = Game();
 int main(int argc, char ** argv)
 {
     game.init();
-    
+    BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/orp-book.bdf", 1536);
+    game.debugger.init(&font_atlas);
+    game.debugger.register_basic();
     PhysicsSolver physics = PhysicsSolver("assets/shaders/physics.comp");
     physics.init();
 
-    vec3 grid_size = vec3(40, 20, 40);
-    int map_size = 5;
-
-    PhysicsPrimitive box = physics.box(grid_size);
-    PhysicsPrimitive slope = physics.pyramid(vec3(grid_size.x, -grid_size.y*0.5f, 0.),vec3(grid_size.x*0.5f, grid_size.y*0.5f, 0.));
-    PhysicsPrimitive slope_inv = physics.pyramid(vec3(grid_size.x, -grid_size.y*0.5f, 0.),vec3(-grid_size.x*0.5f, grid_size.y*0.5f, 0.));
-    for (int x = -map_size; x <= map_size; x++){
-        for (int y = -map_size; y <= map_size; y++){
-            if (y == -map_size || x == -map_size || x == map_size || y == map_size){
-                PhysicsPrimitive* new_box = new PhysicsPrimitive(box);
-                new_box->position.x = x * grid_size.x;
-                new_box->position.y = y * grid_size.y;
-                physics.push(new_box);
-            }
-            if (x-4 == y && y > -map_size){
-                PhysicsPrimitive* new_slope = new PhysicsPrimitive(slope);
-                new_slope->position.x = x * grid_size.x;
-                new_slope->position.y = y * grid_size.y;
-                physics.push(new_slope);
-            }
 
 
-        }
-    }
-
-
-
-    /*PhysicsPrimitive capsule = physics.capsule(32, 16);
-    capsule.type = RIGID;
-    capsule.mass = 1;
-    capsule.position.x = -40;
-    capsule.position.y = -10;
-    capsule.y_slopes = false;
-    capsule.bounciness = 1.;
-    capsule.friction = 0.99;
-    physics.push(&capsule);
-
-
-
-    PhysicsPrimitive player = physics.capsule(32, 16);
-    player.type = RIGID;
-    player.mass = 1;
-    player.bounciness = 1.;
-    player.friction = 0.99;
-    player.y_slopes = true;
-    physics.push(&player);*/
-
-    PhysicsPrimitive sphere = physics.capsule(10, 32);
-    sphere.type = RIGID;
-    sphere.mass = 1;
-    sphere.bounciness = 1.;
-    sphere.friction = 1;
-    sphere.velocity.x = 10;
-    sphere.position.x = 10;
-    physics.push(&sphere);
-    PhysicsPrimitive sphere2 = physics.capsule(10, 20);
-    sphere2.type = RIGID;
-    sphere2.velocity.x = -10;
-    sphere2.mass = 10;
-    sphere2.bounciness = 1.;
-    sphere2.friction = 1;
-    sphere2.position.x = -10;
-    physics.push(&sphere2);
-
-
-
-    PhysicsPrimitive cursor = physics.box(vec3(20., 20., 20.));
+    PhysicsPrimitive cursor = physics.capsule(0., 40.);
     cursor.type = RIGID;
-    
     physics.push(&cursor);
+
+    /*PhysicsPrimitive line1 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
+    physics.push(&line1);
+    line1.position.x = 125;
+    line1.position.y = -75;
+
+    PhysicsPrimitive line3 = physics.line(vec3(-25., -25., 0.), vec3(25., 25., 0.));
+    line3.position.x = 125;
+    line3.position.y = 0;
+    physics.push(&line3);*/
+
+    PhysicsPrimitive line2 = physics.line(vec3(50., 0., 0.), vec3(-50., 0., 0.));
+    line2.position.y = -0;
+    physics.push(&line2);
 
 
     int xMouse, yMouse;
@@ -108,18 +59,20 @@ int main(int argc, char ** argv)
         int w, h;
         SDL_GetWindowSizeInPixels(window, &w, &h);
         vec2 half_screen = vec2(game.screen_pixel_size) * 0.5f;
-        cursor.position.x = remap(xMouse, 0, w, -half_screen.x,  half_screen.x);
-        cursor.position.y = remap(yMouse, 0, h,  half_screen.y, -half_screen.y);
+        vec2 target = {
+            remap(xMouse, 0, w, -half_screen.x,  half_screen.x),
+            remap(yMouse, 0, h,  half_screen.y, -half_screen.y)
+        };
 
-        if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+        if (!(mouseState & SDL_BUTTON(SDL_BUTTON_LEFT))) {
             cursor.type = RIGID;
             cursor.shape = CAPSULE;
-            cursor.velocity = {0, 10, 0, 0};
-            cursor.rounding = 10;
+            cursor.velocity = (vec4(target, 0, 0) - cursor.position);// * 100.0f;
+            cursor.rounding = 40;
         } else {
-            cursor.type = MOVING;
-            cursor.shape = BOX;
-            cursor.rounding = 0;
+            //cursor.type = MOVING;
+            cursor.position = vec4(target, 0, 0);
+            cursor.rounding = 40;
         }
 
         float time = game.time();
@@ -129,11 +82,22 @@ int main(int argc, char ** argv)
         glClearColor(0.7843, 0.7333, 0.5882, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
         physics.check_file_updates();
-        physics.step(0.01, game.screen_pixel_size);
+        
+        physics.step(0.01, game.screen_pixel_size, &font_atlas);
         physics.draw(game.screen_pixel_size);
+
+        //physics.lines(game.screen_pixel_size, &font_atlas);
+
+
+
+
+
+
+
         //physics.draw_box(vec2(0.), vec2(10.), game.screen_pixel_size, vec3(1., 0., 0.));
         //physics.draw_capsule(vec2(0., 0.), vec2(6., 30.), game.screen_pixel_size, vec3(1., 0., 0.));
-
+        game.debugger.update_basic();
+        game.debugger.draw(game.screen_pixel_size);
         game.end_main();
         glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
