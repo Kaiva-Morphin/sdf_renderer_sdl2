@@ -37,19 +37,19 @@ int main(int argc, char ** argv)
     cursor.type = RIGID;
     physics.push(&cursor);
 
-    /*PhysicsPrimitive line1 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
+    PhysicsPrimitive line1 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
     physics.push(&line1);
     line1.position.x = 125;
     line1.position.y = -75;
 
-    PhysicsPrimitive line3 = physics.line(vec3(-25., -25., 0.), vec3(25., 25., 0.));
+    /*PhysicsPrimitive line3 = physics.line(vec3(-25., -25., 0.), vec3(25., 25., 0.));
     line3.position.x = 125;
     line3.position.y = 0;
-    physics.push(&line3);*/
+    physics.push(&line3);
 
     PhysicsPrimitive line2 = physics.line(vec3(50., 0., 0.), vec3(-50., 0., 0.));
     line2.position.y = -0;
-    physics.push(&line2);
+    physics.push(&line2);*/
 
 
     int xMouse, yMouse;
@@ -67,7 +67,7 @@ int main(int argc, char ** argv)
         if (!(mouseState & SDL_BUTTON(SDL_BUTTON_LEFT))) {
             cursor.type = RIGID;
             cursor.shape = CAPSULE;
-            cursor.velocity = (vec4(target, 0, 0) - cursor.position);// * 100.0f;
+            cursor.velocity = (vec4(target, 0, 0) - cursor.position) ;//* 100.0f;
             cursor.rounding = 40;
         } else {
             //cursor.type = MOVING;

@@ -689,36 +689,34 @@ class PhysicsSolver{
                     bool endpoint_collision = endpoint_distance_sqared < radius_squared;
                     bool startpoint_collision = length(starting_point - closest_point_on_capped_line(starting_point, vertex1, vertex2)) < first.rounding;
                     
-                    //draw_arrow(starting_point, first.position, screen_size, {1, 0, 0});
+                    draw_arrow(starting_point, first.position, screen_size, {1, 0, 0});
                     
                     if ((endpoint_collision && !startpoint_collision) && dot(first.position-starting_point, second.normal) < 0){ // check normals
-                        
                         vec4 B = closest_point_on_line(starting_point, vertex1, vertex2);
                         vec4 AB = B - starting_point;
                         vec4 dir = (endpoint_distance_sqared < ALMOST_ZERO) ? normal_of_line(starting_point, line_point) : normalize(line_point - translation_point);
                         vec4 result = inv_projection(AB, dir); // starting_point + 
                         vec4 inv_proj_radius = inv_projection(/*normal_of_line(vertex1, vertex2)*/second.normal * radius, dir);
                         float projected_radius = length(inv_proj_radius); //length(inv_projection({radius, 0, 0, 0}, dir));
-
                         //draw_line(starting_point + result, starting_point, screen_size, {1, 1, 1});
                         //draw_line(translation_point + projected_radius * dir, translation_point, screen_size, {0, 1, 0});
                         float startpoint_dist = length(result);
                         float endpoint_dist = sqrt(endpoint_distance_sqared);
                         float point_eq_radius_u = remap(projected_radius, startpoint_dist, endpoint_dist, 0, 1);
-                        
                         vec4 point_eq_radius = starting_point + (translation_point - starting_point) * point_eq_radius_u;
                         if (dot(vertex1-vertex2, starting_point - first.position) == 0){ // parrallel wrapper
                             vec4 temp = closest_point_on_capped_line(starting_point, vertex1, vertex2);
                             point_eq_radius = normalize(starting_point-temp)*radius + temp;
                         }
                         vec3 color = (is_point_on_capped_line(point_eq_radius, vertex1, vertex2))?vec3{0, 1, 0}:vec3{1, 0, 0};
-
                         // if point out of line bounds (intersection with point)
                         vec4 nearest_vertex = closest_vertex_on_capped_line(starting_point, vertex1, vertex2);
                         vec4 nearest_vertex_point = closest_point_on_line(nearest_vertex, starting_point, first.position);
                         float x = sqrt(radius*radius - length_squared(nearest_vertex_point - nearest_vertex));
                         vec4 oob_point_eq_radius = nearest_vertex_point - normalize(translation_point - starting_point) * x;
-                        if ((length_squared(oob_point_eq_radius - starting_point) <= length_squared(point_eq_radius- starting_point)) || !is_point_on_capped_line(point_eq_radius, vertex1, vertex2)) point_eq_radius = oob_point_eq_radius * (1.0f + 1e-6f); // sometimes calculations return negative miss...
+                        if ((length_squared(oob_point_eq_radius - starting_point) <= length_squared(point_eq_radius- starting_point)) || !is_point_on_capped_line(point_eq_radius, vertex1, vertex2)) point_eq_radius = oob_point_eq_radius;
+                        point_eq_radius *= (1.0f - 1e-6f);// sometimes calculations return negative miss... (probably floating point persition) better than walk trough objects
+                        //cout << "miss: " << length(point_eq_radius- closest_point_on_capped_line(point_eq_radius, vertex1, vertex2)) - radius << endl;
                         //draw_line(nearest_vertex_point, nearest_vertex, screen_size, {1, 0, 1});
                         //draw_capsule(point_eq_radius, {radius, 0}, screen_size, color);
                         first.position = point_eq_radius;
