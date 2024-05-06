@@ -32,8 +32,8 @@ using namespace std;
 #define TYPE_MOVING 1
 #define TYPE_RIGID 2
 
-#define SHAPE_CAPSULE 0
-#define SHAPE_LINE 1
+#define SHAPE_CAPSULE 0 // always rigid
+#define SHAPE_LINE 1 //  moving or fixed
 
 struct alignas(16) PhysicsPrimitive{
     vec4 position = vec4(0.);
@@ -61,7 +61,7 @@ class PhysicsSolver{
     GLuint output_buffer = 0;
     string file_path;
     string current_src;
-    int ccd_steps = 2;
+    int ccd_steps = 2; // two steps for 2d, 3 for 3d))
     string read_shader(string path=""){
         if (path=="") path = file_path;
         ifstream fileStream(path);
@@ -343,7 +343,16 @@ class PhysicsSolver{
     ){return PhysicsPrimitive{};}
 
     void push(PhysicsPrimitive* p){
-        objects.push_back(p);
+        if (p->shape == SHAPE_LINE) objects.push_back(p);
+        else { // ordering.
+            for (int i = 0; i < objects.size(); i++) {
+                if (objects[i]->shape == SHAPE_LINE){
+                    objects.insert(objects.begin() + i, p);
+                    return;
+                }
+            }
+            objects.push_back(p);
+        }
     }
 
     vec4 get_aabb_max(PhysicsPrimitive p){ // todo: switch case
@@ -643,67 +652,6 @@ class PhysicsSolver{
         return !((t < 0) || (t > 1));
     }
 
-    void slide_ccd_one_step(PhysicsPrimitive* first, PhysicsPrimitive* second, vec4 starting_point, vec2 screen_size){
-        vec4 vertex1 = second->position + second->a;
-        vec4 vertex2 = second->position + second->b;
-        vec4 translation_point, line_point;
-        tie(translation_point, line_point) = closest_points_between_lines(starting_point, first->position, vertex1, vertex2);
-
-        float distance_to_travel = length(first->position - starting_point);
-
-        float endpoint_distance_sqared = length_squared(translation_point - line_point);
-        float radius = first->rounding;
-        float radius_squared = (radius * radius);
-
-        bool endpoint_collision = endpoint_distance_sqared < radius_squared;
-        bool startpoint_collision = length(starting_point - closest_point_on_capped_line(starting_point, vertex1, vertex2)) < radius;
-        
-        if ((endpoint_collision && !startpoint_collision) && dot(first->position-starting_point, second->normal) < 0){ // check normals
-            vec4 B = closest_point_on_line(starting_point, vertex1, vertex2);
-            vec4 AB = B - starting_point;
-            vec4 dir = (endpoint_distance_sqared < ALMOST_ZERO) ? normal_of_line(starting_point, line_point) : normalize(line_point - translation_point);
-            vec4 result = inv_projection(AB, dir);
-            vec4 inv_proj_radius = inv_projection(second->normal * radius, dir);
-            float projected_radius = length(inv_proj_radius);
-            float startpoint_dist = length(result);
-            float endpoint_dist = sqrt(endpoint_distance_sqared);
-            float point_eq_radius_u = remap(projected_radius, startpoint_dist, endpoint_dist, 0, 1);
-            vec4 point_eq_radius = starting_point + (translation_point - starting_point) * point_eq_radius_u;
-            if (dot(vertex1-vertex2, starting_point - first->position) == 0){ // parrallel wrapper
-                vec4 temp = closest_point_on_capped_line(starting_point, vertex1, vertex2);
-                point_eq_radius = normalize(starting_point-temp)*radius + temp;
-            }
-            vec3 color = (is_point_on_capped_line(point_eq_radius, vertex1, vertex2))?vec3{0, 1, 0}:vec3{1, 0, 0};
-            // if point out of line bounds (intersection with point)
-            vec4 nearest_vertex = closest_vertex_on_capped_line(starting_point, vertex1, vertex2);
-            vec4 nearest_vertex_point = closest_point_on_line(nearest_vertex, starting_point, first->position);
-            float x = sqrt(radius*radius - length_squared(nearest_vertex_point - nearest_vertex));
-            vec4 oob_point_eq_radius = nearest_vertex_point - normalize(translation_point - starting_point) * x;
-            if ((length_squared(oob_point_eq_radius - starting_point) <= length_squared(point_eq_radius- starting_point)) || !is_point_on_capped_line(point_eq_radius, vertex1, vertex2)) point_eq_radius = oob_point_eq_radius;
-            vec4 collision_normal = normalize(point_eq_radius - closest_point_on_capped_line(point_eq_radius, vertex1, vertex2));
-            point_eq_radius += collision_normal * 1e-4f;// sometimes calculations return negative miss... (probably floating point persition) better than walk trough objects
-            //cout << "miss: " << length(point_eq_radius- closest_point_on_capped_line(point_eq_radius, vertex1, vertex2)) - radius << endl;
-            float traveled_distance = length(starting_point - point_eq_radius);
-            distance_to_travel -= traveled_distance;
-            if (!std::isnan(point_eq_radius.x)) // :facepalm:
-            first->position = point_eq_radius;
-            else {first->position = starting_point; cout << "NAN!" <<endl;}
-            if (collision_normal != vec4(0.)){
-                vec4 vel = first->velocity;
-                vec4 vel_norm = normalize(vel);
-                vec2 projected = (dot(vel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
-                vec2 projected_travel = (dot(vel_norm * distance_to_travel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
-                vec4 y_component = vec4(projected, 0, 0);
-                vec4 y_component_travel = vec4(projected_travel, 0, 0);
-                vec4 plane_component = vel - vec4(projected, 0, 0);
-                vec4 plane_component_travel = vel_norm * distance_to_travel - vec4(projected_travel, 0, 0);
-                if (dot(y_component, vel) > 0) y_component = -y_component;
-                first->velocity = y_component * first->bounciness + plane_component * first->friction;
-                first->position += plane_component_travel;
-            }
-        } else return;
-    }
-
     void step(float delta, vec2 screen_size, BDFAtlas* font_atlas){
         // copy
         vector<PhysicsPrimitive> dereferenced;
@@ -723,7 +671,7 @@ class PhysicsSolver{
             first.velocity += gravity * delta;
             first.position += first.velocity * delta;
             vector<vec4> parsed_normals;
-            for (int b=0;b<objects.size();b++){
+            for (int b=0;b<objects.size();b++){ // todo : pick nearest
                 if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive* second = objects[b];
                 //if (!intersects(first, second)) continue; // todo: check AABBs
@@ -742,12 +690,13 @@ class PhysicsSolver{
                 }*/
 
                 if (second->shape == SHAPE_LINE){
-                    //ec4 starting_point = starting_point;
+                    vec4 local_starting_point = starting_point;
+                    //for (int ccd_step = 0; ccd_step < ccd_steps; ccd_step++);
                     PhysicsPrimitive* nearest = second;
                     vec4 vertex1 = nearest->position + nearest->a;
                     vec4 vertex2 = nearest->position + nearest->b;
                     vec4 translation_point, line_point;
-                    tie(translation_point, line_point) = closest_points_between_lines(starting_point, first.position, vertex1, vertex2);
+                    tie(translation_point, line_point) = closest_points_between_lines(local_starting_point, first.position, vertex1, vertex2);
                     float nearest_dist = length_squared(translation_point - line_point);
                     glm::vec4 element_to_find = second->normal;
 
@@ -765,7 +714,7 @@ class PhysicsSolver{
                         if (temp->shape == SHAPE_LINE && temp->normal == second->normal){
                             vertex1 = temp->position + temp->a;
                             vertex2 = temp->position + temp->b;
-                            tie(translation_point, line_point) = closest_points_between_lines(starting_point, first.position, vertex1, vertex2);
+                            tie(translation_point, line_point) = closest_points_between_lines(local_starting_point, first.position, vertex1, vertex2);
                             float dist = length_squared(translation_point - line_point);
                             //font_atlas->draw_text(to_string((int)round(dist)), vec2(temp->position) + screen_size * 0.5f, screen_size);
                             if (nearest_dist == -1 || nearest_dist >= dist){
@@ -779,47 +728,47 @@ class PhysicsSolver{
                     //PhysicsPrimitive ccd_object = second;
                     vertex1 = nearest->position + nearest->a;
                     vertex2 = nearest->position + nearest->b;
-                    tie(translation_point, line_point) = closest_points_between_lines(starting_point, first.position, vertex1, vertex2);
+                    tie(translation_point, line_point) = closest_points_between_lines(local_starting_point, first.position, vertex1, vertex2);
 
-                    float distance_to_travel = length(first.position - starting_point);
+                    float distance_to_travel = length(first.position - local_starting_point);
 
                     float endpoint_distance_sqared = length_squared(translation_point - line_point);
                     float radius = first.rounding;
                     float radius_squared = (radius * radius);
 
                     bool endpoint_collision = endpoint_distance_sqared < radius_squared;
-                    bool startpoint_collision = length(starting_point - closest_point_on_capped_line(starting_point, vertex1, vertex2)) < radius;
+                    bool startpoint_collision = length(local_starting_point - closest_point_on_capped_line(local_starting_point, vertex1, vertex2)) < radius;
                     
-                    if ((endpoint_collision && !startpoint_collision) && dot(first.position-starting_point, nearest->normal) < 0){ // check normals
-                        vec4 B = closest_point_on_line(starting_point, vertex1, vertex2);
-                        vec4 AB = B - starting_point;
-                        vec4 dir = (endpoint_distance_sqared < ALMOST_ZERO) ? normal_of_line(starting_point, line_point) : normalize(line_point - translation_point);
+                    if ((endpoint_collision && !startpoint_collision) && dot(first.position-local_starting_point, nearest->normal) < 0){ // check normals
+                        vec4 B = closest_point_on_line(local_starting_point, vertex1, vertex2);
+                        vec4 AB = B - local_starting_point;
+                        vec4 dir = (endpoint_distance_sqared < ALMOST_ZERO) ? normal_of_line(local_starting_point, line_point) : normalize(line_point - translation_point);
                         vec4 result = inv_projection(AB, dir);
                         vec4 inv_proj_radius = inv_projection(nearest->normal * radius, dir);
                         float projected_radius = length(inv_proj_radius);
                         float startpoint_dist = length(result);
                         float endpoint_dist = sqrt(endpoint_distance_sqared);
                         float point_eq_radius_u = remap(projected_radius, startpoint_dist, endpoint_dist, 0, 1);
-                        vec4 point_eq_radius = starting_point + (translation_point - starting_point) * point_eq_radius_u;
-                        if (dot(vertex1-vertex2, starting_point - first.position) == 0){ // parrallel wrapper
-                            vec4 temp = closest_point_on_capped_line(starting_point, vertex1, vertex2);
-                            point_eq_radius = normalize(starting_point-temp)*radius + temp;
+                        vec4 point_eq_radius = local_starting_point + (translation_point - local_starting_point) * point_eq_radius_u;
+                        if (dot(vertex1-vertex2, local_starting_point - first.position) == 0){ // parrallel wrapper
+                            vec4 temp = closest_point_on_capped_line(local_starting_point, vertex1, vertex2);
+                            point_eq_radius = normalize(local_starting_point-temp)*radius + temp;
                         }
                         vec3 color = (is_point_on_capped_line(point_eq_radius, vertex1, vertex2))?vec3{0, 1, 0}:vec3{1, 0, 0};
                         // if point out of line bounds (intersection with point)
-                        vec4 nearest_vertex = closest_vertex_on_capped_line(starting_point, vertex1, vertex2);
-                        vec4 nearest_vertex_point = closest_point_on_line(nearest_vertex, starting_point, first.position);
+                        vec4 nearest_vertex = closest_vertex_on_capped_line(local_starting_point, vertex1, vertex2);
+                        vec4 nearest_vertex_point = closest_point_on_line(nearest_vertex, local_starting_point, first.position);
                         float x = sqrt(radius*radius - length_squared(nearest_vertex_point - nearest_vertex));
-                        vec4 oob_point_eq_radius = nearest_vertex_point - normalize(translation_point - starting_point) * x;
-                        if ((length_squared(oob_point_eq_radius - starting_point) <= length_squared(point_eq_radius- starting_point)) || !is_point_on_capped_line(point_eq_radius, vertex1, vertex2)) point_eq_radius = oob_point_eq_radius;
+                        vec4 oob_point_eq_radius = nearest_vertex_point - normalize(translation_point - local_starting_point) * x;
+                        if ((length_squared(oob_point_eq_radius - local_starting_point) <= length_squared(point_eq_radius- local_starting_point)) || !is_point_on_capped_line(point_eq_radius, vertex1, vertex2)) point_eq_radius = oob_point_eq_radius;
                         vec4 collision_normal = normalize(point_eq_radius - closest_point_on_capped_line(point_eq_radius, vertex1, vertex2));
                         point_eq_radius += collision_normal * 1e-4f;// sometimes calculations return negative miss... (probably floating point persition) better than walk trough objects
                         //cout << "miss: " << length(point_eq_radius- closest_point_on_capped_line(point_eq_radius, vertex1, vertex2)) - radius << endl;
-                        float traveled_distance = length(starting_point - point_eq_radius);
+                        float traveled_distance = length(local_starting_point - point_eq_radius);
                         distance_to_travel -= traveled_distance;
                         if (!std::isnan(point_eq_radius.x)) // :facepalm:
                         {first.position = point_eq_radius;}
-                        else {first.position = starting_point; cout << "NAN!" <<endl; continue;}
+                        else {first.position = local_starting_point; cout << "NAN!" <<endl; continue;}
                         if (collision_normal != vec4(0.)){
                             vec4 vel = first.velocity;
                             vec4 vel_norm = normalize(vel);
@@ -831,13 +780,12 @@ class PhysicsSolver{
                             vec4 plane_component_travel = vel_norm * distance_to_travel - vec4(projected_travel, 0, 0);
                             if (dot(y_component, vel) > 0) y_component = -y_component;
                             first.velocity = y_component * first.bounciness + plane_component * first.friction;
-                            starting_point = point_eq_radius;
+                            local_starting_point = point_eq_radius;
                             first.position += plane_component_travel;
-
                             //todo::ccd
-
                         }
                     }
+
                     
                     //slide_ccd_one_step(&first, &second, starting_point, screen_size);
                     

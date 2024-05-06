@@ -678,19 +678,18 @@ class SDF_Frag_Shader : public Shader{
         dest += vec3(8, -5, 4); // centering
 
         vec2 pos2d = vec2{1 + dest.x + dest.z, (1 + dest.z - dest.y)};
-
         glUniform4f(glGetUniformLocation(program, "depth_texture_rect"), 
             remap(pos2d.x-width * 0.5, 0, map_texture_size.x, 0, 1),
-            remap(pos2d.y-height * 0.5 + 10, 0, map_texture_size.y, 0, 1),   //idk why 10, inv centering y?
+            remap(pos2d.y-height * 0.5 + tile_size.x * 0.5 + tile_size.z * 0.25 /*10*/, 0, map_texture_size.y, 0, 1),   //idk why 10, inv centering y?
             remap(pos2d.x+width * 0.5, 0, map_texture_size.x, 0, 1),
-            remap(pos2d.y+height * 0.5 + 10, 0, map_texture_size.y, 0, 1)    //idk why 10, inv centering y?
+            remap(pos2d.y+height * 0.5 + tile_size.x * 0.5 + tile_size.z * 0.25 /*10*/, 0, map_texture_size.y, 0, 1)    //idk why 10, inv centering y?
         );
         pos2d.y = map_texture_size.y - pos2d.y;
         pos2d = -half_map_size + pos2d;
         pos2d += dst_size * 0.5f;
         
 
-        vec4 dst_rect = {pos2d.x+width/2, pos2d.y+height/2, pos2d.x-width/2, pos2d.y-height/2};
+        vec4 dst_rect = {pos2d.x+width* 0.5, pos2d.y+height* 0.5, pos2d.x-width* 0.5, pos2d.y-height* 0.5};
 
         vec4 dst_uv = {
             remap(dst_rect.x, 0, dst_size.x, -1, 1),

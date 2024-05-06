@@ -298,8 +298,8 @@ void main() {
   );*/
 
   vec2 relative_uv;
-  relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x);
-  relative_uv.y = depth_texture_rect.y * -1 + uv_pos.y * (depth_texture_rect.w - depth_texture_rect.y);
+  relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x) + (0.5 / texture_size.x);
+  relative_uv.y = (depth_texture_rect.y) * -1 + uv_pos.y * (depth_texture_rect.w - depth_texture_rect.y) + (0.5 / texture_size.y);
   float texture_depth = texture(map_depth, relative_uv).r;
   for (int i=0;i<steps;i++) {
     vec4 r = SampleScene(point);
@@ -316,14 +316,20 @@ void main() {
       float sha = 1.;//calcSoftshadow( pos, lig, min_dist, max_dist, 16.0 );
       float amb = 0.9 + 0.1 * nor.y;
       float depth = remap((near_z - start.z - pos.z) * -1, min_depth, max_depth, self_depth_range.x, self_depth_range.y);
-      
+      vec3 result_color = vec3(0.2078, 0.2549, 0.298)*amb*color + vec3(1.00,0.9,0.80)*dif*sha*color;
       if (depth > texture_depth){
-        pixel_color.rgb =  vec3(0.2078, 0.2549, 0.298)*amb*color + vec3(1.00,0.9,0.80)*dif*sha*color; // color with shadows
+        pixel_color.rgb = result_color;  // color with shadows
         pixel_color.a = 1;
+      } else {
+        pixel_color.rgb = result_color * 0.5;
+        pixel_color.a = ((int(sin(pixel_pos.x * (cos(time) * 0.5 + 1)) + pixel_pos.y + pixel_pos.x * -0.25 + time * 30) % 8) < 6)?0.5:0;
       }
       break;
     }
     point += direction * dist;
   }
+  //pixel_color.a = 1;
+  //pixel_color.rgb = vec3(texture_depth);
+  //pixel_color.r = (((int(pixel_pos.x + pixel_pos.y) % 2) == 0)?0.2:0);
   frag_color = pixel_color;
 }

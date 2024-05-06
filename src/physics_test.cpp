@@ -132,12 +132,6 @@ int main(int argc, char ** argv)
 
         //physics.lines(game.screen_pixel_size, &font_atlas);
 
-
-
-
-
-
-
         //physics.draw_box(vec2(0.), vec2(10.), game.screen_pixel_size, vec3(1., 0., 0.));
         //physics.draw_capsule(vec2(0., 0.), vec2(6., 30.), game.screen_pixel_size, vec3(1., 0., 0.));
         game.debugger.update_basic();

@@ -534,8 +534,12 @@ int main(int argc, char ** argv)
         shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
         scene.update_primitive_scene(&primitive_scene);
         shader.set_scene(&primitive_scene);
+
+
         shader.set_position({cos(time) * 4 + 4, sin(time * 2) * 2 + 2, sin(time) * 4 + 4});
-        //shader.set_position({7, 2, 5});
+
+        shader.set_position({7, 0, 5});
+
         shader.update_map(map.get_depth(), map.get_texture_size(), map.get_map_size());
         
         glEnable(GL_BLEND);
