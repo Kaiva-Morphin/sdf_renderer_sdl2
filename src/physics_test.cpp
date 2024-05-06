@@ -33,23 +33,70 @@ int main(int argc, char ** argv)
 
 
 
-    PhysicsPrimitive cursor = physics.capsule(0., 40.);
-    cursor.type = RIGID;
+    PhysicsPrimitive cursor = physics.capsule(0., 10.);
+    cursor.type = TYPE_RIGID;
     physics.push(&cursor);
 
-    PhysicsPrimitive line1 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
+    PhysicsPrimitive line1 = physics.line(vec3(25., 0, 0.), vec3(-25., 0, 0.));
+    line1.position.x = 1;
+    line1.position.y = 1;
     physics.push(&line1);
-    line1.position.x = 125;
-    line1.position.y = -75;
 
-    /*PhysicsPrimitive line3 = physics.line(vec3(-25., -25., 0.), vec3(25., 25., 0.));
-    line3.position.x = 125;
-    line3.position.y = 0;
+    PhysicsPrimitive line2 = physics.line(vec3(50., 25., 0.), vec3(-50., -25., 0.));
+    physics.push(&line2);
+    line2.position.x = 100;
+    line2.position.y = -60;
+
+    /*PhysicsPrimitive line3 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
     physics.push(&line3);
+    line3.position.x = 125;
+    line3.position.y = -75;
 
-    PhysicsPrimitive line2 = physics.line(vec3(50., 0., 0.), vec3(-50., 0., 0.));
-    line2.position.y = -0;
-    physics.push(&line2);*/
+    PhysicsPrimitive line4 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
+    physics.push(&line4);
+    line4.position.x = 125;
+    line4.position.y = -75;*/
+
+    for (int side = 0; side < 4; side++) {
+        PhysicsPrimitive p;
+        switch (side)
+        {
+        case 0:
+            p.a = vec4( 10, 0, 0, 0);
+            p.b = vec4(-10, 0, 0, 0);
+            break;
+        case 1:
+            p.a = vec4( 0, -10, 0, 0);
+            p.b = vec4( 0,  10, 0, 0);
+            break;
+        case 2:
+            p.a = vec4(-10, 0, 0, 0);
+            p.b = vec4( 10, 0, 0, 0);
+            break;
+        case 3:
+            p.a = vec4( 0,  10, 0, 0);
+            p.b = vec4( 0, -10, 0, 0);
+            break;
+        }
+        p.shape = SHAPE_LINE;
+        p.normal = physics.normal_of_line(p.a, p.b);
+        if (side == 0 || side == 2) {
+            for (int x = -7; x <= 7; x++){
+                p.position = vec4(x * 20, side == 0 ? -120 : 120, 0, 0);
+                PhysicsPrimitive* temp = new PhysicsPrimitive{p};
+                physics.push(temp);
+            }
+        }
+        if (side == 1 || side == 3) {
+            for (int y = -6; y <= 6; y++){
+                p.position = vec4(side == 1?-150:150, y * 20, 0, 0);
+                PhysicsPrimitive* temp = new PhysicsPrimitive{p};
+                physics.push(temp);
+            }
+        }
+    }
+
+
 
 
     int xMouse, yMouse;
@@ -65,14 +112,12 @@ int main(int argc, char ** argv)
         };
 
         if (!(mouseState & SDL_BUTTON(SDL_BUTTON_LEFT))) {
-            cursor.type = RIGID;
-            cursor.shape = CAPSULE;
+            cursor.type = TYPE_RIGID;
+            cursor.shape = SHAPE_CAPSULE;
             cursor.velocity = (vec4(target, 0, 0) - cursor.position) ;//* 100.0f;
-            cursor.rounding = 40;
         } else {
             //cursor.type = MOVING;
             cursor.position = vec4(target, 0, 0);
-            cursor.rounding = 40;
         }
 
         float time = game.time();
@@ -82,7 +127,6 @@ int main(int argc, char ** argv)
         glClearColor(0.7843, 0.7333, 0.5882, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
         physics.check_file_updates();
-        
         physics.step(0.01, game.screen_pixel_size, &font_atlas);
         physics.draw(game.screen_pixel_size);
 
