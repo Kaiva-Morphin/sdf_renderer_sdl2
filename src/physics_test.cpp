@@ -35,17 +35,53 @@ int main(int argc, char ** argv)
 
     PhysicsPrimitive cursor = physics.capsule(0., 10.);
     cursor.type = TYPE_RIGID;
+    cursor.bounciness = 0.99;
+    //cursor.mass = 100.;
+    cursor.friction = 0.99;
     physics.push(&cursor);
 
-    PhysicsPrimitive line1 = physics.line(vec3(25., 0, 0.), vec3(-25., 0, 0.));
+    //PhysicsPrimitive circ = physics.capsule(0., 10.);
+    //circ.type = TYPE_RIGID;
+    //circ.position.x = 60;
+    ////circ.bounciness = 0.9;
+    ////circ.friction = 0.99;
+    //physics.push(&circ);
+//
+    //PhysicsPrimitive circ1 = physics.capsule(0., 10.);
+    //circ1.position.x = -60;
+    ////circ1.bounciness = 0.9;
+    ////circ1.friction = 0.99;
+    //circ1.type = TYPE_RIGID;
+    //physics.push(&circ1);
+    /*{
+        PhysicsPrimitive p;
+        p.a = vec4(0);
+        p.rounding = 10;
+        p.bounciness = 0.99;
+        p.friction = 0.99;
+        p.shape = SHAPE_CAPSULE;
+        p.type = TYPE_RIGID;
+        for (int i = 0; i < 15; i++){
+            p.position.x = rand() % 300 - 150;
+            p.position.y = rand() % 300 - 150;
+            p.velocity.x = rand() % 200 - 100;
+            p.velocity.y = rand() % 200 - 100;
+            PhysicsPrimitive* temp = new PhysicsPrimitive{p};
+            physics.push(temp);
+        }
+    }*/
+
+    PhysicsPrimitive line1 = physics.line(vec3(25., 25, 0.), vec3(-25., 0, 0.));
     line1.position.x = 1;
     line1.position.y = 1;
     physics.push(&line1);
+
 
     PhysicsPrimitive line2 = physics.line(vec3(50., 25., 0.), vec3(-50., -25., 0.));
     physics.push(&line2);
     line2.position.x = 100;
     line2.position.y = -60;
+
 
     /*PhysicsPrimitive line3 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
     physics.push(&line3);
@@ -57,7 +93,7 @@ int main(int argc, char ** argv)
     line4.position.x = 125;
     line4.position.y = -75;*/
 
-    for (int side = 0; side < 4; side++) {
+    /*for (int side = 0; side < 4; side++) {
         PhysicsPrimitive p;
         switch (side)
         {
@@ -94,7 +130,8 @@ int main(int argc, char ** argv)
                 physics.push(temp);
             }
         }
-    }
+    }*/
+
 
 
 
@@ -111,10 +148,10 @@ int main(int argc, char ** argv)
             remap(yMouse, 0, h,  half_screen.y, -half_screen.y)
         };
 
-        if (!(mouseState & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+        if ((mouseState & SDL_BUTTON(SDL_BUTTON_LEFT))) {
             cursor.type = TYPE_RIGID;
             cursor.shape = SHAPE_CAPSULE;
-            cursor.velocity = (vec4(target, 0, 0) - cursor.position) ;//* 100.0f;
+            cursor.velocity = (vec4(target, 0, 0) - cursor.position);// * 100.0f;
         } else {
             //cursor.type = MOVING;
             cursor.position = vec4(target, 0, 0);
@@ -127,7 +164,7 @@ int main(int argc, char ** argv)
         glClearColor(0.7843, 0.7333, 0.5882, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
         physics.check_file_updates();
-        physics.step(0.01, game.screen_pixel_size, &font_atlas);
+        physics.step(game.wrapped_delta(), game.screen_pixel_size, &font_atlas);
         physics.draw(game.screen_pixel_size);
 
         //physics.lines(game.screen_pixel_size, &font_atlas);

@@ -538,7 +538,7 @@ int main(int argc, char ** argv)
 
         shader.set_position({cos(time) * 4 + 4, sin(time * 2) * 2 + 2, sin(time) * 4 + 4});
 
-        shader.set_position({7, 0, 5});
+        //shader.set_position({7, 0, 5});
 
         shader.update_map(map.get_depth(), map.get_texture_size(), map.get_map_size());
         

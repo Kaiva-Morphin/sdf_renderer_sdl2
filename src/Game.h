@@ -225,6 +225,18 @@ class Game{
     float time(){
         return SDL_GetTicks() / 1000.0f;
     }
+    Uint32 currentTime = SDL_GetTicks();
+    Uint32 lastTime = currentTime;
+    float deltaTime = 0.0f;
+    float delta(){
+        currentTime = SDL_GetTicks();
+        deltaTime = (currentTime - lastTime) / 1000.0f;
+        lastTime = currentTime;
+        return deltaTime;
+    }
+    float wrapped_delta(){
+        return std::min(delta() * 5, 1.0f);
+    }
     
 
     void handle_event(SDL_Event e){

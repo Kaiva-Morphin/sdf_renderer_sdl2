@@ -284,7 +284,7 @@ void main() {
   vec3 start = vec3((pixel_pos.x - (texture_size.x * 0.5)) * scale_factor, (pixel_pos.y - (texture_size.y * 0.5)) * -scale_factor, near_z);
   vec3 point = start;
   vec3 direction = vec3(0., 0., -1.);
-  scene.primitives[0].transform = mat4x4( // todo: ???
+  scene.primitives[0].transform = eulerXYZ(sin(time) * 360, 0, 0) * mat4x4( // todo: ???
     1., 0., 0., 0.,
     0., 1., 0., 0.,
     0.241, 0.241, 0.5, 0.,
@@ -328,8 +328,11 @@ void main() {
     }
     point += direction * dist;
   }
-  //pixel_color.a = 1;
-  //pixel_color.rgb = vec3(texture_depth);
+  if (pixel_color.a == 0){
+    //pixel_color.a = 1;
+    //pixel_color.rgb = vec3(texture_depth);
+  }
+  
   //pixel_color.r = (((int(pixel_pos.x + pixel_pos.y) % 2) == 0)?0.2:0);
   frag_color = pixel_color;
 }
