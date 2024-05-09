@@ -1,3 +1,4 @@
+#include "Game.h"
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
 #include <SDL2/SDL_opengl.h>
@@ -126,14 +127,14 @@ class PhysicsSolver{
         compile();
     }
 
-    void draw_line(vec2 pa, vec2 pb, vec2 screen_size, vec3 color){
-        vec2 half_sreen = screen_size * 0.5f;
+    void draw_line(vec2 pa, vec2 pb, vec3 color){
+        vec2 half_screen = vec2(game->screen_pixel_size) * 0.5f;
         vec2 ld = pa;
         vec2 ru = pb;
-        float a = remap(ld.x, -half_sreen.x, half_sreen.x, -1, 1);
-        float b = remap(ld.y, -half_sreen.y, half_sreen.y, -1, 1);
-        float c = remap(ru.x, -half_sreen.x, half_sreen.x, -1, 1);
-        float d = remap(ru.y, -half_sreen.y, half_sreen.y, -1, 1);
+        float a = remap(ld.x, -half_screen.x, half_screen.x, -1, 1);
+        float b = remap(ld.y, -half_screen.y, half_screen.y, -1, 1);
+        float c = remap(ru.x, -half_screen.x, half_screen.x, -1, 1);
+        float d = remap(ru.y, -half_screen.y, half_screen.y, -1, 1);
 
 
         glBegin(GL_LINES);
@@ -144,14 +145,14 @@ class PhysicsSolver{
         glEnd();
     }
 
-    void draw_box(vec2 pos, vec2 size, vec2 screen_size, vec3 color){
-        vec2 half_sreen = screen_size * 0.5f;
+    void draw_box(vec2 pos, vec2 size, vec3 color){
+        vec2 half_screen = vec2(game->screen_pixel_size) * 0.5f;
         vec2 ld = pos - size * 0.5f;
         vec2 ru = pos + size * 0.5f;
-        float a = remap(ld.x, -half_sreen.x, half_sreen.x, -1, 1);
-        float b = remap(ld.y, -half_sreen.y, half_sreen.y, -1, 1);
-        float c = remap(ru.x, -half_sreen.x, half_sreen.x, -1, 1);
-        float d = remap(ru.y, -half_sreen.y, half_sreen.y, -1, 1);
+        float a = remap(ld.x, -half_screen.x, half_screen.x, -1, 1);
+        float b = remap(ld.y, -half_screen.y, half_screen.y, -1, 1);
+        float c = remap(ru.x, -half_screen.x, half_screen.x, -1, 1);
+        float d = remap(ru.y, -half_screen.y, half_screen.y, -1, 1);
 
 
         glBegin(GL_LINES);
@@ -168,19 +169,19 @@ class PhysicsSolver{
         glEnd();
 
     }
-    void draw_capsule(vec2 pos, vec2 size, vec2 screen_size, vec3 color){
-        vec2 half_sreen = screen_size * 0.5f;
+    void draw_capsule(vec2 pos, vec2 size, vec3 color){
+        vec2 half_screen = vec2(game->screen_pixel_size) * 0.5f;
         vec2 ld = pos - size * vec2(1., 0.5);
         vec2 ru = pos + size * vec2(1., 0.5);
 
-        vec2 uv_pos = remap_vec2(pos, -half_sreen, half_sreen, vec2(-1), vec2(1));
-        vec2 radius = remap_vec2(vec2(size.x), -half_sreen, half_sreen, vec2(-1), vec2(1));
-        float height = remap(size.y, -half_sreen.y, half_sreen.y, -1, 1);
+        vec2 uv_pos = remap_vec2(pos, -half_screen, half_screen, vec2(-1), vec2(1));
+        vec2 radius = remap_vec2(vec2(size.x), -half_screen, half_screen, vec2(-1), vec2(1));
+        float height = remap(size.y, -half_screen.y, half_screen.y, -1, 1);
 
-        float lx = remap(ld.x, -half_sreen.x, half_sreen.x, -1, 1);
-        float ly = remap(ld.y, -half_sreen.y, half_sreen.y, -1, 1);
-        float rx = remap(ru.x, -half_sreen.x, half_sreen.x, -1, 1);
-        float ry = remap(ru.y, -half_sreen.y, half_sreen.y, -1, 1);
+        float lx = remap(ld.x, -half_screen.x, half_screen.x, -1, 1);
+        float ly = remap(ld.y, -half_screen.y, half_screen.y, -1, 1);
+        float rx = remap(ru.x, -half_screen.x, half_screen.x, -1, 1);
+        float ry = remap(ru.y, -half_screen.y, half_screen.y, -1, 1);
 
         vec2 a = vec2(lx, ly);
         vec2 b = vec2(rx, ry);
@@ -238,14 +239,14 @@ class PhysicsSolver{
             glColor3f(1., 1., 1.);
         glEnd();
     }
-    void draw_pyramid(vec2 pos, vec2 plane, vec2 vertex, vec2 screen_size, vec3 color){
-        vec2 half_sreen = screen_size * 0.5f;
+    void draw_pyramid(vec2 pos, vec2 plane, vec2 vertex, vec3 color){
+        vec2 half_screen = vec2(game->screen_pixel_size) * 0.5f;
         vec2 plane_left = pos - vec2{plane.x * 0.5f, -plane.y};
         vec2 plane_right = pos + vec2{plane.x * 0.5f, plane.y};
         vec2 vertex_offset = pos + vertex;
-        vec2 uv_plane_l = remap_vec2(plane_left, -half_sreen, half_sreen, vec2(-1), vec2(1));
-        vec2 uv_plane_r = remap_vec2(plane_right, -half_sreen, half_sreen, vec2(-1), vec2(1));
-        vec2 uv_vert = remap_vec2(vertex_offset, -half_sreen, half_sreen, vec2(-1), vec2(1));
+        vec2 uv_plane_l = remap_vec2(plane_left, -half_screen, half_screen, vec2(-1), vec2(1));
+        vec2 uv_plane_r = remap_vec2(plane_right, -half_screen, half_screen, vec2(-1), vec2(1));
+        vec2 uv_vert = remap_vec2(vertex_offset, -half_screen, half_screen, vec2(-1), vec2(1));
         glBegin(GL_LINES);
             glColor3f(color.r, color.g, color.b);
             glVertex2f(uv_plane_l.x, uv_plane_l.y);
@@ -271,8 +272,8 @@ class PhysicsSolver{
         }
         return vec3(0.);
     }
-    void draw_point(vec2 pos, vec2 screen_size, vec3 color){
-        vec2 half_screen = screen_size * 0.5f;
+    void draw_point(vec2 pos, vec3 color){
+        vec2 half_screen = vec2(game->screen_pixel_size) * 0.5f;
         vec2 pos_uv = remap_vec2(pos, -half_screen, half_screen, {-1, -1}, {1, 1});
         glBegin(GL_POINTS);
             glColor3f(color.r, color.g, color.b);
@@ -283,12 +284,12 @@ class PhysicsSolver{
 
     
 
-    void draw_arrow(vec2 from, vec2 to, vec2 screen_size, vec3 color){
-        vec2 half_sreen = screen_size * 0.5f;
-        float a = remap(from.x, -half_sreen.x, half_sreen.x, -1, 1);
-        float b = remap(from.y, -half_sreen.y, half_sreen.y, -1, 1);
-        float c = remap(to.x, -half_sreen.x, half_sreen.x, -1, 1);
-        float d = remap(to.y, -half_sreen.y, half_sreen.y, -1, 1);
+    void draw_arrow(vec2 from, vec2 to, vec3 color){
+        vec2 half_screen = vec2(game->screen_pixel_size) * 0.5f;
+        float a = remap(from.x, -half_screen.x, half_screen.x, -1, 1);
+        float b = remap(from.y, -half_screen.y, half_screen.y, -1, 1);
+        float c = remap(to.x, -half_screen.x, half_screen.x, -1, 1);
+        float d = remap(to.y, -half_screen.y, half_screen.y, -1, 1);
 
 
         glBegin(GL_LINES);
@@ -299,21 +300,21 @@ class PhysicsSolver{
             glColor3f(1., 1., 1.);
         glEnd();
     }
-    void draw(vec2 screen_size){
+    void draw(){
         for (PhysicsPrimitive* object: objects){
             vec3 color = get_color(object->type);
             vec2 pos = vec2{object->position.x, object->position.y};
             
             switch (object->shape){
                 case SHAPE_CAPSULE:
-                    draw_capsule(pos, vec2(object->rounding, object->a.x), screen_size, color);
-                    draw_point(pos, screen_size, color);
+                    draw_capsule(pos, vec2(object->rounding, object->a.x), color);
+                    draw_point(pos, color);
                     break;
                 case SHAPE_LINE:
-                    draw_line(pos+vec2(object->a), pos+vec2(object->b), screen_size, color);
+                    draw_line(pos+vec2(object->a), pos+vec2(object->b), color);
                     vec2 center = (pos+vec2(object->a) + pos+vec2(object->b)) / 2.0f;
                     vec4 norm = normal_of_line(object->a, object->b);
-                    draw_arrow(center, center+vec2(norm)*10.0f, screen_size, color);
+                    draw_arrow(center, center+vec2(norm)*10.0f, color);
                     break;
             }
         }
@@ -517,7 +518,7 @@ class PhysicsSolver{
         return (r1 * r2) > 0;
     }
 
-    void lines2(vec2 screen_size, BDFAtlas* font_atlas, vec2 cursor){
+    void lines2(BDFAtlas* font_atlas, vec2 cursor){
         static float time = 0;
         time += 0.001;
         vec3 a1 = { 0, 0, 0};
@@ -525,27 +526,27 @@ class PhysicsSolver{
         vec3 b1 = { 0, 0, 0};
         vec3 b2 = { 0, -50, 0};
 
-        draw_line(a1, a2, screen_size, {1, 0, 0});
-        draw_line(b1, b2, screen_size, {0, 1, 0});
+        draw_line(a1, a2, {1, 0, 0});
+        draw_line(b1, b2, {0, 1, 0});
 
         vec3 result = inv_projection(b2, normalize(a2));
 
-        draw_line(a1, result, screen_size, {0, 0, 1});
+        draw_line(a1, result, {0, 0, 1});
 
 
     }
 
-    void lines(vec2 screen_size, BDFAtlas* font_atlas){
+    void lines(BDFAtlas* font_atlas){
         static float time = 0;
         time += 0.001;
         vec3 a1 = { sin(time) * 60, 0, 0};
         vec3 a2 = { 30 + sin(time) * 60, cos(time * 4) * 30, 0};
         vec3 b1 = { 30, -50, 0};
         vec3 b2 = {-30, -50, 0};
-        draw_line(a1, a2, screen_size, {1, 0, 0});
-        draw_line(b1, b2, screen_size, {0, 1, 0});
+        draw_line(a1, a2, {1, 0, 0});
+        draw_line(b1, b2, {0, 1, 0});
         vec3 end_a, end_b;
-        tie(end_a, end_b) = closest_points_between_lines_3d(a1, a2, b1, b2);
+        tie(end_a, end_b) = closest_points_between_line_segments_3d(a1, a2, b1, b2);
         
         vec3 B = closest_point_on_line(a1, b1, b2);
         vec3 AB = B - a1;
@@ -553,15 +554,15 @@ class PhysicsSolver{
 
 
         
-        draw_line(result, a1, screen_size, {1, 1, 1});
+        draw_line(result, a1, {1, 1, 1});
 
-        draw_line(end_b, end_a, screen_size, {0, 1, 1});
-
-
+        draw_line(end_b, end_a, {0, 1, 1});
 
 
-        //draw_capsule(a1 + result - b1, {10, 0}, screen_size, {0, 0, 1});
-        //draw_line(a, b, screen_size, {0, 0, 1});
+
+
+        //draw_capsule(a1 + result - b1, {10, 0}, game->screen_pixel_size, {0, 0, 1});
+        //draw_line(a, b, game->screen_pixel_size, {0, 0, 1});
     }
 
     vec3 inv_projection(vec3 a, vec3 dir) {
@@ -580,7 +581,15 @@ class PhysicsSolver{
         return acos(dot(a, b) / (length(a) * length(b)));
     }
 
-    std::tuple<vec4, vec4> closest_points_between_lines_3d(vec3 a0, vec3 a1, vec3 b0, vec3 b1){
+    struct InspectionResult{
+        vec4 start;
+        vec4 end;
+        vec4 point;
+        float offset;
+        vec4 line_point;
+    };
+
+    std::tuple<vec4, vec4> closest_points_between_line_segments_3d(vec3 a0, vec3 a1, vec3 b0, vec3 b1){
         vec3 A = a1 - a0;
         vec3 B = b1 - b0;
         float magA = length(A);
@@ -606,8 +615,35 @@ class PhysicsSolver{
                     return std::make_tuple(vec4(a1, 0), vec4(b1, 0));
                 }
             }
-            vec3 p = closest_point_on_capped_line((a0 + a1) / 2.0f, b0, b1);
-            return std::make_tuple(vec4(0), vec4(0));
+            // parallel
+            vec3 ra = closest_point_on_capped_line(a0, b0, b1);
+            vec3 rb =  a0;
+            float dist = length_squared(rb - a0);
+            vec3 nra = closest_point_on_capped_line(a1, b0, b1);
+            vec3 nrb = a1;
+            float ndist = length_squared(nra - nrb);
+            if (ndist < dist){
+                ra = nra;
+                rb = nrb;
+                dist = ndist;
+            }
+            nra = closest_point_on_capped_line(b0, a0, a1);
+            nrb = b0;
+            ndist = length_squared(nra - nrb);
+            if (ndist < dist){
+                ra = nra;
+                rb = nrb;
+                dist = ndist;
+            }
+            nra = closest_point_on_capped_line(b1, a0, a1);
+            nrb = b1;
+            ndist = length_squared(nra - nrb);
+            if (ndist < dist){
+                ra = nra;
+                rb = nrb;
+                dist = ndist;
+            }
+            return std::make_tuple(vec4(ra, 0), vec4(rb, 0));
         }
         vec3 t = b0 - a0;
         float detA = determinant(mat3(t, _B, crs));
@@ -652,7 +688,72 @@ class PhysicsSolver{
         return !((t < 0) || (t > 1));
     }
 
-    void step(float delta, vec2 screen_size, BDFAtlas* font_atlas){
+    InspectionResult closest_capsulecast_vs_line(float half_height, vec4 start, vec4 end, vec4 vertex1, vec4 vertex2){
+        vec4 starting_up = start + vec4(0, half_height, 0, 0);
+        vec4 starting_down = start - vec4(0, half_height, 0, 0);
+        vec4 ending_up = end + vec4(0, half_height, 0, 0);
+        vec4 ending_down = end - vec4(0, half_height, 0, 0);
+
+        float dist;
+        float new_dist;
+
+        vec4 a, b;
+        vec4 na, nb;
+        tie(a, b) = closest_points_between_line_segments_3d(starting_up, ending_up, vertex1, vertex2);
+        float offset = half_height;
+        dist = length_squared(a-b);
+        start = starting_up;
+        end = ending_up;
+        tie(na, nb) = closest_points_between_line_segments_3d(starting_down, ending_down, vertex1, vertex2);
+        new_dist = length_squared(na-nb);
+        if (new_dist < dist) {
+            dist = new_dist;
+            a = na;
+            b = nb;
+            offset = -half_height;
+            start = starting_down;
+            end = ending_down;
+        }
+        tie(na, nb) = closest_points_between_line_segments_3d(starting_up, starting_down, vertex1, vertex2);
+        new_dist = length_squared(na-nb);
+        if (new_dist < dist) {
+            dist = new_dist;
+            a = na;
+            b = nb;
+            offset = clamp(nb.y-starting_up.y, -half_height * 2.0f, 0);
+            start = starting_up + vec4(0, offset, 0, 0);
+            end = ending_up + vec4(0, offset, 0, 0);
+            offset += half_height;
+        }
+        tie(na, nb) = closest_points_between_line_segments_3d(ending_up, ending_down, vertex1, vertex2);
+        new_dist = length_squared(na-nb);
+        if (new_dist < dist) {
+            dist = new_dist;
+            a = na;
+            b = nb;
+            offset = clamp(nb.y-ending_up.y, -half_height * 2.0f, 0);
+            start = starting_up + vec4(0, offset, 0, 0);
+            end = ending_up + vec4(0, offset, 0, 0);
+            offset += half_height;
+
+        }
+
+
+        draw_line(starting_up, ending_up, {0, 1, 0});
+        draw_line(starting_down, ending_down, {0, 1, 0});
+        draw_line(starting_up, starting_down, {0, 1, 0});
+        draw_line(ending_up, ending_down, {0, 1, 0});
+        
+        return {
+            start,
+            end,
+            a,
+            offset,
+            b
+        };
+    }
+
+    void step(float delta){
         // copy
         vector<PhysicsPrimitive> dereferenced;
         for (auto obj: objects) {
@@ -668,8 +769,9 @@ class PhysicsSolver{
             PhysicsPrimitive first = PhysicsPrimitive{*objects[a]};
             if (first.type != TYPE_RIGID) continue; // iter only TYPE_RIGID BODIES (update only self)
             vec4 starting_point = first.position;
-            //first.velocity += gravity * delta;
-            //first.position += first.velocity * delta;
+            first.velocity += gravity * delta;
+            first.position += first.velocity * delta;
+            //first.position += first.velocity;
             for (int b=0;b<objects.size();b++){ // todo : pick nearest
                 if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive* second = objects[b];
@@ -689,8 +791,8 @@ class PhysicsSolver{
                     if (std::isnan(vec.x)) continue;
                     first.position -= vec * 0.5f;
 
-                    //draw_arrow(first.position - vec, first.position, screen_size, {1, 0, 0});
-                    //draw_arrow(first.position + first.velocity, first.position, screen_size, {0, 1, 0});
+                    //draw_arrow(first.position - vec, first.position, game->screen_pixel_size, {1, 0, 0});
+                    //draw_arrow(first.position + first.velocity, first.position, game->screen_pixel_size, {0, 1, 0});
 
                     float system_energy = length(first.velocity) * first.mass + length(second->velocity) * second->mass;
                     float mid_bounciness = (first.bounciness + second->bounciness) * 0.5f;
@@ -711,7 +813,7 @@ class PhysicsSolver{
                     if (dot(vec, new_velocity) >= 0) continue;
                     first.velocity = new_velocity;
 
-                    //draw_arrow(objects[a]->position + new_velocity, objects[a]->position, screen_size, {0, 0, 1});
+                    //draw_arrow(objects[a]->position + new_velocity, objects[a]->position, game->screen_pixel_size, {0, 0, 1});
 
                     //cout << &first << " " << collision_normal.x << " " << collision_normal.y << endl;
                     dereferenced[a] = first; // write changes
@@ -720,15 +822,45 @@ class PhysicsSolver{
                 if (second->shape == SHAPE_LINE){
                     vec4 local_starting_point = starting_point;
                     //if (length_squared(starting_point - first.position) < ALMOST_ZERO) continue;
-                    for (int ccd_step = 0; ccd_step < 2; ccd_step++){
+                    /*if (first.rounding != 0){
                         if (parsed_normals.size() > 0) parsed_normals.clear();
                         PhysicsPrimitive* nearest = second;
                         vec4 vertex1 = nearest->position + nearest->a;
                         vec4 vertex2 = nearest->position + nearest->b;
+
                         vec4 translation_point, line_point;
-                        tie(translation_point, line_point) = closest_points_between_lines_3d(local_starting_point, first.position, vertex1, vertex2);
+                        tie(translation_point, line_point) = closest_points_between_line_segments_3d(local_starting_point, first.position, vertex1, vertex2);
+                        
 
 
+                        InspectionResult res = closest_capsulecast_vs_line(first.a.x * 0.5f, starting_point, first.position, vertex1, vertex2);
+                        translation_point = res.point;
+                        line_point = res.line_point;
+                        draw_line(translation_point, line_point, {0, 1, 0});
+                        draw_line(res.start, res.end, {1, 0, 0});
+                        if (length_squared(translation_point - line_point) < ALMOST_ZERO){
+                            draw_capsule(translation_point, {10, 0}, {0, 0, 1});
+                        }
+
+
+
+                    } else*/
+                    for (int ccd_step = 0; ccd_step < ccd_steps; ccd_step++){
+                        
+                        
+                        if (parsed_normals.size() > 0) parsed_normals.clear();
+                        PhysicsPrimitive* nearest = second;
+                        vec4 vertex1 = nearest->position + nearest->a;
+                        vec4 vertex2 = nearest->position + nearest->b;
+
+                        vec4 translation_point, line_point;
+                        tie(translation_point, line_point) = closest_points_between_line_segments_3d(local_starting_point, first.position, vertex1, vertex2);
+
+                        //draw_arrow(starting_point, starting_point + first.velocity, {1, 0, 0});
+                        /*
+                        draw_line(first.position, line_point, game->screen_pixel_size, {1, 1, 0});
+                        draw_capsule(line_point, {first.rounding, first.a.x}, game->screen_pixel_size, {0, 1, 0});
+                        */
 
 
                         float nearest_dist = length_squared(translation_point - line_point);
@@ -747,10 +879,10 @@ class PhysicsSolver{
                             if (temp->shape == SHAPE_LINE && temp->normal == second->normal){
                                 vertex1 = temp->position + temp->a;
                                 vertex2 = temp->position + temp->b;
-                                tie(translation_point, line_point) = closest_points_between_lines_3d(local_starting_point, first.position, vertex1, vertex2);
+                                tie(translation_point, line_point) = closest_points_between_line_segments_3d(local_starting_point, first.position, vertex1, vertex2);
                                 float dist = length_squared(translation_point - line_point);
-                                //font_atlas->draw_text(to_string((int)round(dist)), vec2(temp->position) + screen_size * 0.5f, screen_size);
-                                if (nearest_dist == -1 || nearest_dist >= dist){
+                                //font_atlas->draw_text(to_string((int)round(dist)), vec2(temp->position) + game->screen_pixel_size * 0.5f, game->screen_pixel_size);
+                                if (nearest_dist >= dist){
                                     //
                                     nearest_dist = dist;
                                     nearest = temp;
@@ -758,10 +890,12 @@ class PhysicsSolver{
                             }
                         }
                         if ((ccd_step != 0) && (nearest == second)){ccd_step = ccd_steps; continue;}
+
                         //PhysicsPrimitive ccd_object = second;
                         vertex1 = nearest->position + nearest->a;
                         vertex2 = nearest->position + nearest->b;
-                        tie(translation_point, line_point) = closest_points_between_lines_3d(local_starting_point, first.position, vertex1, vertex2);
+
+                        tie(translation_point, line_point) = closest_points_between_line_segments_3d(local_starting_point, first.position, vertex1, vertex2);
 
                         float distance_to_travel = length(first.position - local_starting_point);
 
@@ -799,6 +933,7 @@ class PhysicsSolver{
                             //cout << "miss: " << length(point_eq_radius- closest_point_on_capped_line(point_eq_radius, vertex1, vertex2)) - radius << endl;
                             float traveled_distance = length(local_starting_point - point_eq_radius);
                             distance_to_travel -= traveled_distance;
+                            draw_capsule(point_eq_radius, {20, 0}, {0, 0, 1});
                             if (!std::isnan(point_eq_radius.x)) // :facepalm:
                             {first.position = point_eq_radius;}
                             else {first.position = local_starting_point; cout << "NAN!" <<endl; continue;}
@@ -813,7 +948,7 @@ class PhysicsSolver{
                                 vec4 plane_component_travel = vel_norm * distance_to_travel - vec4(projected_travel, 0, 0);
                                 if (dot(y_component, vel) > 0) y_component = -y_component;
                                 if (dot(y_component_travel, vel) > 0) y_component_travel = -y_component_travel;
-                                first.velocity = y_component * first.bounciness + plane_component * first.friction;
+                                //first.velocity = y_component * first.bounciness + plane_component * first.friction;
                                 local_starting_point = point_eq_radius;
                                 first.position += plane_component_travel + y_component_travel;//y_component_travel * first.bounciness + plane_component_travel * first.friction; // friction * length?
                             } else {ccd_step = ccd_steps; continue;}
@@ -833,7 +968,7 @@ class PhysicsSolver{
         dereferenced.clear();
     }
 
-    void gpu_step(float delta, vec2 screen_size){
+    void gpu_step(float delta){
         glUseProgram(program);
         vector<PhysicsPrimitive> dereferenced;
         for (auto obj: objects) dereferenced.push_back(*obj);

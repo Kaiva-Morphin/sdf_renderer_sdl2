@@ -284,6 +284,10 @@ void main() {
   vec3 start = vec3((pixel_pos.x - (texture_size.x * 0.5)) * scale_factor, (pixel_pos.y - (texture_size.y * 0.5)) * -scale_factor, near_z);
   vec3 point = start;
   vec3 direction = vec3(0., 0., -1.);
+
+  scene.primitives[0].primitive_type = 1;
+  scene.primitives[0].rounding = 1;
+
   scene.primitives[0].transform = eulerXYZ(sin(time) * 360, 0, 0) * mat4x4( // todo: ???
     1., 0., 0., 0.,
     0., 1., 0., 0.,

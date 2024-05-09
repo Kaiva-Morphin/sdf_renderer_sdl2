@@ -1,3 +1,6 @@
+#ifndef MY_GAME
+#define MY_GAME
+
 #include "header.h"
 #include "Functions.h"
 #include "sdf_primitives.h"
@@ -11,18 +14,21 @@
 
 #include <unordered_map>
 
-#include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include "BdfFont.h"
+
+
 
 SDL_Window* window;
 //SDL_Renderer* renderer;
 SDL_GLContext context;
-TTF_Font* font;
 
 //480 * 270 ? 320 * 240
 int TARGET_WIDTH = 320; // always true :party_popper:
 int TARGET_HEIGHT = 240; // always true :party_popper:
+
+class Game;
+Game* game = nullptr;
 
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
@@ -742,4 +748,4 @@ class SDF_Frag_Shader : public Shader{
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(*primitive_scene), primitive_scene, GL_DYNAMIC_DRAW);
     }
 };
-
+#endif

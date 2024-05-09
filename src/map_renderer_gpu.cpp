@@ -10,7 +10,7 @@ const int CENTERY = TARGET_HEIGHT / 2;
 
 SDL_Event event;
 
-Game game = Game();
+
 
 class Atlas{
     GLuint texture_atlas;
@@ -28,7 +28,7 @@ class Atlas{
         SDL_Surface *surface = IMG_Load(path);
         glGenTextures(1, &texture_atlas);
         glBindTexture(GL_TEXTURE_2D, texture_atlas);
-        game.set_default_image_settings();
+        game->set_default_image_settings();
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
         atlas_size = {surface->w, surface->h};
         SDL_FreeSurface(surface);
@@ -167,17 +167,17 @@ class Map{
 
         glGenTextures(1, &map_texture);
         glBindTexture(GL_TEXTURE_2D, map_texture);
-        game.set_default_image_settings();
+        game->set_default_image_settings();
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_size.x, texture_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
         glGenTextures(1, &map_normalmap);
         glBindTexture(GL_TEXTURE_2D, map_normalmap);
-        game.set_default_image_settings();
+        game->set_default_image_settings();
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_size.x, texture_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
         glGenTextures(1, &map_depth);
         glBindTexture(GL_TEXTURE_2D, map_depth);
-        game.set_default_image_settings();
+        game->set_default_image_settings();
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_size.x, texture_size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
         glGenFramebuffers(1, &buffer);
@@ -343,8 +343,8 @@ class Map{
 
 int main(int argc, char ** argv)
 {
-    
-    game.init();
+    game = new Game();
+    game->init();
     
     IMG_Init(IMG_INIT_PNG);
 
@@ -417,7 +417,7 @@ int main(int argc, char ** argv)
     for (int x = 0; x < TEX_SIZE; x++)
     drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
     GLubyte* character_texture_data = drawer.get_data();
-    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag", &game.debugger);
+    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag", &game->debugger);
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
     shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
@@ -496,37 +496,37 @@ int main(int argc, char ** argv)
     }
     
     BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/orp-italic.bdf", 1536);
-    game.debugger.init(&font_atlas);
+    game->debugger.init(&font_atlas);
     
 
     map.render(&atlas);
-    while (game.is_running())
+    while (game->is_running())
     {
 
 
-        float time = game.time();
+        float time = game->time();
         while (SDL_PollEvent(&event))
         {
-            game.handle_event(event);
+            game->handle_event(event);
         }
-        game.begin_main();
+        game->begin_main();
         
         glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
         glUniform2f(glGetUniformLocation(shaderProgram, "target_size"), TARGET_WIDTH, TARGET_HEIGHT);
-        glUniform2f(glGetUniformLocation(shaderProgram, "size"), game.get_screen_size().x, game.get_screen_size().y);
-        game.draw_fullscreen_quad();
+        glUniform2f(glGetUniformLocation(shaderProgram, "size"), game->get_screen_size().x, game->get_screen_size().y);
+        game->draw_fullscreen_quad();
         glUseProgram(0);
 
-        map.offset = (game.screen_pixel_size - map.get_texture_size());
+        map.offset = (game->screen_pixel_size - map.get_texture_size());
         map.offset /= 2;
         glEnable(GL_BLEND);
-        map.draw(game.screen_pixel_size);
+        map.draw(game->screen_pixel_size);
         glDisable(GL_BLEND);
-        game.end_main();
-        game.begin_main();
+        game->end_main();
+        game->begin_main();
         shader.check_file_updates();
         shader.use();
         // x+
@@ -543,17 +543,17 @@ int main(int argc, char ** argv)
         shader.update_map(map.get_depth(), map.get_texture_size(), map.get_map_size());
         
         glEnable(GL_BLEND);
-        shader.draw(game.screen_pixel_size);
+        shader.draw(game->screen_pixel_size);
         glDisable(GL_BLEND);
 
-        game.debugger.update_basic();
-        game.debugger.draw(game.screen_pixel_size);
+        game->debugger.update_basic();
+        game->debugger.draw(game->screen_pixel_size);
 
-        game.end_main();
+        game->end_main();
 
         glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        game.draw_main();
+        game->draw_main();
 
         /*glBindTexture(GL_TEXTURE_2D, font_atlas.get_texture());
         vec2 src = font_atlas.get_glyph_size() * 8.0f / font_atlas.get_atlas_size();
@@ -573,6 +573,6 @@ int main(int argc, char ** argv)
     shader.destroy();
     glDeleteProgram(shaderProgram);
     IMG_Quit();
-    game.destroy();
+    game->destroy();
     return 0;
 }
