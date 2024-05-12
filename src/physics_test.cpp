@@ -20,7 +20,6 @@ SDL_Event event;
 //*     * -- X
 //*      \
 //*        Z
-
 int main(int argc, char ** argv)
 {
     Game g = Game();
@@ -164,9 +163,44 @@ int main(int argc, char ** argv)
         game->begin_main();
         glClearColor(0.7843, 0.7333, 0.5882, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
-        physics.check_file_updates();
-        physics.step(game->wrapped_delta());
-        physics.draw();
+
+
+        vec4 start = vec4(-100, -100, 0, 0);//cursor.position;
+        start = cursor.position;
+        vec4 end = vec4(100, 100, 0, 0);//cursor.position + cursor.velocity;
+        end = cursor.position + cursor.velocity;
+
+        vec4 vertex1 = {-50, -25, 0, 0};
+        vec4 vertex2 = {50, 25, 0, 0};
+        float radius = 20;
+        float height = 40;
+
+        vec4 normal_of_line = physics.normal_of_line(vertex1, vertex2);
+
+        physics.draw_line(vertex1, vertex2, vec3{1, 0, 0});
+        physics.draw_capsule(start, {radius, height}, {1, 1, 0});
+        physics.draw_line(start, end, {1, 1, 0});
+
+        /*sgame->start_timer();
+        for (int i = 0; i < 100000; i++){
+            physics.math_step(start, end, vertex1, vertex2, normal_of_line, radius);
+        }
+        printf("Math: ");
+        game->print_timer_end();
+        game->start_timer();
+        for (int i = 0; i < 100000; i++){
+            physics.binsearch_step(start, end, vertex1, vertex2, normal_of_line, radius, height);
+        }
+        printf("Sosiska: ");
+        game->print_timer_end();*/
+
+        vec4 res = physics.binsearch_step(start, end, vertex1, vertex2, normal_of_line, radius, height);
+        physics.draw_capsule(res, {radius, height}, {1, 1, 0});
+        //res = physics.math_step(start, end, vertex1, vertex2, normal_of_line, radius);
+        //physics.draw_capsule(res, {radius, 0}, {1, 0, 1});
+        //physics.check_file_updates();
+        //physics.step(game->wrapped_delta());
+        //physics.draw();
 
         //physics.lines(game->screen_pixel_size, &font_atlas);
 

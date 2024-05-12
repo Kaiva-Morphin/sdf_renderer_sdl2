@@ -688,6 +688,97 @@ class PhysicsSolver{
         return !((t < 0) || (t > 1));
     }
 
+    vec4 binsearch_step(vec4 start, vec4 end, vec4 vertex1, vec4 vertex2, vec4 line_normal, float radius, float height){
+        InspectionResult res = closest_capsulecast_vs_line(height * 0.5f, start, end, vertex1, vertex2);
+
+        //closest_capsulecast_vs_line(float half_height, vec4 start, vec4 end, vec4 vertex1, vec4 vertex2)
+
+        vec4 latest_uncollide = vec4(0);
+        float distance_sqared = length_squared(res.point - res.line_point);
+        float radius_squared = (radius * radius);
+
+
+
+
+        vec4 translation_point, line_point;
+        tie(translation_point, line_point) = closest_points_between_line_segments_3d(start+vec4(0, height*0.5f, 0, 0), start-vec4(0, height*0.5f, 0, 0), vertex1, vertex2);
+
+        if (length_squared(translation_point - line_point) > radius_squared){
+            latest_uncollide = start;
+        } else {
+            return end;
+        }
+        
+        vec4 left = start;
+        vec4 right = end;
+        if (distance_sqared < radius_squared){ // collision on line
+            for (int i = 0; i < 256; i++){
+                vec4 center = (left + right) / 2.0f;
+                InspectionResult res = closest_capsulecast_vs_line(height * 0.5f, left, center, vertex1, vertex2);
+                float l = length_squared(res.point - res.line_point);
+                if (l <= radius_squared){
+                    latest_uncollide = center;
+                    if ((radius_squared - l) < 1e-7f) {/*printf("iter");*/return center;}
+                    right = center;
+                } else {
+                    left = center;
+                }
+                //draw_capsule(center, {4, 0}, {1, 1, 1});
+            }
+            
+        } else return end;
+        return latest_uncollide;
+    }
+
+    vec4 math_step(vec4 start, vec4 end, vec4 vertex1, vec4 vertex2, vec4 line_normal, float radius){
+        vec4 translation_point, line_point;
+        vec4 local_starting_point = start;
+        tie(translation_point, line_point) = closest_points_between_line_segments_3d(start, end, vertex1, vertex2);
+
+        float distance_to_travel = length(end - local_starting_point);
+
+        float endpoint_distance_sqared = length_squared(translation_point - line_point);
+        float radius_squared = (radius * radius);
+
+        bool endpoint_collision = endpoint_distance_sqared < radius_squared;
+        bool startpoint_collision = length(local_starting_point - closest_point_on_capped_line(local_starting_point, vertex1, vertex2)) < radius;
+
+        
+
+        
+        if ((endpoint_collision && !startpoint_collision) && dot(end-local_starting_point, line_normal) < 0){ // check normals
+            vec4 B = closest_point_on_line(local_starting_point, vertex1, vertex2);
+            vec4 AB = B - local_starting_point;
+            vec4 dir = (endpoint_distance_sqared < ALMOST_ZERO) ? normal_of_line(local_starting_point, line_point) : normalize(line_point - translation_point);
+            vec4 result = inv_projection(AB, dir);
+            vec4 inv_proj_radius = inv_projection(line_normal* radius, dir);
+            float projected_radius = length(inv_proj_radius);
+            float startpoint_dist = length(result);
+            float endpoint_dist = sqrt(endpoint_distance_sqared);
+            float point_eq_radius_u = remap(projected_radius, startpoint_dist, endpoint_dist, 0, 1);
+            vec4 point_eq_radius = local_starting_point + (translation_point - local_starting_point) * point_eq_radius_u;
+            if (dot(vertex1-vertex2, local_starting_point - end) == 0){ // parrallel wrapper
+                vec4 temp = closest_point_on_capped_line(local_starting_point, vertex1, vertex2); // || closest_point_on_line ?
+                point_eq_radius = normalize(local_starting_point-temp)*radius + temp;
+            }
+            //vec3 color = (is_point_on_capped_line(point_eq_radius, vertex1, vertex2))?vec3{0, 1, 0}:vec3{1, 0, 0};
+            // if point out of line bounds (intersection with point)
+            vec4 nearest_vertex = closest_vertex_on_capped_line(local_starting_point, vertex1, vertex2);
+            vec4 nearest_vertex_point = closest_point_on_line(nearest_vertex, local_starting_point, end);
+            float x = sqrt(radius*radius - length_squared(nearest_vertex_point - nearest_vertex));
+            vec4 oob_point_eq_radius = nearest_vertex_point - normalize(translation_point - local_starting_point) * x;
+            if ((length_squared(oob_point_eq_radius - local_starting_point) <= length_squared(point_eq_radius- local_starting_point)) || !is_point_on_capped_line(point_eq_radius, vertex1, vertex2)) point_eq_radius = oob_point_eq_radius;
+            vec4 collision_normal = normalize(point_eq_radius - closest_point_on_capped_line(point_eq_radius, vertex1, vertex2));
+            point_eq_radius += collision_normal * 1e-5f;// sometimes calculations return negative miss... (probably floating point persition) better than walk trough objects
+            //cout << "miss: " << length(point_eq_radius- closest_point_on_capped_line(point_eq_radius, vertex1, vertex2)) - radius << endl;
+            if (std::isnan(point_eq_radius.x)) return {0, 0, 0, 0};
+            return point_eq_radius;
+            
+        }
+        return vec4(0);
+    }
+
+
     InspectionResult closest_capsulecast_vs_line(float half_height, vec4 start, vec4 end, vec4 vertex1, vec4 vertex2){
         vec4 starting_up = start + vec4(0, half_height, 0, 0);
         vec4 starting_down = start - vec4(0, half_height, 0, 0);
@@ -739,10 +830,10 @@ class PhysicsSolver{
         }
 
 
-        draw_line(starting_up, ending_up, {0, 1, 0});
-        draw_line(starting_down, ending_down, {0, 1, 0});
-        draw_line(starting_up, starting_down, {0, 1, 0});
-        draw_line(ending_up, ending_down, {0, 1, 0});
+        //draw_line(starting_up, ending_up, {0, 1, 0});
+        //draw_line(starting_down, ending_down, {0, 1, 0});
+        //draw_line(starting_up, starting_down, {0, 1, 0});
+        //draw_line(ending_up, ending_down, {0, 1, 0});
         
         return {
             start,

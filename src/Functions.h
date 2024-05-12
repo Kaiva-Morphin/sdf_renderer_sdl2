@@ -23,4 +23,8 @@ mat4 roll_pitch_yaw_mat(float roll, float pitch, float yaw){
     };
 }
 
+class Game;
+Game* game = nullptr;
+
+
 #endif

@@ -27,8 +27,6 @@ SDL_GLContext context;
 int TARGET_WIDTH = 320; // always true :party_popper:
 int TARGET_HEIGHT = 240; // always true :party_popper:
 
-class Game;
-Game* game = nullptr;
 
 float TARGET_ASPECT = (float)TARGET_WIDTH / (float)TARGET_HEIGHT;
 
