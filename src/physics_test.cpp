@@ -33,9 +33,9 @@ int main(int argc, char ** argv)
 
 
 
-    PhysicsPrimitive cursor = physics.capsule(0., 20.);
+    PhysicsPrimitive cursor = physics.capsule(60., 20.);
     cursor.type = TYPE_RIGID;
-    cursor.bounciness = 0.99;
+    cursor.bounciness = 0.0;
     //cursor.mass = 100.;
     cursor.friction = 0.99;
     physics.push(&cursor);
@@ -53,7 +53,7 @@ int main(int argc, char ** argv)
     ////circ1.friction = 0.99;
     //circ1.type = TYPE_RIGID;
     //physics.push(&circ1);
-    {
+    /*{
         PhysicsPrimitive p;
         p.a = vec4(0);
         p.rounding = 10;
@@ -69,12 +69,27 @@ int main(int argc, char ** argv)
             PhysicsPrimitive* temp = new PhysicsPrimitive{p};
             physics.push(temp);
         }
-    }
-
-    PhysicsPrimitive line1 = physics.line(vec3(50., 25, 0.), vec3(-50., 0, 0.));
+    }*/
+    /*PhysicsPrimitive line1 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
+    line1.position.x = 100;
+    line1.position.y = 1;
+    physics.push(&line1);
+    PhysicsPrimitive line2 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
+    line2.position.x = -100;
+    line2.position.y = 1;
+    physics.push(&line2);
+    PhysicsPrimitive line3 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
+    line3.position.x = 1;
+    line3.position.y = 1;
+    physics.push(&line3);*/
+    PhysicsPrimitive line1 = physics.line(vec3(50., -50, 0.), vec3(-50., -25, 0.));
     line1.position.x = 1;
     line1.position.y = 1;
     physics.push(&line1);
+    PhysicsPrimitive line2 = physics.line(vec3(50., 25, 0.), vec3(50., -25, 0.));
+    line2.position.x = 1;
+    line2.position.y = 1;
+    physics.push(&line2);
 
 
     /*PhysicsPrimitive line2 = physics.line(vec3(50., 25., 0.), vec3(-50., -25., 0.));
@@ -165,7 +180,7 @@ int main(int argc, char ** argv)
         glClear(GL_COLOR_BUFFER_BIT);
 
 
-        vec4 start = vec4(-100, -100, 0, 0);//cursor.position;
+        /*vec4 start = vec4(-100, -100, 0, 0);//cursor.position;
         start = cursor.position;
         vec4 end = vec4(100, 100, 0, 0);//cursor.position + cursor.velocity;
         end = cursor.position + cursor.velocity;
@@ -179,7 +194,7 @@ int main(int argc, char ** argv)
 
         physics.draw_line(vertex1, vertex2, vec3{1, 0, 0});
         physics.draw_capsule(start, {radius, height}, {1, 1, 0});
-        physics.draw_line(start, end, {1, 1, 0});
+        physics.draw_line(start, end, {1, 1, 0});*/
 
         /*sgame->start_timer();
         for (int i = 0; i < 100000; i++){
@@ -194,8 +209,8 @@ int main(int argc, char ** argv)
         printf("Sosiska: ");
         game->print_timer_end();*/
 
-        vec4 res = physics.binsearch_step(start, end, vertex1, vertex2, normal_of_line, radius, height);
-        physics.draw_capsule(res, {radius, height}, {1, 1, 0});
+        //vec4 res = physics.binsearch_step(start, end, vertex1, vertex2, normal_of_line, radius, height);
+        //physics.draw_capsule(res, {radius, height}, {1, 1, 0});
         //res = physics.math_step(start, end, vertex1, vertex2, normal_of_line, radius);
         //physics.draw_capsule(res, {radius, 0}, {1, 0, 1});
         //physics.check_file_updates();
@@ -206,6 +221,8 @@ int main(int argc, char ** argv)
 
         //physics.draw_box(vec2(0.), vec2(10.), game->screen_pixel_size, vec3(1., 0., 0.));
         //physics.draw_capsule(vec2(0., 0.), vec2(6., 30.), game->screen_pixel_size, vec3(1., 0., 0.));
+        physics.step(game->wrapped_delta(), &font_atlas);
+        physics.draw();
         game->debugger.update_basic();
         game->debugger.draw(game->screen_pixel_size);
         game->end_main();
