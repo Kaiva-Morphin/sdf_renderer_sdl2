@@ -70,7 +70,7 @@ int main(int argc, char ** argv)
             physics.push(temp);
         }
     }*/
-    /*PhysicsPrimitive line1 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
+    PhysicsPrimitive line1 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
     line1.position.x = 100;
     line1.position.y = 1;
     physics.push(&line1);
@@ -81,15 +81,15 @@ int main(int argc, char ** argv)
     PhysicsPrimitive line3 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
     line3.position.x = 1;
     line3.position.y = 1;
-    physics.push(&line3);*/
-    PhysicsPrimitive line1 = physics.line(vec3(50., -50, 0.), vec3(-50., -25, 0.));
+    physics.push(&line3);
+    /*PhysicsPrimitive line1 = physics.line(vec3(50., -50, 0.), vec3(-50., -25, 0.));
     line1.position.x = 1;
     line1.position.y = 1;
     physics.push(&line1);
     PhysicsPrimitive line2 = physics.line(vec3(50., 25, 0.), vec3(50., -25, 0.));
     line2.position.x = 1;
     line2.position.y = 1;
-    physics.push(&line2);
+    physics.push(&line2);*/
 
 
     /*PhysicsPrimitive line2 = physics.line(vec3(50., 25., 0.), vec3(-50., -25., 0.));

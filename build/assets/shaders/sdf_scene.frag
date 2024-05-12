@@ -193,8 +193,8 @@ vec4 SampleScene(vec3 point){
   return vec4(colors[scene.operations-1], distances[scene.operations-1]);
 }
 
-const float near_z = 4.;
-const float far_z = -4.;
+const float near_z = 15.;
+const float far_z = -15.;
 const float max_depth = 2.;
 const float min_depth = -2.;
 const float min_dist = 0.01;
@@ -261,6 +261,40 @@ mat4x4 eulerXYZ(float anglex, float angley, float anglez){
     return rotmatx * rotmaty * rotmatz;
 }
 
+mat4x4 eulerZYX(float anglex, float angley, float anglez){
+    anglex = anglex / 180. * 3.1415;
+    angley = angley / 180. * 3.1415;
+    anglez = anglez / 180. * 3.1415;
+    mat4x4 rotmatx = mat4x4(
+           vec4(1., 0., 0., 0.),
+           vec4(0., cos(anglex), -sin(anglex), 0.),
+           vec4(0., sin(anglex), cos(anglex), 0.),
+           vec4(0., 0., 0., 1.)
+    );
+    mat4x4 rotmaty = mat4x4(
+            vec4(cos(angley), 0., sin(angley), 0.),
+            vec4(0., 1., 0., 0.),
+            vec4(-sin(angley), 0., cos(angley), 0.),
+            vec4(0., 0., 0., 1.)
+    );
+    mat4x4 rotmatz = mat4x4(
+            vec4(cos(anglez), -sin(anglez), 0., 0.),
+            vec4(sin(anglez), cos(anglez), 0., 0.),
+            vec4(0., 0., 1., 0.),
+            vec4(0., 0., 0., 1.)
+    );
+    return rotmatz * rotmaty * rotmatx;
+}
+
+mat4x4 roll_pitch_yaw_mat(float roll, float pitch, float yaw){
+    return mat4x4(
+        cos(roll) * cos(pitch),                           -cos(pitch)*cos(roll),                                  sin(pitch),          0,
+        cos(yaw)*sin(roll)+cos(roll)*sin(pitch)*sin(yaw),  cos(roll) * cos(yaw) - sin(roll)*sin(pitch)*sin(yaw), -cos(pitch)*sin(yaw), 0,
+        -cos(roll)*cos(yaw)*sin(pitch)+sin(roll)*sin(yaw), cos(yaw)*sin(roll)*sin(pitch)+cos(roll)*sin(yaw),      cos(pitch)*cos(yaw), 0,
+        0, 0, 0, 1
+    );
+}
+
 uniform sampler2D map_depth;
 uniform vec2 self_depth_range;
 uniform vec4 depth_texture_rect;
@@ -280,26 +314,57 @@ void main() {
   vec2 pixel_pos = fragTexCoord.xy * texture_size; // pixel pos
   vec2 uv_pos = 1 - fragTexCoord;
   vec4 pixel_color = vec4(0.0863, 0.1765, 0.2549, 0.0);
-  vec3 sun = vec3(1., 1., 1.); // sun direction
-  vec3 start = vec3((pixel_pos.x - (texture_size.x * 0.5)) * scale_factor, (pixel_pos.y - (texture_size.y * 0.5)) * -scale_factor, near_z);
-  vec3 point = start;
-  vec3 direction = vec3(0., 0., -1.);
-
-  scene.primitives[0].primitive_type = 1;
-  scene.primitives[0].rounding = 1;
-
-  scene.primitives[0].transform = eulerXYZ(sin(time) * 360, 0, 0) * mat4x4( // todo: ???
+  vec3 sun = normalize(vec3(0, 1, 0.5)); // sun direction
+  vec3 start = (mat4x4( 
     1., 0., 0., 0.,
     0., 1., 0., 0.,
     0.241, 0.241, 0.5, 0.,
     0., 0., 0, 1.
-  );
-  /* mat4x4(
+  )*vec4((pixel_pos.x - (texture_size.x * 0.5)) * scale_factor, (pixel_pos.y - (texture_size.y * 0.5)) * -scale_factor, near_z, 0)).xyz;
+  vec3 point = start;
+  vec3 direction = (mat4x4( 
     1., 0., 0., 0.,
     0., 1., 0., 0.,
-    0., 0., 1., 0.,
-    0., 0., 0., 1.
-  );*/
+    0.241, 0.241, 0.5, 0.,
+    0., 0., 0, 1.
+  )*vec4(0., 0., -1., 0.)).xyz;
+
+  
+
+  scene.primitives[0].position.y = -2;
+  scene.primitives[0].a.z = 5;
+  scene.primitives[0].transform = eulerZYX(0, time*100, 0);
+  scene.primitives[0].texture_transform = mat4(
+    0.1, 0, 0, 0,
+    0, 0.1, 0, 0, 
+    0, 0, 0.1, 0,
+    0, 0, 0, 1
+  );
+  scene.primitives[0].transform[3] = vec4(0, -1, 0, 1);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  //scene.primitives[0].transform = eulerXYZ(sin(time) * 360, 0, 0);
+
+  
+
+
 
   vec2 relative_uv;
   relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x) + (0.5 / texture_size.x);
@@ -321,13 +386,14 @@ void main() {
       float amb = 0.9 + 0.1 * nor.y;
       float depth = remap((near_z - start.z - pos.z) * -1, min_depth, max_depth, self_depth_range.x, self_depth_range.y);
       vec3 result_color = vec3(0.2078, 0.2549, 0.298)*amb*color + vec3(1.00,0.9,0.80)*dif*sha*color;
-      if (depth > texture_depth){
+      if (depth > texture_depth || true){
         pixel_color.rgb = result_color;  // color with shadows
         pixel_color.a = 1;
       } else {
         pixel_color.rgb = result_color * 0.5;
         pixel_color.a = ((int(sin(pixel_pos.x * (cos(time) * 0.5 + 1)) + pixel_pos.y + pixel_pos.x * -0.25 + time * 30) % 8) < 6)?0.5:0;
       }
+      //pixel_color.rgb = nor;
       break;
     }
     point += direction * dist;

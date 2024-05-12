@@ -221,25 +221,5 @@ class ObjectScene {
     };
 };
 
-struct Bone{
-    int id;
-    int parent;
-    vector<int> childs;
-    vec3 init_offset;
-    mat4x4 init_transform;
-    vec3 offset;
-    mat4x4 transform;
-};
-
-
-class Skeleton{
-    int root;
-    vector<Bone> bones;
-};
-
-class Character{
-    
-};
-
 
 #endif
