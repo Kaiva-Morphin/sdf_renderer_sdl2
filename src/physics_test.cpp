@@ -33,7 +33,7 @@ int main(int argc, char ** argv)
 
 
 
-    PhysicsPrimitive cursor = physics.capsule(60., 20.);
+    PhysicsPrimitive cursor = physics.capsule(40., 20.);
     cursor.type = TYPE_RIGID;
     cursor.bounciness = 0.0;
     //cursor.mass = 100.;
@@ -72,15 +72,15 @@ int main(int argc, char ** argv)
     }*/
     PhysicsPrimitive line1 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
     line1.position.x = 100;
-    line1.position.y = 1;
+    line1.position.y = 0;
     physics.push(&line1);
-    PhysicsPrimitive line2 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
+    PhysicsPrimitive line2 = physics.line(vec3(50., 0, 0.), vec3(-50., 20, 0.));
     line2.position.x = -100;
-    line2.position.y = 1;
+    line2.position.y = 0;
     physics.push(&line2);
     PhysicsPrimitive line3 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
-    line3.position.x = 1;
-    line3.position.y = 1;
+    line3.position.x = 0;
+    line3.position.y = 0;
     physics.push(&line3);
     /*PhysicsPrimitive line1 = physics.line(vec3(50., -50, 0.), vec3(-50., -25, 0.));
     line1.position.x = 1;
@@ -108,7 +108,7 @@ int main(int argc, char ** argv)
     line4.position.x = 125;
     line4.position.y = -75;*/
 
-    for (int side = 0; side < 4; side++) {
+    /*for (int side = 0; side < 4; side++) {
         PhysicsPrimitive p;
         switch (side)
         {
@@ -145,7 +145,7 @@ int main(int argc, char ** argv)
                 physics.push(temp);
             }
         }
-    }
+    }*/
 
 
 

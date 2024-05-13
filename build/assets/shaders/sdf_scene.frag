@@ -329,9 +329,13 @@ void main() {
     0., 0., 0, 1.
   )*vec4(0., 0., -1., 0.)).xyz;
 
-  
 
-  scene.primitives[0].position.y = -2;
+  //scene.operations = 0;
+  //scene.size = 0;
+  //scene.primitives[0].transform[3] = vec4(0, 2, 0, 1);
+  //scene.primitives[2].position.y = 4;
+  //cene.primitives[2].transform[3] = vec4(0, -2, 0, 1);
+  /*scene.primitives[0].position.y = -2;
   scene.primitives[0].a.z = 5;
   scene.primitives[0].transform = eulerZYX(0, time*100, 0);
   scene.primitives[0].texture_transform = mat4(
@@ -341,24 +345,7 @@ void main() {
     0, 0, 0, 1
   );
   scene.primitives[0].transform[3] = vec4(0, -1, 0, 1);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  scene.operations = 2;*/
 
   //scene.primitives[0].transform = eulerXYZ(sin(time) * 360, 0, 0);
 
@@ -386,7 +373,7 @@ void main() {
       float amb = 0.9 + 0.1 * nor.y;
       float depth = remap((near_z - start.z - pos.z) * -1, min_depth, max_depth, self_depth_range.x, self_depth_range.y);
       vec3 result_color = vec3(0.2078, 0.2549, 0.298)*amb*color + vec3(1.00,0.9,0.80)*dif*sha*color;
-      if (depth > texture_depth || true){
+      if (depth > texture_depth || texture_depth==0){
         pixel_color.rgb = result_color;  // color with shadows
         pixel_color.a = 1;
       } else {
@@ -402,7 +389,8 @@ void main() {
     //pixel_color.a = 1;
     //pixel_color.rgb = vec3(texture_depth);
   }
-  
+  //pixel_color.rgb = vec3(0.5);
   //pixel_color.r = (((int(pixel_pos.x + pixel_pos.y) % 2) == 0)?0.2:0);
+  //pixel_color = vec4(1, 0, 0, 1);
   frag_color = pixel_color;
 }

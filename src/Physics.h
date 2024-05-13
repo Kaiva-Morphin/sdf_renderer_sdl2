@@ -698,6 +698,13 @@ class PhysicsSolver{
         return !((t < 0) || (t > 1));
     }
 
+    bool is_point_on_capped_line_vertex(vec4 point, vec4 a, vec4 b){
+        vec4 AB = a - b;
+        vec4 AC = point - b;
+        float t = dot(AC, AB) / dot(AB, AB);
+        return ((t == 0) || (t == 1));
+    }
+
     vec4 binsearch_step(vec4 start, vec4 end, vec4 vertex1, vec4 vertex2, vec4 line_normal, float radius, float height){
         InspectionResult res = closest_capsulecast_vs_line(height * 0.5f, start, end, vertex1, vertex2);
         //closest_capsulecast_vs_line(float half_height, vec4 start, vec4 end, vec4 vertex1, vec4 vertex2)
@@ -800,6 +807,9 @@ class PhysicsSolver{
         start = starting_up;
         end = ending_up;
         dst_sq = length_squared(starting_up - a);
+
+        if (half_height == 0){ return {start, end, a, offset, b, dst_sq};}
+
         tie(na, nb) = closest_points_between_line_segments_3d(starting_down, ending_down, vertex1, vertex2);
         new_dist = length_squared(na-nb);
         if (new_dist < dist) {
@@ -866,13 +876,13 @@ class PhysicsSolver{
         for (int a=0;a<objects.size();a++){
             // !ONLY CAPSULES CAN BE TYPE_RIGID
             PhysicsPrimitive first = PhysicsPrimitive{*objects[a]};
-            if (first.type != TYPE_RIGID) continue; // iter only TYPE_RIGID BODIES (update only self)
+            if (first.type != TYPE_RIGID) continue; // iter only TYPE_RIGID BODIES (and update only self)
             vec4 starting_point = first.position;
             vector<vec4> parsed_normals;
             //first.velocity += gravity * delta;
             //first.position += first.velocity * delta;
             first.position += first.velocity;
-            for (int b=0;b<objects.size();b++){ // todo : pick nearest
+            for (int b=0;b<objects.size();b++){ // intersection between rigids
                 if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive* second = objects[b];
                 //if (!intersects(first, second)) continue; // todo: check AABBs
@@ -911,291 +921,72 @@ class PhysicsSolver{
                     vec4 new_velocity = normalize(plane_component + y_component * mid_bounciness) * energy_amount;
                     if (dot(vec, new_velocity) >= 0) continue;
                     first.velocity = new_velocity;
-
                     //draw_arrow(objects[a]->position + new_velocity, objects[a]->position, game->screen_pixel_size, {0, 0, 1});
-
                     //cout << &first << " " << collision_normal.x << " " << collision_normal.y << endl;
                     dereferenced[a] = first; // write changes
-                }
+                }               
+            }
+            //dereferenced[a] = first;
 
+            // intersection between lines
+            vec4 local_starting_point = starting_point;
+            
+            vec4 start = local_starting_point;
+            vec4 end = first.position;
+            float radius = first.rounding;
+            float height = first.a.x;
+            float half_height = height*0.5f;
+            float radius_squared = (radius * radius);
+            bool has_intersection = false;
+            for (int b=0;b<objects.size();b++){ // check is intersection on the way
+                if (a==b) continue;
+                PhysicsPrimitive* second = objects[b];
                 if (second->shape == SHAPE_LINE){
-                    vec4 local_starting_point = starting_point;
-                    vec4 start = local_starting_point;
-                    vec4 end = first.position;
-                    float radius = first.rounding;
-                    float height = first.a.x;
-                    float half_height = height*0.5f;
-
-                    PhysicsPrimitive* nearest = nullptr; 
-                    float minimal = 10000000;
-                    for (int c = 0; c < objects.size(); c++){
-                        PhysicsPrimitive* p = objects[c];
-                        if (p->shape == SHAPE_LINE){
-                            vec4 vertex1 = p->position + p->a;
-                            vec4 vertex2 = p->position + p->b;
-                            InspectionResult res = closest_capsulecast_vs_line(half_height, start, end, vertex1, vertex2);
-                            float dist = length(res.line_point - res.point);
-                            if ((abs(dist-radius)<ALMOST_ZERO || dist < radius) && res.start_dist_sqared < minimal){
-                                minimal = res.start_dist_sqared;
-                                nearest = p;
-                            }
-                        }
+                    // todo: check aabbs?
+                    if (dot(start-end, second->normal) < 0){continue;}
+                    if (length_squared(start - closest_point_on_capped_line(start, second->position+second->a, second->position+second->b)) < radius_squared){continue;} // if start point intersects
+                    InspectionResult res = closest_capsulecast_vs_line(half_height, start, end, second->position+second->a, second->position+second->b);
+                    if (length_squared(res.point - res.line_point) < radius_squared){
+                        has_intersection = true;
+                        break;
                     }
-                    if (nearest == nullptr) continue;
-
-
-
-
-
-
-
-                    vec4 vertex1 = nearest->position + nearest->a;
-                    vec4 vertex2 = nearest->position + nearest->b;
-                    InspectionResult res = closest_capsulecast_vs_line(half_height, start, end, vertex1, vertex2);
-
-                    draw_line(res.line_point, res.point, {1, 0, 0});
-                    draw_capsule(res.line_point, {10, 0}, {1, 0, 0});
-
-
-                    float radius_squared = (radius * radius);
-                    vec4 point_eq_radius;
-                    res = closest_capsulecast_vs_line(half_height, start, end, vertex1, vertex2);
-                    vec4 latest_uncollide = vec4(0);
-                    float distance_sqared = length_squared(res.point - res.line_point);
-                    vec4 translation_point, line_point;
-                    tie(translation_point, line_point) = closest_points_between_line_segments_3d(start+vec4(0, half_height, 0, 0), start-vec4(0, half_height, 0, 0), vertex1, vertex2);
-                    if (length_squared(translation_point - line_point) > radius_squared){ // is start not collide?
-                        latest_uncollide = start;
-                        vec4 left = start;
-                        vec4 right = end;
-                        //draw_capsule(left, {first.rounding + 5, first.a.x}, {1, 0, 1});
-                        //draw_capsule(right, {first.rounding + 5, first.a.x}, {0, 1, 1});
-                        if (distance_sqared < radius_squared){ // collision on line
-                            for (int i = 0; i < 256; i++){
-                                vec4 center = (left + right) / 2.0f;
-                                InspectionResult res = closest_capsulecast_vs_line(half_height, left, center, vertex1, vertex2);
-                                float l = length_squared(res.point - res.line_point);
-                                if (l <= radius_squared){
-                                    latest_uncollide = center;
-                                    point_eq_radius = latest_uncollide;
-                                    if ((radius_squared - l) < 1e-7f) {
-                                        point_eq_radius = center;
-                                        break;
-                                    }
-                                    right = center;
-                                } else {
-                                    left = center;
-                                }
-                                //draw_capsule(center, {4, 0}, {1, 1, 1});
-                            }
-                        } else {
-                            first.position = end;
-                            break;
-                        }
-                    } else {
-                        point_eq_radius = end;
-                    }
-                    first.position = point_eq_radius;
-                    draw_capsule(first.position, {first.rounding, first.a.x}, {1, 1, 1});
-
-
-                    /*vec4 local_starting_point = starting_point;
-                    float distance_to_travel = length(first.position - starting_point);
-                    // find nearest with same normal
-                    float radius = first.rounding;
-                    float height = first.a.x;
-                    float half_height = height*0.5f;
-
-                    float radius_squared = (radius * radius);
-                    vec4 start = local_starting_point;
-                    vec4 end = first.position;
-                    vec4 vertex1 = second->position + second->a;
-                    vec4 vertex2 = second->position + second->b;
-                    vec4 point_eq_radius;
-                    InspectionResult res = closest_capsulecast_vs_line(half_height, start, end, vertex1, vertex2);
-                    vec4 latest_uncollide = vec4(0);
-                    float distance_sqared = length_squared(res.point - res.line_point);
-                    vec4 translation_point, line_point;
-                    tie(translation_point, line_point) = closest_points_between_line_segments_3d(start+vec4(0, half_height, 0, 0), start-vec4(0, half_height, 0, 0), vertex1, vertex2);
-                    if (length_squared(translation_point - line_point) > radius_squared){ // is start not collide?
-                        latest_uncollide = start;
-                        vec4 left = start;
-                        vec4 right = end;
-                        //draw_capsule(left, {first.rounding + 5, first.a.x}, {1, 0, 1});
-                        //draw_capsule(right, {first.rounding + 5, first.a.x}, {0, 1, 1});
-                        if (distance_sqared < radius_squared){ // collision on line
-                            for (int i = 0; i < 256; i++){
-                                vec4 center = (left + right) / 2.0f;
-                                InspectionResult res = closest_capsulecast_vs_line(half_height, left, center, vertex1, vertex2);
-                                float l = length_squared(res.point - res.line_point);
-                                if (l <= radius_squared){
-                                    latest_uncollide = center;
-                                    point_eq_radius = latest_uncollide;
-                                    if ((radius_squared - l) < 1e-7f) {
-                                        point_eq_radius = center;
-                                        break;
-                                    }
-                                    right = center;
-                                } else {
-                                    left = center;
-                                }
-                                //draw_capsule(center, {4, 0}, {1, 1, 1});
-                            }
-                        } else {
-                            first.position = end;
-                            break;
-                        }
-                    } else {
-                        point_eq_radius = end;
-                    }
-                    first.position = point_eq_radius;
-                    float traveled_distance = length(local_starting_point - point_eq_radius);
-                    distance_to_travel -= traveled_distance;
-
-
-                    if (!std::isnan(point_eq_radius.x)) // :facepalm:
-                    {first.position = point_eq_radius;}
-                    else {first.position = local_starting_point; cout << "NAN!" <<endl; continue;}
-                    tie(translation_point, line_point) = closest_points_between_line_segments_3d(point_eq_radius+vec4(0, half_height, 0, 0), point_eq_radius-vec4(0, half_height, 0, 0), vertex1, vertex2);
-                    vec4 collision_normal = normalize(translation_point - line_point);
-
-                    if (collision_normal != vec4(0.) && first.velocity != vec4(0.)){
-                        vec4 vel = first.velocity;
-                        vec4 vel_norm = normalize(vel);
-                        vec2 projected = (dot(vel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
-                        vec2 projected_travel = (dot(vel_norm * distance_to_travel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
-                        vec4 y_component = vec4(projected, 0, 0);
-                        vec4 y_component_travel = vec4(projected_travel, 0, 0);
-                        vec4 plane_component = vel - vec4(projected, 0, 0);
-                        vec4 plane_component_travel = vel_norm * distance_to_travel - vec4(projected_travel, 0, 0);
-                        if (dot(y_component, vel) > 0) y_component = -y_component;
-                        if (dot(y_component_travel, vel) > 0) y_component_travel = -y_component_travel;
-                        local_starting_point = point_eq_radius;
-                        first.velocity = y_component * first.bounciness + plane_component * first.friction;
-                        draw_line(first.position, first.position + first.velocity, {1, 0, 0});
-                        draw_line(first.position, first.position + collision_normal, {1, 0, 0});
-                        first.position += plane_component_travel + y_component_travel * first.bounciness;//y_component_travel * first.bounciness + plane_component_travel * first.friction; // friction * length?
-                    }*/
-                    
-
-
-
-
-                    //if (length_squared(starting_point - first.position) < ALMOST_ZERO) continue;
-                    /*for (int ccd_step = 0; ccd_step < ccd_steps; ccd_step++){
-                        
-                        
-                        if (parsed_normals.size() > 0) parsed_normals.clear();
-                        PhysicsPrimitive* nearest = second;
-                        vec4 vertex1 = nearest->position + nearest->a;
-                        vec4 vertex2 = nearest->position + nearest->b;
-
-                        vec4 translation_point, line_point;
-                        tie(translation_point, line_point) = closest_points_between_line_segments_3d(local_starting_point, first.position, vertex1, vertex2);
-
-                        //draw_arrow(starting_point, starting_point + first.velocity, {1, 0, 0});
-                        
-
-
-                        float nearest_dist = length_squared(translation_point - line_point);
-                        glm::vec4 element_to_find = second->normal;
-                        auto it = std::find_if(parsed_normals.begin(), parsed_normals.end(),
-                                            [&](const glm::vec4& a) {
-                                                return a == element_to_find; 
-                                            });
-                        if (it != parsed_normals.end()) continue;
-                        else {
-                            parsed_normals.push_back(second->normal);
-                        }
-                        for (int c=0;c<objects.size();c++){
-                            if ((c==a)||(c==b)) continue;
-                            PhysicsPrimitive* temp = objects[c];
-                            if (temp->shape == SHAPE_LINE && temp->normal == second->normal){
-                                vertex1 = temp->position + temp->a;
-                                vertex2 = temp->position + temp->b;
-                                tie(translation_point, line_point) = closest_points_between_line_segments_3d(local_starting_point, first.position, vertex1, vertex2);
-                                float dist = length_squared(translation_point - line_point);
-                                //font_atlas->draw_text(to_string((int)round(dist)), vec2(temp->position) + game->screen_pixel_size * 0.5f, game->screen_pixel_size);
-                                if (nearest_dist >= dist){
-                                    //
-                                    nearest_dist = dist;
-                                    nearest = temp;
-                                }
-                            }
-                        }
-                        if ((ccd_step != 0) && (nearest == second)){ccd_step = ccd_steps; continue;}
-
-                        //PhysicsPrimitive ccd_object = second;
-                        vertex1 = nearest->position + nearest->a;
-                        vertex2 = nearest->position + nearest->b;
-
-                        tie(translation_point, line_point) = closest_points_between_line_segments_3d(local_starting_point, first.position, vertex1, vertex2);
-
-                        float distance_to_travel = length(first.position - local_starting_point);
-
-                        float endpoint_distance_sqared = length_squared(translation_point - line_point);
-                        float radius = first.rounding;
-                        float radius_squared = (radius * radius);
-
-                        bool endpoint_collision = endpoint_distance_sqared < radius_squared;
-                        bool startpoint_collision = length(local_starting_point - closest_point_on_capped_line(local_starting_point, vertex1, vertex2)) < radius;
-                        
-                        if ((endpoint_collision && !startpoint_collision) && dot(first.position-local_starting_point, nearest->normal) < 0){ // check normals
-                            vec4 B = closest_point_on_line(local_starting_point, vertex1, vertex2);
-                            vec4 AB = B - local_starting_point;
-                            vec4 dir = (endpoint_distance_sqared < ALMOST_ZERO) ? normal_of_line(local_starting_point, line_point) : normalize(line_point - translation_point);
-                            vec4 result = inv_projection(AB, dir);
-                            vec4 inv_proj_radius = inv_projection(nearest->normal * radius, dir);
-                            float projected_radius = length(inv_proj_radius);
-                            float startpoint_dist = length(result);
-                            float endpoint_dist = sqrt(endpoint_distance_sqared);
-                            float point_eq_radius_u = remap(projected_radius, startpoint_dist, endpoint_dist, 0, 1);
-                            vec4 point_eq_radius = local_starting_point + (translation_point - local_starting_point) * point_eq_radius_u;
-                            if (dot(vertex1-vertex2, local_starting_point - first.position) == 0){ // parrallel wrapper
-                                vec4 temp = closest_point_on_capped_line(local_starting_point, vertex1, vertex2); // || closest_point_on_line ?
-                                point_eq_radius = normalize(local_starting_point-temp)*radius + temp;
-                            }
-                            //vec3 color = (is_point_on_capped_line(point_eq_radius, vertex1, vertex2))?vec3{0, 1, 0}:vec3{1, 0, 0};
-                            // if point out of line bounds (intersection with point)
-                            vec4 nearest_vertex = closest_vertex_on_capped_line(local_starting_point, vertex1, vertex2);
-                            vec4 nearest_vertex_point = closest_point_on_line(nearest_vertex, local_starting_point, first.position);
-                            float x = sqrt(radius*radius - length_squared(nearest_vertex_point - nearest_vertex));
-                            vec4 oob_point_eq_radius = nearest_vertex_point - normalize(translation_point - local_starting_point) * x;
-                            if ((length_squared(oob_point_eq_radius - local_starting_point) <= length_squared(point_eq_radius- local_starting_point)) || !is_point_on_capped_line(point_eq_radius, vertex1, vertex2)) point_eq_radius = oob_point_eq_radius;
-                            vec4 collision_normal = normalize(point_eq_radius - closest_point_on_capped_line(point_eq_radius, vertex1, vertex2));
-                            point_eq_radius += collision_normal * 1e-5f;// sometimes calculations return negative miss... (probably floating point persition) better than walk trough objects
-                            //cout << "miss: " << length(point_eq_radius- closest_point_on_capped_line(point_eq_radius, vertex1, vertex2)) - radius << endl;
-                            float traveled_distance = length(local_starting_point - point_eq_radius);
-                            distance_to_travel -= traveled_distance;
-                            draw_capsule(point_eq_radius, {20, 0}, {0, 0, 1});
-                            if (!std::isnan(point_eq_radius.x)) // :facepalm:
-                            {first.position = point_eq_radius;}
-                            else {first.position = local_starting_point; cout << "NAN!" <<endl; continue;}
-                            if (collision_normal != vec4(0.) && first.velocity != vec4(0.)){
-                                vec4 vel = first.velocity;
-                                vec4 vel_norm = normalize(vel);
-                                vec2 projected = (dot(vel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
-                                vec2 projected_travel = (dot(vel_norm * distance_to_travel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
-                                vec4 y_component = vec4(projected, 0, 0);
-                                vec4 y_component_travel = vec4(projected_travel, 0, 0);
-                                vec4 plane_component = vel - vec4(projected, 0, 0);
-                                vec4 plane_component_travel = vel_norm * distance_to_travel - vec4(projected_travel, 0, 0);
-                                if (dot(y_component, vel) > 0) y_component = -y_component;
-                                if (dot(y_component_travel, vel) > 0) y_component_travel = -y_component_travel;
-                                //first.velocity = y_component * first.bounciness + plane_component * first.friction;
-                                local_starting_point = point_eq_radius;
-                                first.position += plane_component_travel + y_component_travel;//y_component_travel * first.bounciness + plane_component_travel * first.friction; // friction * length?
-                            } else {ccd_step = ccd_steps; continue;}
-                        }
-                    }*/
                 }
             }
-            draw_capsule(first.position, {first.rounding, first.a.x}, {0, 1, 0});
-            first.position = starting_point;
-            dereferenced[a] = first;
+            if (!has_intersection) {continue;} // no intersections on our way! no reason to use binsearch
+
+            draw_line(start, end, {0, 1, 0});
+
+            vec4 left = start;
+            vec4 right = end;
+            vec4 latest_uncollide = start;
+            for (int i = 0; i < 256; i++){
+                vec4 center = (left + right) / 2.0f;
+                bool intersects = false;
+                for (int b=0;b<objects.size();b++){
+                    if (a==b) continue;
+                    PhysicsPrimitive* second = objects[b];
+                    if (second->shape == SHAPE_LINE){
+                        if (dot(start-end, second->normal) < 0){continue;}
+                        if (length_squared(start - closest_point_on_capped_line(start, second->position+second->a, second->position+second->b)) < radius_squared){continue;} // starting point MUST be outside line
+                        InspectionResult res = closest_capsulecast_vs_line(half_height, left, center, second->position+second->a, second->position+second->b);
+                        if (length_squared(res.point - res.line_point) < radius_squared){
+                            intersects = true;
+                            break;
+                        }
+                    }
+                }
+                if (intersects){
+                    latest_uncollide = center;
+                    if (length_squared(center - right) < 1e-7f) {break;}
+                    right = center;
+                } else {
+                    left = center;
+                }
+            }
+            draw_capsule(latest_uncollide, {first.rounding, first.a.x}, {1, 0, 1});
+
+            //dereferenced[a] = first;
         }
-
-
         // sync
         for (int i=0;i<objects.size();i++){
             *objects[i] = dereferenced[i];
@@ -1232,7 +1023,6 @@ class PhysicsSolver{
     private:
     vec4 gravity = vec4(0., -9.8, 0., 0.);
     vector<PhysicsPrimitive*> objects;
-    public:
 
 };
 

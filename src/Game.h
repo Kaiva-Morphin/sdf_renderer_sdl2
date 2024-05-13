@@ -1,7 +1,12 @@
 #ifndef MY_GAME
 #define MY_GAME
 
-#include "header.h"
+//#include "header.h"
+#include <SDL2/SDL.h>
+#include <GL/glew.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_opengl.h>
+
 #include "Functions.h"
 #include "sdf_primitives.h"
 
@@ -152,7 +157,7 @@ class Debugger{
 class Game{
     public:
     bool running = true;
-    bool true_scalling = false;
+    bool true_scalling = true;
     ivec2 screen_pixel_size = ivec2(TARGET_WIDTH, TARGET_HEIGHT);
     ivec4 screen_rect = ivec4(0, 0, TARGET_WIDTH, TARGET_HEIGHT);
     vec4 uv_screen_rect = vec4(-1, -1, 1, 1);
@@ -197,15 +202,14 @@ class Game{
 
     }
 
-    typedef void (*Function)(void);
+    /*typedef void (*Function)(void);
     auto check_fn_time(Function fn){
         auto start = chrono::high_resolution_clock::now();
         fn();
         auto end = chrono::high_resolution_clock::now();
         auto duration = chrono::duration_cast<chrono::microseconds>(end - start);
         return duration.count();
-
-    }
+    }*/
 
     chrono::high_resolution_clock::time_point timer_start;
     void start_timer(){
@@ -653,6 +657,7 @@ class SDF_Frag_Shader : public Shader{
         glBindImageTexture(0, scene_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
         glGenBuffers(1, &scenebuffer);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
+        cout << "Compiled!" << endl;
         this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
     }
     void destroy(){
@@ -715,6 +720,7 @@ class SDF_Frag_Shader : public Shader{
         };
         //glBindTexture(GL_TEXTURE_2D, scene_texture);
         glBegin(GL_QUADS);
+        glColor3f(1, 1, 1); 
         glVertexAttrib2f(1, 0, 0); glVertex2f(dst_uv.x, dst_uv.y);
         glVertexAttrib2f(1, 1, 0); glVertex2f(dst_uv.z, dst_uv.y);
         glVertexAttrib2f(1, 1, 1); glVertex2f(dst_uv.z, dst_uv.w);

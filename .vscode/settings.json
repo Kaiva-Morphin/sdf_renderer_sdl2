@@ -79,6 +79,8 @@
         "resumable": "cpp",
         "glew.h": "c",
         "filesystem": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "map": "cpp",
+        "xtree": "cpp"
     }
 }

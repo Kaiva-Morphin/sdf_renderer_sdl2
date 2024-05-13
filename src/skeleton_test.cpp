@@ -10,12 +10,37 @@ const int CENTERY = TARGET_HEIGHT / 2;
 
 SDL_Event event;
 
+mat4x4 EulerXYZ(float anglex, float angley, float anglez){
+    anglex = anglex / 180. * 3.1415;
+    angley = angley / 180. * 3.1415;
+    anglez = anglez / 180. * 3.1415;
+    mat4x4 rotmatx = mat4x4(
+           vec4(1., 0., 0., 0.),
+           vec4(0., cos(anglex), -sin(anglex), 0.),
+           vec4(0., sin(anglex), cos(anglex), 0.),
+           vec4(0., 0., 0., 1.)
+    );
+    mat4x4 rotmaty = mat4x4(
+            vec4(cos(angley), 0., sin(angley), 0.),
+            vec4(0., 1., 0., 0.),
+            vec4(-sin(angley), 0., cos(angley), 0.),
+            vec4(0., 0., 0., 1.)
+    );
+    mat4x4 rotmatz = mat4x4(
+            vec4(cos(anglez), -sin(anglez), 0., 0.),
+            vec4(sin(anglez), cos(anglez), 0., 0.),
+            vec4(0., 0., 1., 0.),
+            vec4(0., 0., 0., 1.)
+    );
+    return rotmatx * rotmaty * rotmatz;
+}
+
 int main(int argc, char ** argv)
 {
     game = new Game();
+    IMG_Init(IMG_INIT_PNG);
     game->init();
     
-    IMG_Init(IMG_INIT_PNG);
 
     int TEX_SIZE = 64;
     TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
@@ -30,54 +55,91 @@ int main(int argc, char ** argv)
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
 
-    SDL_Surface* surface = IMG_Load("assets/images/ivan.png");
+    /*SDL_Surface* surface = IMG_Load("assets/images/ivan.png");
 
     //shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(64, 64, 1), (GLubyte*)surface->pixels);
 
-    SDL_FreeSurface(surface);
+    SDL_FreeSurface(surface);*/
 
     shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
     drawer.destroy();
 
-    ObjectScene scene;
+    ObjectScene scene; 
     PrimitiveScene primitive_scene;
 
+    int size = 4;
 
-    for (int i = 0; i < 1; i++){
-        scene.ordered_operations.push_back(
+    for (int i = 0; i < size; i++){
+        primitive_scene.ordered_operations[i] =
             PrimitiveOperation{
                 OPERATION_UNION,
                 i-1,
                 i,
                 i,
-                0
-            }
-        );
+                0.
+            };
     }
+    primitive_scene.operations = size;
+
+    
 
     Character character;
     
-
-
-    BoxObject* chest = new BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.8, 0.4));
-    chest->position.y = 0;
-    scene.objects.push_back(chest);
-
+    primitive_scene.size = size;
+    Primitive* chest = &primitive_scene.primitives[0];
+    *chest = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
     character.bones["chest"] = Bone{
+        "chest",
+        nullptr,
+        {},
+        {chest},
+        EYE4,
+        vec4(0., 0., 0., 1.)
+    };
+    character.bones["chest"].init_transform[3] = vec4(0, -0.6, 0, 1);
 
+    Primitive* chest_upper = &primitive_scene.primitives[1];
+    *chest_upper = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
+    character.bones["chest_upper"] = Bone{
+        "chest_upper",
+        &character.bones["chest"],
+        {},
+        {chest_upper},
+        EYE4,
+        vec4(0., 0.8, 0., 1.)
+    };
+    character.bones["chest_upper"].init_transform[3] = vec4(0, -0.4, 0, 1);
+
+    Primitive* head = &primitive_scene.primitives[2];
+    *head = (BoxObject(vec3(0., 0, 0.), vec3(0.8, 0.8, 0.8))).as_primitive();
+    character.bones["head"] = Bone{
+        "head",
+        &character.bones["chest_upper"],
+        {},
+        {head},
+        EYE4,
+        vec4(0., 1.8, 0., 1.),
+    };
+    character.bones["head"].init_transform[3] = vec4(0, -0.8, 0, 1);
+
+    Primitive* left_arm = &primitive_scene.primitives[3];
+    *left_arm = (BoxObject(vec3(0., 0., 0.), vec3(0.4, 0.8, 0.4))).as_primitive();
+    character.bones["left_arm"] = Bone{
+        "left_arm",
+        &character.bones["chest_upper"],
+        {},
+        {left_arm},
+        EulerXYZ(0, 0, 0),
+        vec4(1.2, 1.4, 0., 1.),
     };
 
-    BoxObject* chest_upper = new BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.8, 0.4));
+    /*BoxObject* chest_upper = new BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.8, 0.4));
     chest_upper->position.y = 0;
     scene.objects.push_back(chest_upper);
 
     character.bones["chest"] = Bone{
 
-    };
-
-
-
-
+    };*/
 
     /*BoxObject* head = new BoxObject(vec3(0., 0., 0.), vec3(5., 5., 0.2));
     head->position.y = 0;
@@ -115,17 +177,7 @@ int main(int argc, char ** argv)
     scene.primitives[9].position.xyz = vec3(0.4, -4, 0);
     */
 
-
-    
-
-    
-
-
-
-
-
-
-    scene.update_primitive_scene(&primitive_scene);
+    //scene.update_primitive_scene(&primitive_scene);
 
     const char* fragmentShaderSource = R"(
         #version 330 core
@@ -187,11 +239,10 @@ int main(int argc, char ** argv)
     BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/orp-italic.bdf", 1536);
     game->debugger.init(&font_atlas);
     
+        glEnable(GL_BLEND);
 
     while (game->is_running())
     {
-
-
         float time = game->time();
         while (SDL_PollEvent(&event))
         {
@@ -208,29 +259,38 @@ int main(int argc, char ** argv)
         game->draw_fullscreen_quad();
         glUseProgram(0);
 
-        game->end_main();
-        game->begin_main();
+        //game->end_main();
+
+
+        //character.bones["chest"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
+        //character.bones["chest_upper"].transform_bundle.transform = EulerXYZ(sin(time*3)*45, 0, 0);
+        character.bones["head"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
+
+
+        //game->begin_main();
+        
+        
         shader.check_file_updates();
         shader.use();
         // x+
         shader.set_1f("time", time);
         shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
-        scene.update_primitive_scene(&primitive_scene);
+
+
+        character.update_scene(&primitive_scene);
         shader.set_scene(&primitive_scene);
 
 
         //shader.set_position({cos(time) * 4, sin(time * 2) * 2, sin(time) * 4 + 4});
 
-        //shader.set_position({7, 0, 5});
+        shader.set_position({0, 0, 0});
 
         //shader.update_map(0, 0, 0);
-        
-        glEnable(GL_BLEND);
         shader.draw(game->screen_pixel_size);
-        glDisable(GL_BLEND);
 
-        game->debugger.update_basic();
-        game->debugger.draw(game->screen_pixel_size);
+        glUseProgram(0);
+        //game->debugger.update_basic();
+        //game->debugger.draw(game->screen_pixel_size);
 
         game->end_main();
 
@@ -248,7 +308,6 @@ int main(int argc, char ** argv)
         glTexCoord2f(src.x, 0); glVertex2f(-1, 1);
         glEnd();
         glBindTexture(GL_TEXTURE_2D, 0);*/
-        
 
         SDL_GL_SwapWindow(window);
         // todo: alpha checks for depth buffer draw :D
