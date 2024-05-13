@@ -1,11 +1,13 @@
 #version 430 core
 
-#define FIXED 0
-#define MOVING 1
-#define RIGID 2
+#define ALMOST_ZERO 0.00001
 
-#define CAPSULE 0
-#define LINE 1
+#define TYPE_FIXED 0
+#define TYPE_MOVING 1
+#define TYPE_RIGID 2
+
+#define SHAPE_CAPSULE 0 // always rigid
+#define SHAPE_LINE 1 //  moving or fixed
 
 struct PhysicsPrimitive{
     vec4 position;
@@ -13,6 +15,7 @@ struct PhysicsPrimitive{
     vec4 a;
     vec4 b;
     vec4 c;
+    vec4 normal;
     float rounding;
     float bounciness;
     float mass;
@@ -24,19 +27,49 @@ struct PhysicsPrimitive{
 
 
 layout(std140, binding = 0) buffer InputBuffer {
-    PhysicsPrimitive objecs[];
+    PhysicsPrimitive objects[];
 };
 layout(std140, binding = 1) buffer OutputBuffer {
-    PhysicsPrimitive next_objecs[];
+    PhysicsPrimitive next_objects[];
 };
 
 uniform int scene_size;
 uniform float delta;
 uniform vec3 gravity;
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+const int ccd_steps = 3;
 
-vec4 closest_point_on_capped_line(vec4 a, vec4 b, vec4 point){
+
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+/*
+vec4 normal_of_line(vec4 a, vec4 b){
+    vec4 vec = a - b;
+    return normalize(vec4(-vec.y, vec.x, 0, 0));
+}
+
+
+float length_squared(vec2 vec){
+    return vec.x * vec.x + vec.y * vec.y;
+}
+
+float length_squared(vec3 vec){
+    return vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
+}
+
+float length_squared(vec4 vec){
+    return vec.x * vec.x + vec.y * vec.y + vec.z * vec.z + vec.w * vec.w;
+}
+
+vec3 closest_point_on_capped_line(vec3 point, vec3 a, vec3 b){
+    vec3 AB = a - b;
+    vec3 AC = point - b;
+    float t = dot(AC, AB) / dot(AB, AB);
+    t = clamp(t, 0.0, 1.0);
+    return b + t * AB;
+}
+
+vec4 closest_point_on_capped_line(vec4 point, vec4 a, vec4 b){
     vec4 AB = a - b;
     vec4 AC = point - b;
     float t = dot(AC, AB) / dot(AB, AB);
@@ -44,32 +77,328 @@ vec4 closest_point_on_capped_line(vec4 a, vec4 b, vec4 point){
     return b + t * AB;
 }
 
-vec4 normal_of_line(vec4 a, vec4 b){
-    vec4 vec = a - b;
-    return normalize(vec4(-vec.y, vec.x, 0, 0));
+struct InspectionResult{
+    vec4 start;
+    vec4 end;
+    vec4 point;
+    float offset;
+    vec4 line_point;
+    float start_dist_sqared;
+};
+
+InspectionResult closest_capsulecast_vs_line(float half_height, vec4 start, vec4 end, vec4 vertex1, vec4 vertex2){
+    vec4 starting_up = start + vec4(0, half_height, 0, 0);
+    vec4 starting_down = start - vec4(0, half_height, 0, 0);
+    vec4 ending_up = end + vec4(0, half_height, 0, 0);
+    vec4 ending_down = end - vec4(0, half_height, 0, 0);
+
+    float dist;
+    float new_dist;
+    float dst_sq;
+
+    vec4 a, b;
+    vec4vec4 res = closest_points_between_line_segments_3d(starting_up, ending_up, vertex1, vertex2);
+    float offset = half_height;
+    dist = length_squared(res.a-res.b);
+    start = starting_up;
+    end = ending_up;
+    a = res.a;
+    b = res.b;
+    dst_sq = length_squared(starting_up - res.a);
+
+    if (half_height == 0){ return {start, end, res.a, offset, res.b, dst_sq};}
+
+    vec4vec4 nres = closest_points_between_line_segments_3d(starting_down, ending_down, vertex1, vertex2);
+    new_dist = length_squared(nres.a-nres.b);
+    if (new_dist < dist) {
+        dist = new_dist;
+        a = nres.a;
+        b = nres.b;
+        offset = -half_height;
+        start = starting_down;
+        end = ending_down;
+        dst_sq = length_squared(starting_down - nres.a);
+    }
+    nres = closest_points_between_line_segments_3d(starting_up, starting_down, vertex1, vertex2);
+    new_dist = length_squared(nres.a-nres.b);
+    if (new_dist < dist) {
+        dist = new_dist;
+        a = nres.a;
+        b = nres.b;
+        offset = clamp(nres.b.y-starting_up.y, -half_height * 2.0f, 0);
+        start = starting_up + vec4(0, offset, 0, 0);
+        end = ending_up + vec4(0, offset, 0, 0);
+        offset += half_height;
+        dst_sq = 0;
+    }
+    nres = closest_points_between_line_segments_3d(ending_up, ending_down, vertex1, vertex2);
+    new_dist = length_squared(nres.a-nres.b);
+    if (new_dist < dist) {
+        dist = new_dist;
+        a = nres.a;
+        b = nres.b;
+        offset = clamp(nres.b.y-ending_up.y, -half_height * 2.0f, 0);
+        start = starting_up + vec4(0, offset, 0, 0);
+        end = ending_up + vec4(0, offset, 0, 0);
+        offset += half_height;
+        dst_sq = length_squared(start - end);
+    }
+
+
+    //draw_line(starting_up, ending_up, {0, 1, 0});
+    //draw_line(starting_down, ending_down, {0, 1, 0});
+    //draw_line(starting_up, starting_down, {0, 1, 0});
+    //draw_line(ending_up, ending_down, {0, 1, 0});
+    
+    return {
+        start,
+        end,
+        a,
+        offset,
+        b,
+        dst_sq
+    };
 }
+
+struct vec4vec4{
+    vec4 a;
+    vec4 b;
+};
+
+vec4vec4 closest_points_between_line_segments_3d(vec3 a0, vec3 a1, vec3 b0, vec3 b1){
+    if (a0 == a1) {
+        return vec4vec4(vec4(a0, 0), vec4(closest_point_on_capped_line(a0, b0, b1), 0));
+        }
+    if (b0 == b1){
+        return vec4vec4(vec4(closest_point_on_capped_line(b0, a0, a1), 0), vec4(b0, 0));
+    }
+    vec3 A = a1 - a0;
+    vec3 B = b1 - b0;
+    float magA = length(A);
+    float magB = length(B);
+    vec3 _A = A / magA;
+    vec3 _B = B / magB;
+    vec3 crs = cross(_A, _B);
+    float denom = length(crs); 
+    denom *= denom;
+    if (denom == 0){
+        float d0 = dot(_A, (b0-a0));
+        float d1 = dot(_A, (b1-a0));
+        if ((d0 <= 0) && (0 >= d1)){
+            if (abs(d0) < abs(d1)){
+                return vec4vec4(vec4(a0, 0), vec4(b0, 0));
+            } else {
+                return vec4vec4(vec4(a0, 0), vec4(b1, 0));
+            }
+        } else if ((d0 >= magA) && (magA <= d1)) {
+            if (abs(d0) < abs(d1)){
+                return vec4vec4(vec4(a1, 0), vec4(b0, 0));
+            } else {
+                return vec4vec4(vec4(a1, 0), vec4(b1, 0));
+            }
+        }
+        // parallel
+        vec3 ra = closest_point_on_capped_line(a0, b0, b1);
+        vec3 rb =  a0;
+        float dist = length_squared(ra - rb);
+        vec3 nra = closest_point_on_capped_line(a1, b0, b1);
+        vec3 nrb = a1;
+        float ndist = length_squared(nra - nrb);
+        if (ndist < dist){
+            ra = nra;
+            rb = nrb;
+            dist = ndist;
+        }
+        nra = closest_point_on_capped_line(b0, a0, a1);
+        nrb = b0;
+        ndist = length_squared(nra - nrb);
+        if (ndist < dist){
+            ra = nra;
+            rb = nrb;
+            dist = ndist;
+        }
+        nra = closest_point_on_capped_line(b1, a0, a1);
+        nrb = b1;
+        ndist = length_squared(nra - nrb);
+        if (ndist < dist){
+            ra = nra;
+            rb = nrb;
+            dist = ndist;
+        }
+        return vec4vec4(vec4(ra, 0), vec4(rb, 0));
+    }
+    vec3 t = b0 - a0;
+    float detA = determinant(mat3(t, _B, crs));
+    float detB = determinant(mat3(t, _A, crs));
+    
+    float t0 = detA/denom;
+    float t1 = detB/denom;
+    vec3 pA = a0 + (_A * t0);
+    vec3 pB = b0 + (_B * t1);
+    if (t0 < 0)  pA = a0;
+    else if (t0 > magA)  pA = a1;
+    if (t1 < 0)  pB = b0;
+    else if (t1 > magB)  pB = b1;
+
+    if ((t0 < 0) || (t0 > magA)) {
+        float _dot = dot(_B, (pA-b0));
+        if (_dot < 0) _dot = 0;
+        else if (_dot > magB) _dot = magB;
+        pB = b0 + (_B * _dot);
+    }
+    if ((t1 < 0) || (t1 > magB)) {
+        float _dot = dot(_A, (pB-a0));
+        if (_dot < 0) _dot = 0;
+        else if (_dot > magA) _dot = magA;
+        pA = a0 + (_A * _dot);
+    }
+    return vec4vec4(vec4(pA, 0), vec4(pB, 0));
+}
+*/
 
 
 void main() {
-    uint index = gl_GlobalInvocationID.x;
-    next_objecs[index] = objecs[index];
-    PhysicsPrimitive first = next_objecs[index];
-    if (index == 0) first.type = RIGID;
-    if (first.type == RIGID){
-        //objecs[index].velocity.xyz += vec3(0, 1, 0) * delta;
-        first.position += first.velocity * delta;
-        for (int i = 0; i < scene_size; i++){
-            PhysicsPrimitive second = objecs[index];
-            switch (second.shape){
-                case CAPSULE: continue;
-                case LINE:
-                    {
+    uint a = gl_GlobalInvocationID.x;
+    next_objects[a] = objects[a];
+    PhysicsPrimitive first = next_objects[a];
+    if (first.type != TYPE_RIGID) return; // iter only TYPE_RIGID BODIES (and update only self)
+    
+    vec4 starting_point = first.position;
 
-                    }
+    first.velocity.xyz += gravity * delta;
+    first.position += first.velocity * delta;
+
+    //* intersection between rigids
+    for (int b=0;b<scene_size;b++){
+            if (a==b) continue; // dont intersect self.
+            PhysicsPrimitive second = objects[b];
+            //if (!intersects(first, second)) continue; // todo: check AABBs
+
+            /*if (second.shape == SHAPE_CAPSULE){
+                //if (!intersects(*objects[a], *second)){continue;};
+                vec4 first_center = objects[a].position;
+                vec4 closest_point2 = closest_point(second, first_center);
+                vec4 closest_point1 = closest_point(&first, closest_point2);
+                vec4 result1 = apply_rounding(closest_point1, closest_point2, first.rounding);
+                vec4 result2 = apply_rounding(closest_point2, closest_point1, second.rounding);
+                vec4 vec = (result1 - result2);
+                if (vec == vec4(0)) continue;
+                if (dot(vec, first.position - second.position) > 0) continue; // prevent pushing inside
+                if (std::isnan(vec.x)) continue;
+                first.position -= vec * 0.5f;
+
+                float system_energy = length(first.velocity) * first.mass + length(second.velocity) * second.mass;
+                float mid_bounciness = (first.bounciness + second.bounciness) * 0.5f;
+                float energy_amount = (second.mass)/(first.mass + second.mass)*system_energy;
+                vec4 vel = first.velocity;
+                vec4 collision_normal = normalize(vec);
+                vec2 projected = (dot(vel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
+                vec4 y_component = vec4(projected, 0, 0);
+                
+
+                if (dot(y_component, vel) > 0) y_component = -y_component;
+                vec4 plane_component = vel - vec4(projected, 0, 0);
+                if (vel == vec4{0., 0., 0., 0}){
+                    plane_component = vec4(0);
+                    y_component = -vec;
+                }
+                vec4 new_velocity = normalize(plane_component + y_component * mid_bounciness) * energy_amount;
+                if (dot(vec, new_velocity) >= 0) continue;
+                first.velocity = new_velocity;
+                next_objects[index] = first; // write changes
+            } */              
+    }
+    //* intersection between lines
+    /*vec4 local_starting_point = starting_point;
+    float distance_to_travel = length(starting_point - first.position);
+    PhysicsPrimitive previous;
+    for (int ccd_step = 0; ccd_step < ccd_steps; ccd_step += 1){
+        vec4 start = local_starting_point;
+        vec4 end = first.position;
+        float radius = first.rounding;
+        float height = first.a.x;
+        float half_height = height*0.5f;
+        float radius_squared = (radius * radius);
+        bool has_intersection = false;
+        for (int b=0;b<scene_size;b++){ // check is intersection on the way
+            if (a==b) continue;
+            PhysicsPrimitive second = objects[b];
+            if (second.shape == SHAPE_LINE){
+                // todo: check aabbs?
+                if (dot(start-end, second.normal) < 0){continue;}
+                if (length_squared(start - closest_point_on_capped_line(start, second.position+second.a, second.position+second.b)) < radius_squared){continue;} // if start point intersects
+                InspectionResult res = closest_capsulecast_vs_line(half_height, start, end, second.position+second.a, second.position+second.b);
+                if (length_squared(res.point - res.line_point) < radius_squared){
+                    has_intersection = true;
                     break;
+                }
             }
         }
+        if (!has_intersection) {continue;} // no intersections on our way! no reason to use binsearch
 
-    }
-    next_objecs[index] = first;
+        draw_line(start, end, {0, 1, 0});
+
+        vec4 left = start;
+        vec4 right = end;
+        vec4 latest_uncollide = start;
+        vec4 collision_normal = vec4(0);
+        PhysicsPrimitive last;
+        for (int i = 0; i < 256; i++){
+            vec4 center = (left + right) / 2.0f;
+            bool intersects = false;
+            for (int b=0;b<scene_size;b++){
+                if (a==b) continue;
+                PhysicsPrimitive* second = objects[b];
+                if (second.shape == SHAPE_LINE){
+                    if (dot(left-center, second.normal) < 0){continue;}
+                    if (length_squared(start - closest_point_on_capped_line(start, second.position+second.a, second.position+second.b)) < radius_squared){continue;} // starting point MUST be outside line
+                    InspectionResult res = closest_capsulecast_vs_line(half_height, left, center, second.position+second.a, second.position+second.b);
+                    if ((length_squared(res.point - res.line_point) < radius_squared) && (previous != second)){
+                        vec4 translation_point, line_point;
+                        tie(translation_point, line_point) = closest_points_between_line_segments_3d(center+vec4(0, half_height, 0, 0), center-vec4(0, half_height, 0, 0), second.position+second.a, second.position+second.b);
+                        collision_normal = (translation_point - line_point);
+                        intersects = true;
+                        last = second;
+                        break;
+                    }
+                }
+            }
+            if (intersects){
+                right = center;
+            } else {
+                latest_uncollide = center;
+                if (length_squared(center - right) < 1e-8) {break;}
+                left = center;
+            }
+        }
+        previous = last;
+        first.position = latest_uncollide;
+        float traveled_distance = length(local_starting_point - latest_uncollide);
+        distance_to_travel -= traveled_distance;
+        if (distance_to_travel<=0){ccd_step=ccd_steps;continue;}
+        local_starting_point = latest_uncollide;
+        if (collision_normal ==  vec4(0)){ccd_step=ccd_steps;continue;}
+        collision_normal = normalize(collision_normal);
+        if (collision_normal != vec4(0.) && first.velocity != vec4(0.)){
+            vec4 vel = first.velocity;
+            vec4 vel_norm = normalize(vel);
+            vec2 projected = (dot(vel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
+            vec2 projected_travel = (dot(vel_norm * distance_to_travel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
+            vec4 y_component = vec4(projected, 0, 0);
+            vec4 y_component_travel = vec4(projected_travel, 0, 0);
+            vec4 plane_component = vel - vec4(projected, 0, 0);
+            vec4 plane_component_travel = vel_norm * distance_to_travel - vec4(projected_travel, 0, 0);
+            if (dot(y_component, vel) > 0) y_component = -y_component;
+            if (dot(y_component_travel, vel) > 0) y_component_travel = -y_component_travel;
+            float normal_force = dot(gravity*first.mass, collision_normal) * first.friction;
+            float force = length(first.velocity*first.mass);
+            float friction_force = force - normal_force;
+                                                        /* for universe ballance */
+            /*first.velocity = normalize(y_component) * std::max(first.bounciness, 0.0001f) + normalize(plane_component) * friction_force / first.mass;
+            first.position += plane_component_travel + y_component_travel * first.bounciness;//y_component_travel * first.bounciness + plane_component_travel * first.friction; // friction * length?
+        }
+    }*/
+    next_objects[a] = first;
+
 }
+

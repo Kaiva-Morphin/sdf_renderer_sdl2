@@ -55,19 +55,19 @@ int main(int argc, char ** argv)
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
 
-    /*SDL_Surface* surface = IMG_Load("assets/images/ivan.png");
+    SDL_Surface* surface = IMG_Load("assets/images/ivan.png");
 
-    //shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(64, 64, 1), (GLubyte*)surface->pixels);
+    shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(64, 64, 1), (GLubyte*)surface->pixels);
 
-    SDL_FreeSurface(surface);*/
+    SDL_FreeSurface(surface);
 
-    shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
+    //shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
     drawer.destroy();
 
     ObjectScene scene; 
     PrimitiveScene primitive_scene;
 
-    int size = 4;
+    int size = 1;
 
     for (int i = 0; i < size; i++){
         primitive_scene.ordered_operations[i] =
@@ -87,6 +87,10 @@ int main(int argc, char ** argv)
     
     primitive_scene.size = size;
     Primitive* chest = &primitive_scene.primitives[0];
+    *chest = (BoxObject(vec3(0., 0., 0.), vec3(5, 5, 0.4))).as_primitive();
+    
+
+    /*Primitive* chest = &primitive_scene.primitives[0];
     *chest = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
     character.bones["chest"] = Bone{
         "chest",
@@ -131,7 +135,7 @@ int main(int argc, char ** argv)
         {left_arm},
         EulerXYZ(0, 0, 0),
         vec4(1.2, 1.4, 0., 1.),
-    };
+    };*/
 
     /*BoxObject* chest_upper = new BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.8, 0.4));
     chest_upper->position.y = 0;
@@ -264,8 +268,8 @@ int main(int argc, char ** argv)
 
         //character.bones["chest"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
         //character.bones["chest_upper"].transform_bundle.transform = EulerXYZ(sin(time*3)*45, 0, 0);
-        character.bones["head"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
-
+        //character.bones["head"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
+        chest->transform = EulerXYZ(sin(time*2)*45, 0, 0);
 
         //game->begin_main();
         

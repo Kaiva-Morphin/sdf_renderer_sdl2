@@ -13,13 +13,12 @@ const int CENTERY = TARGET_HEIGHT / 2;
 
 SDL_Event event;
 
-
-
 //*     Y
 //*     |
 //*     * -- X
 //*      \
 //*        Z
+
 int main(int argc, char ** argv)
 {
     Game g = Game();
@@ -37,8 +36,8 @@ int main(int argc, char ** argv)
     cursor.type = TYPE_RIGID;
     cursor.bounciness = 0.0;
     //cursor.mass = 100.;
-    cursor.friction = 0.99;
-    physics.push(&cursor);
+    cursor.friction = 0.5;
+    //physics.push(&cursor);
 
     //PhysicsPrimitive circ = physics.capsule(0., 10.);
     //circ.type = TYPE_RIGID;
@@ -53,6 +52,7 @@ int main(int argc, char ** argv)
     ////circ1.friction = 0.99;
     //circ1.type = TYPE_RIGID;
     //physics.push(&circ1);
+
     /*{
         PhysicsPrimitive p;
         p.a = vec4(0);
@@ -61,7 +61,7 @@ int main(int argc, char ** argv)
         p.friction = 0.99;
         p.shape = SHAPE_CAPSULE;
         p.type = TYPE_RIGID;
-        for (int i = 0; i < 15; i++){
+        for (int i = 0; i < 5; i++){
             p.position.x = rand() % 300 - 150;
             p.position.y = rand() % 300 - 150;
             p.velocity.x = rand() % 200 - 100;
@@ -70,18 +70,20 @@ int main(int argc, char ** argv)
             physics.push(temp);
         }
     }*/
-    PhysicsPrimitive line1 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
+
+    /*PhysicsPrimitive line1 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
     line1.position.x = 100;
     line1.position.y = 0;
     physics.push(&line1);
-    PhysicsPrimitive line2 = physics.line(vec3(50., 0, 0.), vec3(-50., 20, 0.));
+    PhysicsPrimitive line2 = physics.line(vec3(50., 0, 0.), vec3(40., 60, 0.));
     line2.position.x = -100;
     line2.position.y = 0;
     physics.push(&line2);
     PhysicsPrimitive line3 = physics.line(vec3(50., 0, 0.), vec3(-50., 0, 0.));
     line3.position.x = 0;
     line3.position.y = 0;
-    physics.push(&line3);
+    physics.push(&line3);*/
+
     /*PhysicsPrimitive line1 = physics.line(vec3(50., -50, 0.), vec3(-50., -25, 0.));
     line1.position.x = 1;
     line1.position.y = 1;
@@ -98,7 +100,7 @@ int main(int argc, char ** argv)
     line2.position.y = -60;*/
 
 
-    /*PhysicsPrimitive line3 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
+    PhysicsPrimitive line3 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
     physics.push(&line3);
     line3.position.x = 125;
     line3.position.y = -75;
@@ -106,9 +108,9 @@ int main(int argc, char ** argv)
     PhysicsPrimitive line4 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
     physics.push(&line4);
     line4.position.x = 125;
-    line4.position.y = -75;*/
+    line4.position.y = -75;
 
-    /*for (int side = 0; side < 4; side++) {
+    for (int side = 0; side < 4; side++) {
         PhysicsPrimitive p;
         switch (side)
         {
@@ -145,11 +147,21 @@ int main(int argc, char ** argv)
                 physics.push(temp);
             }
         }
-    }*/
+    }
 
 
+    PhysicsPrimitive player = physics.capsule(40., 20.);
+    player.type = TYPE_RIGID;
+    player.bounciness = 0.;
+    player.mass = 1.;
+    player.position.x = 100;
+    player.friction = 0.001;
+    physics.push(&player);
 
-
+    bool key_a, key_d, key_w;
+    key_a = false;
+    key_d = false;
+    key_w = false;
 
     int xMouse, yMouse;
     while (game->is_running())
@@ -173,7 +185,45 @@ int main(int argc, char ** argv)
         }
 
         float time = game->time();
-        while (SDL_PollEvent(&event)) game->handle_event(event);
+        while (SDL_PollEvent(&event)) {
+            game->handle_event(event);
+            if (event.type == SDL_KEYDOWN){
+                switch (event.key.keysym.sym) {
+                    case SDLK_a:
+                        key_a = true;
+                        break;
+                    case SDLK_d:
+                        key_d = true;
+                        break;
+                    case SDLK_w:
+                        key_w = true;
+                        break;
+                    case SDLK_c:
+                        player.velocity = vec4(0);
+                        break;
+                    case SDLK_z:
+                        break;
+                    case SDLK_x:
+                        break;
+                    case SDLK_SPACE:
+                        break;
+                }
+            }
+            if (event.type == SDL_KEYUP){
+                switch (event.key.keysym.sym) {
+                    case SDLK_a:
+                        key_a = false;
+                        break;
+                    case SDLK_d:
+                        key_d = false;
+                        break;
+                    case SDLK_w:
+                        key_w = false;
+                        break;
+                    
+                }
+            }
+        }
 
         game->begin_main();
         glClearColor(0.7843, 0.7333, 0.5882, 1.0);
@@ -221,6 +271,14 @@ int main(int argc, char ** argv)
 
         //physics.draw_box(vec2(0.), vec2(10.), game->screen_pixel_size, vec3(1., 0., 0.));
         //physics.draw_capsule(vec2(0., 0.), vec2(6., 30.), game->screen_pixel_size, vec3(1., 0., 0.));
+        
+        if (key_d || key_a) player.acceleration.x = ((key_d?1:0) - (key_a?1:0) )* 10.;
+        else player.acceleration.x = 0;
+        if (key_w)
+        player.acceleration.y = 100;
+        else 
+        player.acceleration.y =0 ;
+
         physics.step(game->wrapped_delta(), &font_atlas);
         physics.draw();
         game->debugger.update_basic();

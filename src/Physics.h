@@ -50,6 +50,7 @@ struct alignas(16) PhysicsPrimitive{
     int shape = SHAPE_CAPSULE;
     bool y_slopes = false;
     float friction = 0.;
+    vec4 acceleration = vec4(0.);
 };
 
 class PhysicsSolver{
@@ -879,10 +880,15 @@ class PhysicsSolver{
             if (first.type != TYPE_RIGID) continue; // iter only TYPE_RIGID BODIES (and update only self)
             vec4 starting_point = first.position;
             vector<vec4> parsed_normals;
-            //first.velocity += gravity * delta;
-            //first.position += first.velocity * delta;
-            first.position += first.velocity;
-            for (int b=0;b<objects.size();b++){ // intersection between rigids
+            first.velocity += gravity * delta;
+            first.velocity += first.acceleration * delta;
+            first.position += first.velocity * delta;
+
+            //dereferenced[a] = first;
+            draw_line(first.position, first.position + first.velocity, {1, 0, 0});
+            //first.position += first.velocity;
+            //* intersection between rigids
+            for (int b=0;b<objects.size();b++){
                 if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive* second = objects[b];
                 //if (!intersects(first, second)) continue; // todo: check AABBs
@@ -928,64 +934,120 @@ class PhysicsSolver{
             }
             //dereferenced[a] = first;
 
-            // intersection between lines
+            //* intersection between lines
             vec4 local_starting_point = starting_point;
-            
-            vec4 start = local_starting_point;
-            vec4 end = first.position;
-            float radius = first.rounding;
-            float height = first.a.x;
-            float half_height = height*0.5f;
-            float radius_squared = (radius * radius);
-            bool has_intersection = false;
-            for (int b=0;b<objects.size();b++){ // check is intersection on the way
-                if (a==b) continue;
-                PhysicsPrimitive* second = objects[b];
-                if (second->shape == SHAPE_LINE){
-                    // todo: check aabbs?
-                    if (dot(start-end, second->normal) < 0){continue;}
-                    if (length_squared(start - closest_point_on_capped_line(start, second->position+second->a, second->position+second->b)) < radius_squared){continue;} // if start point intersects
-                    InspectionResult res = closest_capsulecast_vs_line(half_height, start, end, second->position+second->a, second->position+second->b);
-                    if (length_squared(res.point - res.line_point) < radius_squared){
-                        has_intersection = true;
-                        break;
-                    }
-                }
-            }
-            if (!has_intersection) {continue;} // no intersections on our way! no reason to use binsearch
-
-            draw_line(start, end, {0, 1, 0});
-
-            vec4 left = start;
-            vec4 right = end;
-            vec4 latest_uncollide = start;
-            for (int i = 0; i < 256; i++){
-                vec4 center = (left + right) / 2.0f;
-                bool intersects = false;
-                for (int b=0;b<objects.size();b++){
+            float distance_to_travel = length(starting_point - first.position);
+            PhysicsPrimitive* previous = nullptr;
+            for (int ccd_step = 0; ccd_step < ccd_steps; ccd_step += 1){
+                vec4 start = local_starting_point;
+                vec4 end = first.position;
+                float radius = first.rounding;
+                float height = first.a.x;
+                float half_height = height*0.5f;
+                float radius_squared = (radius * radius);
+                bool has_intersection = false;
+                for (int b=0;b<objects.size();b++){ // check is intersection on the way
                     if (a==b) continue;
                     PhysicsPrimitive* second = objects[b];
                     if (second->shape == SHAPE_LINE){
+                        // todo: check aabbs?
                         if (dot(start-end, second->normal) < 0){continue;}
-                        if (length_squared(start - closest_point_on_capped_line(start, second->position+second->a, second->position+second->b)) < radius_squared){continue;} // starting point MUST be outside line
-                        InspectionResult res = closest_capsulecast_vs_line(half_height, left, center, second->position+second->a, second->position+second->b);
+                        if (length_squared(start - closest_point_on_capped_line(start, second->position+second->a, second->position+second->b)) < radius_squared){continue;} // if start point intersects
+                        InspectionResult res = closest_capsulecast_vs_line(half_height, start, end, second->position+second->a, second->position+second->b);
                         if (length_squared(res.point - res.line_point) < radius_squared){
-                            intersects = true;
+                            has_intersection = true;
                             break;
                         }
                     }
                 }
-                if (intersects){
-                    latest_uncollide = center;
-                    if (length_squared(center - right) < 1e-7f) {break;}
-                    right = center;
-                } else {
-                    left = center;
-                }
-            }
-            draw_capsule(latest_uncollide, {first.rounding, first.a.x}, {1, 0, 1});
+                if (!has_intersection) {continue;} // no intersections on our way! no reason to use binsearch
 
-            //dereferenced[a] = first;
+                draw_line(start, end, {0, 1, 0});
+
+                vec4 left = start;
+                vec4 right = end;
+                vec4 latest_uncollide = start;
+                vec4 collision_normal = vec4(0);
+                PhysicsPrimitive* last = nullptr;
+                for (int i = 0; i < 256; i++){
+                    vec4 center = (left + right) / 2.0f;
+                    bool intersects = false;
+                    for (int b=0;b<objects.size();b++){
+                        if (a==b) continue;
+                        PhysicsPrimitive* second = objects[b];
+                        if (second->shape == SHAPE_LINE){
+                            if (dot(left-center, second->normal) < 0){continue;}
+                            if (length_squared(start - closest_point_on_capped_line(start, second->position+second->a, second->position+second->b)) < radius_squared){continue;} // starting point MUST be outside line
+                            InspectionResult res = closest_capsulecast_vs_line(half_height, left, center, second->position+second->a, second->position+second->b);
+                            if ((length_squared(res.point - res.line_point) < radius_squared) && (previous != second)){
+                                vec4 translation_point, line_point;
+                                tie(translation_point, line_point) = closest_points_between_line_segments_3d(center+vec4(0, half_height, 0, 0), center-vec4(0, half_height, 0, 0), second->position+second->a, second->position+second->b);
+                                draw_line(translation_point, line_point, {1, 0, 0});
+                                collision_normal = (line_point - translation_point);
+                                if (dot(collision_normal, second->normal) < 0)collision_normal = -collision_normal;
+                                intersects = true;
+                                last = second;
+                                break;
+                            }
+                        }
+                    }
+                    if (intersects){
+                        right = center;
+                    } else {
+                        latest_uncollide = center;
+                        if (length_squared(center - right) < 1e-16) {break;}
+                        left = center;
+                    }
+                }
+                previous = last;
+                
+                first.position = latest_uncollide;
+
+
+                float traveled_distance = length(local_starting_point - latest_uncollide);
+                distance_to_travel -= traveled_distance;
+                if (distance_to_travel<=0){ccd_step=ccd_steps;continue;}
+                local_starting_point = latest_uncollide;
+                draw_line(first.position, local_starting_point, {1, 0, 0});
+                draw_line(first.position, local_starting_point, {1, 0, 0});
+                if (collision_normal ==  vec4(0)){ccd_step=ccd_steps;continue;}
+                collision_normal = normalize(collision_normal);
+
+                draw_line(latest_uncollide, latest_uncollide + collision_normal * 20.0f, {1, 1, 0});
+                draw_capsule(latest_uncollide, {first.rounding, first.a.x}, {1, 0, 1});
+                
+                if (collision_normal != vec4(0.) && first.velocity != vec4(0.)){
+                    vec4 vel = first.velocity;
+                    vec4 vel_norm = normalize(vel);
+                    vec2 projected = dot(vel, collision_normal) * vec2(collision_normal);
+                    vec4 y_component = vec4(projected, 0, 0);
+                    vec4 plane_component = vel - vec4(projected, 0, 0);
+                    if (dot(y_component, vel) > 0) y_component = -y_component;
+
+                    vec2 projected_travel = (dot(vel_norm * distance_to_travel, collision_normal) / dot(collision_normal, collision_normal)) * vec2(collision_normal);
+                    vec4 y_component_travel = vec4(projected_travel, 0, 0);
+                    vec4 plane_component_travel = vel_norm * distance_to_travel - vec4(projected_travel, 0, 0);
+                    if (dot(y_component_travel, vel) > 0) y_component_travel = -y_component_travel;
+
+                    first.velocity = y_component * std::max(first.bounciness, 0.0001f) + plane_component * (1-first.friction);
+
+                    //font_atlas->draw_text(to_string(friction_force), vec2(first.position) + vec2(game->screen_pixel_size) * 0.5f, game->screen_pixel_size);
+                    //font_atlas->draw_text(to_string(force), vec2(0, 10) + vec2(first.position) + vec2(game->screen_pixel_size) * 0.5f, game->screen_pixel_size);
+
+                                                                /* for universe ballance */
+                    //draw_line(latest_uncollide, latest_uncollide + first.velocity, {0, 1, 1});
+                    
+                    //font_atlas->draw_text(to_string(first.velocity.x), vec2(0, 20) + vec2(first.position) + vec2(game->screen_pixel_size) * 0.5f, game->screen_pixel_size);
+                    
+
+                    first.position += plane_component_travel * (1-first.friction) + y_component_travel * first.bounciness;//y_component_travel * first.bounciness + plane_component_travel * first.friction; // friction * length?
+                }
+                //break;
+            }
+
+            //draw_capsule(first.position, {first.rounding, first.a.x}, {0, 1, 1});
+            //first.position = starting_point;
+            dereferenced[a] = first;
         }
         // sync
         for (int i=0;i<objects.size();i++){
@@ -1017,6 +1079,10 @@ class PhysicsSolver{
             *objects[i] = new_objects[i];
         }
         dereferenced.clear();
+    }
+
+    void init_map(){
+        vector<vector<vector<int>>> map_data;
     }
 
     // physics logic
