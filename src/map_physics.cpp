@@ -394,8 +394,9 @@ int main(int argc, char ** argv)
     };
 
     PhysicsSolver solver("");
-    solver.init_map(map_data);
 
+    
+        
 
     // x z y
     ivec3 tile_size = ivec3(17, 11, 9);
@@ -414,6 +415,27 @@ int main(int argc, char ** argv)
 
     map.render(&atlas);
 
+    vec3 map_size = map.get_map_size();
+    for (int y = 0; y < map_size.y; y++){
+        for (int z = 0; z < map_size.z; z++){
+            for (int x = map_size.x - 1; x >= 0; x--){
+                int tile = map_data[y][z][x];
+                //int n = map.get_tile_neighbors_state({x, y, z});
+                if (tile != 0){
+                    PhysicsPrimitive *p1 = new PhysicsPrimitive;
+                    *p1 = solver.triangle(vec3(x, y, z), vec3(0.5, 0.5, 0.5), vec3(0.5, 0.5, -0.5), vec3(-0.5, 0.5, 0.5));
+                    solver.push(p1);
+                    PhysicsPrimitive *p2 = new PhysicsPrimitive;
+                    *p2 = solver.triangle(vec3(x, y, z), vec3(-0.5, 0.5, -0.5), vec3(-0.5, 0.5, 0.5), vec3(0.5, 0.5, -0.5));
+                    solver.push(p2);
+                }
+            }
+        }
+    }
+    //PhysicsPrimitive *p1 = new PhysicsPrimitive;
+    //*p1 = solver.triangle(vec3(0, 0, 0), vec3(10, 0., 10), vec3(10, 0., 0), vec3(0, 0., 10));
+    //solver.push(p1);
+
     int TEX_SIZE = 64;
     TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
     drawer.fill(DRAWER_WHITE);
@@ -430,7 +452,7 @@ int main(int argc, char ** argv)
     ObjectScene scene;
     PrimitiveScene primitive_scene;
 
-    BoxObject* box = new BoxObject(vec3(0., 0., 0.), vec3(1., 1., 1.));
+    BoxObject* box = new BoxObject(vec3(0., 0., 0.), vec3(1., 2., 1.));
     scene.objects.push_back(box);
     scene.ordered_operations.push_back(
         PrimitiveOperation{
@@ -503,15 +525,82 @@ int main(int argc, char ** argv)
     BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/orp-italic.bdf", 1536);
     game->debugger.init(&font_atlas);
     
+    PhysicsPrimitive player = solver.capsule(2., 1.);
+    player.type = TYPE_RIGID;
+    player.bounciness = 0.;
+    player.mass = 1.;
+    player.position.x = 7;
+    player.position.y = 4;
+    player.position.z = 7;
+    player.friction = 0.001;
+    solver.push(&player);
+
+    bool key_a, key_d, key_w, key_s, kay_space;
+    key_a = false;
+    key_d = false;
+    key_w = false;
+    key_s = false;
+
+    game->debugger.register_line("vel","velocity: ","0, 0");
+    game->debugger.register_line("inp","inp: ","0, 0");
+    game->debugger.register_line("dbg", "imonfire ", "true");
 
     map.render(&atlas);
     while (game->is_running())
     {
         float time = game->time();
-        while (SDL_PollEvent(&event))
-        {
+        while (SDL_PollEvent(&event)) {
             game->handle_event(event);
+            if (event.type == SDL_KEYDOWN){
+                switch (event.key.keysym.sym) {
+                    case SDLK_a:
+                        key_a = true;
+                        break;
+                    case SDLK_d:
+                        key_d = true;
+                        break;
+                    case SDLK_w:
+                        key_w = true;
+                        break;
+                    case SDLK_s:
+                        key_s = true;
+                        break;
+                    case SDLK_SPACE:
+                        player.velocity.y = 4;
+                        kay_space = true;
+                        break;
+                }
+            }
+            if (event.type == SDL_KEYUP){
+                switch (event.key.keysym.sym) {
+                    case SDLK_a:
+                        key_a = false;
+                        break;
+                    case SDLK_d:
+                        key_d = false;
+                        break;
+                    case SDLK_w:
+                        key_w = false;
+                        break;
+                    case SDLK_s:
+                        key_s = false;
+                        break;
+                    case SDLK_SPACE:
+                        kay_space = false;
+                        break;
+                }
+            }
         }
+
+
+
+        vec2 target_vel = vec2(key_d - key_a,  key_s - key_w) * 4.0f;
+        //cout << player.velocity.z << endl;
+        player.velocity.z = target_vel.y;
+        player.velocity.x = target_vel.x;
+        game->debugger.update_line("vel", to_string(player.velocity.x) + " " + to_string(player.velocity.y) + " " + to_string(player.velocity.z));
+        game->debugger.update_line("inp", to_string(target_vel.x) + " " + to_string(target_vel.y));
+
         game->begin_main();
         
         glClearColor(0, 0, 0, 0);
@@ -529,6 +618,7 @@ int main(int argc, char ** argv)
         map.draw(game->screen_pixel_size);
         glDisable(GL_BLEND);
         game->end_main();
+
         game->begin_main();
         shader.check_file_updates();
         shader.use();
@@ -538,8 +628,9 @@ int main(int argc, char ** argv)
         scene.update_primitive_scene(&primitive_scene);
         shader.set_scene(&primitive_scene);
 
+        solver.step(0.0001, nullptr);
 
-        shader.set_position({cos(time) * 4 + 4, sin(time * 2) * 2 + 2, sin(time) * 4 + 4});
+        shader.set_position(player.position);
 
         //shader.set_position({7, 0, 5});
 

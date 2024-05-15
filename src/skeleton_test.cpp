@@ -10,6 +10,12 @@ const int CENTERY = TARGET_HEIGHT / 2;
 
 SDL_Event event;
 
+mat4 with_offset(mat4 mat, vec3 offset){
+    mat[3] = vec4(offset, mat[3][3]);
+    return mat;
+}
+
+
 mat4x4 EulerXYZ(float anglex, float angley, float anglez){
     anglex = anglex / 180. * 3.1415;
     angley = angley / 180. * 3.1415;
@@ -35,6 +41,31 @@ mat4x4 EulerXYZ(float anglex, float angley, float anglez){
     return rotmatx * rotmaty * rotmatz;
 }
 
+mat4x4 EulerZYX(float anglex, float angley, float anglez){
+    anglex = anglex / 180. * 3.1415;
+    angley = angley / 180. * 3.1415;
+    anglez = anglez / 180. * 3.1415;
+    mat4x4 rotmatx = mat4x4(
+           vec4(1., 0., 0., 0.),
+           vec4(0., cos(anglex), -sin(anglex), 0.),
+           vec4(0., sin(anglex), cos(anglex), 0.),
+           vec4(0., 0., 0., 1.)
+    );
+    mat4x4 rotmaty = mat4x4(
+            vec4(cos(angley), 0., sin(angley), 0.),
+            vec4(0., 1., 0., 0.),
+            vec4(-sin(angley), 0., cos(angley), 0.),
+            vec4(0., 0., 0., 1.)
+    );
+    mat4x4 rotmatz = mat4x4(
+            vec4(cos(anglez), -sin(anglez), 0., 0.),
+            vec4(sin(anglez), cos(anglez), 0., 0.),
+            vec4(0., 0., 1., 0.),
+            vec4(0., 0., 0., 1.)
+    );
+    return rotmatz * rotmaty * rotmatx;
+}
+
 int main(int argc, char ** argv)
 {
     game = new Game();
@@ -55,19 +86,19 @@ int main(int argc, char ** argv)
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
 
-    SDL_Surface* surface = IMG_Load("assets/images/ivan.png");
+    /*SDL_Surface* surface = IMG_Load("assets/images/ivan.png");
 
     shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(64, 64, 1), (GLubyte*)surface->pixels);
 
-    SDL_FreeSurface(surface);
+    SDL_FreeSurface(surface);*/
 
-    //shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
+    shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
     drawer.destroy();
 
     ObjectScene scene; 
     PrimitiveScene primitive_scene;
 
-    int size = 1;
+    int size = 6;
 
     for (int i = 0; i < size; i++){
         primitive_scene.ordered_operations[i] =
@@ -80,14 +111,35 @@ int main(int argc, char ** argv)
             };
     }
     primitive_scene.operations = size;
-
+    primitive_scene.size = size;
     
 
     Character character;
+
+    Primitive* root = &primitive_scene.primitives[0];
+    *root = (SphereObject(vec3(0., 0., 0.), 1)).as_primitive();
+    character.bones["0"] = Bone{
+        "0",
+        nullptr,
+        {},
+        {root},
+        with_offset(EYE4, {0, -1, 0}),
+        vec4(0., 0., 0., 1.)
+    };
+
+    for (int i = 1; i < size; i++){
+        Primitive* p = &primitive_scene.primitives[i];
+        *p = (SphereObject(vec3(0., 0., 0.), 1)).as_primitive();
+        character.bones[to_string(i)] = Bone{
+            to_string(i),
+            &character.bones[to_string(i-1)],
+            {},
+            {p},
+            with_offset(EYE4, {0, -1, 0}),
+            vec4(0., 2., 0., 1.)
+        };
+    }
     
-    primitive_scene.size = size;
-    Primitive* chest = &primitive_scene.primitives[0];
-    *chest = (BoxObject(vec3(0., 0., 0.), vec3(5, 5, 0.4))).as_primitive();
     
 
     /*Primitive* chest = &primitive_scene.primitives[0];
@@ -243,7 +295,7 @@ int main(int argc, char ** argv)
     BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/orp-italic.bdf", 1536);
     game->debugger.init(&font_atlas);
     
-        glEnable(GL_BLEND);
+    glEnable(GL_BLEND);
 
     while (game->is_running())
     {
@@ -265,11 +317,14 @@ int main(int argc, char ** argv)
 
         //game->end_main();
 
-
         //character.bones["chest"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
         //character.bones["chest_upper"].transform_bundle.transform = EulerXYZ(sin(time*3)*45, 0, 0);
         //character.bones["head"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
-        chest->transform = EulerXYZ(sin(time*2)*45, 0, 0);
+        //chest->transform = EulerXYZ(sin(time*2)*45, 0, 0);
+        for (int i = 0; i < 10; i++){
+            character.bones[to_string(i)].transform_bundle.transform = EulerZYX(0, 0, cos(time*2)*60);
+        }
+
 
         //game->begin_main();
         
@@ -289,7 +344,7 @@ int main(int argc, char ** argv)
 
         shader.set_position({0, 0, 0});
 
-        //shader.update_map(0, 0, 0);
+        shader.update_map(0, vec2(0), vec3(0));
         shader.draw(game->screen_pixel_size);
 
         glUseProgram(0);

@@ -35,6 +35,7 @@ using namespace std;
 
 #define SHAPE_CAPSULE 0 // always rigid
 #define SHAPE_LINE 1 //  moving or fixed
+#define SHAPE_TRIANGLE 2 //  moving or fixed
 
 struct alignas(16) PhysicsPrimitive{
     vec4 position = vec4(0.);
@@ -155,7 +156,6 @@ class PhysicsSolver{
         float c = remap(ru.x, -half_screen.x, half_screen.x, -1, 1);
         float d = remap(ru.y, -half_screen.y, half_screen.y, -1, 1);
 
-
         glBegin(GL_LINES);
             glColor3f(color.r, color.g, color.b);
             glVertex2f(a, b);
@@ -168,8 +168,8 @@ class PhysicsSolver{
             glVertex2f(a, b);
             glColor3f(1., 1., 1.);
         glEnd();
-
     }
+
     void draw_capsule(vec2 pos, vec2 size, vec3 color){
         vec2 half_screen = vec2(game->screen_pixel_size) * 0.5f;
         vec2 ld = pos - size * vec2(1., 0.5);
@@ -282,9 +282,6 @@ class PhysicsSolver{
             glColor3f(1., 1., 1.);
         glEnd();
     }
-
-    
-
     void draw_arrow(vec2 from, vec2 to, vec3 color){
         vec2 half_screen = vec2(game->screen_pixel_size) * 0.5f;
         float a = remap(from.x, -half_screen.x, half_screen.x, -1, 1);
@@ -330,7 +327,6 @@ class PhysicsSolver{
         p.normal = normal_of_line(p.a, p.b);
         return p;
     }// todo: bundle
-
     PhysicsPrimitive capsule(float height = 10., float radius = 10){
         PhysicsPrimitive p;
         p.a = vec4(height);
@@ -338,11 +334,28 @@ class PhysicsSolver{
         p.shape = SHAPE_CAPSULE;
         return p;
     }
-    // todo: bundle
-    PhysicsPrimitive pyramid( // !WARN! CENTER MUST BE INSIDE PRIMITIVE! 
-        vec3 base, // xz is plane size, y is y offset 
-        vec3 vert // vertex offset
-    ){return PhysicsPrimitive{};}
+    // todo: bundle?
+    PhysicsPrimitive triangle( // !WARN! CENTER MUST BE INSIDE PRIMITIVE! 
+        vec3 postion,
+        vec3 a,
+        vec3 b,
+        vec3 c
+    ){
+        PhysicsPrimitive p;
+        p.position = vec4(postion, 0);
+        p.a = vec4(a, 0);
+        p.b = vec4(b, 0);
+        p.c = vec4(c, 0);
+        p.shape = SHAPE_TRIANGLE;
+        p.normal = normal_of_triangle(a, b, c);
+        return p;
+    }
+
+    vec4 normal_of_triangle(vec3 a, vec3 b, vec3 c){
+        vec3 AB = b - a;
+        vec3 BC = c - b;
+        return vec4(normalize(cross(AB, BC)), 0);
+    }
 
     void push(PhysicsPrimitive* p){
         if (p->shape == SHAPE_LINE) objects.push_back(p);
@@ -357,26 +370,51 @@ class PhysicsSolver{
         }
     }
 
-    vec4 get_aabb_max(PhysicsPrimitive p){ // todo: switch case
-        return p.position + vec4(p.rounding, p.rounding, p.rounding, 0.) + vec4(0., p.a.x * 0.5, 0., 0.);
+    vec4 get_capsule_aabb_max(PhysicsPrimitive* p){ // todo: switch case
+        return p->position + vec4(p->rounding, p->rounding, p->rounding, 0.) + vec4(0., p->a.x * 0.5, 0., 0.);
     }
 
-    vec4 get_aabb_min(PhysicsPrimitive p){ // todo: switch case
-        return p.position - vec4(p.rounding, p.rounding, p.rounding, 0.) - vec4(0., p.a.x * 0.5, 0., 0.);
+    vec4 get_capsule_aabb_min(PhysicsPrimitive* p){ // todo: switch case
+        return p->position - vec4(p->rounding, p->rounding, p->rounding, 0.) - vec4(0., p->a.x * 0.5, 0., 0.);
     }
 
-    bool intersects(PhysicsPrimitive p1, PhysicsPrimitive p2){ // todo: make for 3d 
-        vec4 aabb_min_1 = get_aabb_min(p1);
-        vec4 aabb_max_1 = get_aabb_max(p1);
-        vec4 aabb_min_2 = get_aabb_min(p2);
-        vec4 aabb_max_2 = get_aabb_max(p2);
+    vec4 get_triangle_aabb_max(PhysicsPrimitive* p){ // todo: switch case
+        return p->position + vec4(
+            std::max(p->a.x, std::max(p->b.x, p->c.x)),
+            std::max(p->a.y, std::max(p->b.y, p->c.y)),
+            std::max(p->a.z, std::max(p->b.z, p->c.z)),
+            0.
+        );
+    }
+
+    vec4 get_triangle_aabb_min(PhysicsPrimitive* p){ // todo: switch case
+        return p->position + vec4(
+            std::min(p->a.x, std::min(p->b.x, p->c.x)),
+            std::min(p->a.y, std::min(p->b.y, p->c.y)),
+            std::min(p->a.z, std::min(p->b.z, p->c.z)),
+            0.
+        );
+    }
+
+    bool aabb_intersects(PhysicsPrimitive* p1, PhysicsPrimitive* p2){ // todo: make for 3d
+        vec4 aabb_min_1;
+        vec4 aabb_max_1;
+        vec4 aabb_min_2;
+        vec4 aabb_max_2;
+        if (p1->shape == SHAPE_CAPSULE){aabb_min_1 = get_capsule_aabb_min(p1); aabb_max_1 = get_capsule_aabb_max(p1);}
+        if (p1->shape == SHAPE_TRIANGLE){aabb_min_1 = get_triangle_aabb_min(p1); aabb_max_1 = get_triangle_aabb_max(p1);}
+
+
+        if (p2->shape == SHAPE_CAPSULE){aabb_min_2 = get_capsule_aabb_min(p2); aabb_max_2 = get_capsule_aabb_max(p2);}
+        if (p2->shape == SHAPE_TRIANGLE){aabb_min_2 = get_triangle_aabb_min(p2); aabb_max_2 = get_triangle_aabb_max(p2);}
+
         return aabb_min_1.x <= aabb_max_2.x && aabb_min_1.y <= aabb_max_2.y && aabb_min_1.z <= aabb_max_2.z &&
                 aabb_max_1.x >= aabb_min_2.x && aabb_max_1.y >= aabb_min_2.y && aabb_max_1.z >= aabb_min_2.z;
     }
 
-    bool is_point_in_AABB(PhysicsPrimitive p1, vec4 p2){ // todo: make for 3d
-        vec4 aabb_min_1 = get_aabb_min(p1);
-        vec4 aabb_max_1 = get_aabb_max(p1);
+    bool is_point_in_AABB(PhysicsPrimitive* p1, vec4 p2){ // todo: make for 3d
+        vec4 aabb_min_1 = get_capsule_aabb_min(p1);
+        vec4 aabb_max_1 = get_capsule_aabb_max(p1);
         return aabb_min_1.x <= p2.x && aabb_min_1.y <= p2.y && aabb_min_1.z <= p2.z &&
                 aabb_max_1.x >= p2.x && aabb_max_1.y >= p2.y && aabb_max_1.z >= p2.z;
     }
@@ -509,6 +547,409 @@ class PhysicsSolver{
         }
     }
 
+    struct Edge{
+        vec3 a;
+        vec3 b;
+    };
+    
+    std::tuple<float, vec3, vec3> segment_segment(Edge first, Edge second){
+        vec3 dir1 = first.b - first.a;
+        vec3 dir2 = second.b - second.a;
+        vec3 line_diff = first.a - second.a;
+        float a = dot(dir1, dir1);
+        float e = dot(dir2, dir2);
+        float f = dot(dir2, line_diff);
+        float c = dot(dir1, line_diff);
+        float b = dot(dir1, dir2);
+        float denom = a*e-b*b;
+        //denom = max(denom, eps(denom));
+        float s = clamp((b*f - c*e) / denom, 0, 1);
+        //e = max(e, eps(e));
+        float t = (b*s + f) / e;
+        float newT = clamp(t, 0, 1);
+        if (newT != t){
+            s = clamp((newT*b-c)/a, 0, 1);
+        }
+        vec3 p1 = first.a + dir1 * s;
+        vec3 p2 = second.a + dir2 * newT;
+        //cout << p1.x << ' ' << p1.y << ' ' << p1.z << endl;
+        //cout << p2.x << ' ' << p2.y << ' ' << p2.z << endl;
+        return std::make_tuple(length_squared(p1-p2), p1, p2);
+    }
+
+    bool closest_edge_points(vec3 tri1_pt, vec3 closest_to_tri1, vec3 tri2_pt, vec3 closest_to_tri2, vec3 sep_dir){
+        vec3 away = tri1_pt - closest_to_tri1;
+        bool is_diff = dot(away, sep_dir);
+        away = tri2_pt - closest_to_tri2;
+        bool is_same = dot(away, sep_dir);
+        return (is_diff <= 0) && (is_same >= 0);
+    }
+
+    std::tuple<float, bool, vec3, vec3> edge_to_edge(Edge a, Edge b, Edge c, Edge tri2_edge, vec3 tri2_vert){
+        float A;
+        vec3 otri1;
+        vec3 otri2;
+        tie(A, otri1, otri2) = segment_segment(a, tri2_edge);
+
+        vec3 sep_dir = otri2 - otri1;
+        bool solution = closest_edge_points(b.a, b.b, tri2_vert, otri2, sep_dir);
+        if (solution) return std::make_tuple(A, true, otri1, otri2);
+
+        float B;
+        vec3 a2p;
+        vec3 b2p;
+        tie(B, a2p, b2p) = segment_segment(b, tri2_edge);
+        sep_dir = b2p - a2p;
+        solution = closest_edge_points(c.a, c.b, tri2_vert, b2p, sep_dir);
+        float ABdist = A;
+        if (A < B) ABdist = A;
+        else {
+            ABdist = B;
+            otri1 = a2p;
+            otri2 = b2p;
+        }
+        if (solution) return std::make_tuple(ABdist, true, otri1, otri2);
+
+        float C;
+        vec3 a3p;
+        vec3 b3p;
+
+        tie(C, a3p, b3p) = segment_segment(c, tri2_edge);
+        sep_dir = b3p - a3p;
+        solution = closest_edge_points(a.a, a.b, tri2_vert, b3p, sep_dir);
+        float dist = C;
+        if (ABdist < C) dist = ABdist;
+        else {
+            otri1 = a3p;
+            otri2 = b3p;
+        }
+        return std::make_tuple(ABdist, solution, otri1, otri2);
+    }
+
+    struct Triangle{
+        vec3 a;
+        vec3 b;
+        vec3 c;
+    };
+
+    std::tuple<float, vec3> tri_point(Triangle tri, vec3 point){
+        vec3 ab = tri.b - tri.a;
+        vec3 ac = tri.c - tri.a;
+        vec3 ap = point - tri.a;
+        float d1 = dot(ab, ap);
+        float d2 = dot(ac, ap);
+        bool mask1 = (d1 <= 0) & (d2 <= 0);
+        vec3 tri_point = tri.a;
+        bool exit = mask1;
+        if (exit){
+            return std::make_tuple(length_squared(tri_point - point), tri_point);
+        }
+
+        vec3 bp = point - tri.b;
+        float d3 = dot(ab, bp);
+        float d4 = dot(ac, bp);
+        bool mask2 = (d3 >=0)&(d4 <=3);
+        if (mask2){
+            return std::make_tuple(length_squared(tri.b - point), tri.b);
+        }
+
+        vec3 cp = point - tri.c;
+        float d5 = dot(ab, cp);
+        float d6 = dot(ac, cp);
+        bool mask3 = (d6 >= 0) & (d5 <= d6);
+        if (mask3){
+            return std::make_tuple(length_squared(tri.c - point), tri.c);
+        }
+        
+        float vc = d1*d4 - d3*d2;
+        bool mask4 = (vc <= 0) & (d1 >= 0) & (d3 <= 0);
+        float v1 = d1 / (d1 - d3);
+        vec3 answer1 = tri.a + v1 * ab;
+        if (mask4){
+            return std::make_tuple(length_squared(answer1 - point), answer1);
+        }
+
+        float vb = d5*d2 - d1*d6;
+        bool mask5 = (vb <=0) & (d2 >= 0) & (d6 <=0);
+        float w1 = d2/(d2-d6);
+        vec3 answer2 = tri.a + w1 * ac;
+        if (mask5){
+            return std::make_tuple(length_squared(answer2 - point), answer2);
+        }
+        float va = d3*d6-d5*d4;
+        bool mask6 = (va <= 0) & ((d4 -d3) >=0) & ((d5-d6) >= 0);
+        float w2 = (d4 - d3) / ((d4-d3)+(d5-d6));
+        vec3 answer3 = tri.b + w2*(tri.c - tri.b);
+        if (mask6){
+            return std::make_tuple(length_squared(answer3 - point), answer3);
+        }
+
+        float denom = 1/(va+vb+vc);
+        float v2 = vb * denom;
+        float w3 = vc * denom;
+        vec3 answer4 = tri.a + ab * v2 + ac * w3;
+        bool mask7 = length_squared(answer4 - point) < length_squared(tri_point - point);
+        if (mask7) tri_point = answer4;
+
+        return std::make_tuple(length_squared(tri_point - point), tri_point);
+    }
+    
+    bool project_6(vec3 ax, vec3 p1, vec3 p2, vec3 p3, vec3 q1, vec3 q2, vec3 q3){
+        float P1 = dot(ax, p1);
+        float P2 = dot(ax, p2);
+        float P3 = dot(ax, p3);
+
+        float Q1 = dot(ax, q1);
+        float Q2 = dot(ax, q2);
+        float Q3 = dot(ax, q3);
+
+        float mx1 = std::max(P1,std::max(P2,P3));
+        float mn1 = std::min(P1,std::min(P2,P3));
+        float mx2 = std::max(Q1,std::max(Q2,Q3));
+        float mn2 = std::min(Q1,std::min(Q2,Q3));
+
+        return (mn1 <= mx2) && (mn2 <= mx1);
+    }
+
+    std::tuple<float, vec3, vec3> closest_vect_to_tri(Triangle triA, Triangle triB){
+        vec3 tri_ap;
+        vec3 tri_bp;
+        float A, B, C;
+        vec3 Ap, Bp, Cp;
+        tie(A, Ap) = tri_point(triA, triB.a);
+        tie(B, Bp) = tri_point(triA, triB.b);
+        tie(C, Cp) = tri_point(triA, triB.c);
+        float ABdist;
+        vec3 ABp;
+        if (A < B){
+            ABdist = A;
+            ABp = Ap;
+        } else {
+            ABdist = B;
+            ABp = Bp;
+        }
+
+        if (ABdist < C){
+            tri_ap = ABp;
+            if (A < B){
+                tri_bp = triB.a;
+            } else {
+                tri_bp = triB.b;
+            }
+        } else {
+            tri_ap = Cp;
+            tri_bp = triB.c;
+            ABdist = C;
+        }
+        return std::make_tuple(ABdist, tri_ap, tri_bp);
+    }
+
+    bool tri_contact(Triangle tri1, Triangle tri2){
+        vec3 P1 = tri1.a;
+        vec3 P2 = tri1.b;
+        vec3 P3 = tri1.c;
+
+        vec3 Q1 = tri2.a;
+        vec3 Q2 = tri2.b;
+        vec3 Q3 = tri2.c;
+
+        vec3 p1 = {0, 0, 0}; // P1 - P2
+        vec3 p2 = P2 - P1;
+        vec3 p3 = P3 - P1;
+
+        vec3 q1 = Q1 - P1;
+        vec3 q2 = Q2 - P1;
+        vec3 q3 = Q3 - P1;
+
+        vec3 e1 = P2 - P1;
+        vec3 e2 = P3 - P2;
+
+        vec3 f1 = Q2 - Q1;
+        vec3 f2 = Q3 - Q2;
+
+        bool mask = true;
+
+        vec3 n1 = cross(e1, e2);
+        mask = mask && project_6(n1,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 m1 = cross(f1, f2);
+        mask = mask && project_6(m1,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 ef11 = cross(e1, f1);
+        mask = mask && project_6(ef11,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 ef12 = cross(e1, f2);
+        mask = mask && project_6(ef12,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 f3 = q1 - q3;
+        vec3 ef13 = cross(e1, f3);
+        mask = mask && project_6(ef13,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 ef21 = cross(e2, f1);
+        mask = mask && project_6(ef21,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 ef22 = cross(e2, f2);
+        mask = mask && project_6(ef22,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 ef23 = cross(e2, f3);
+        mask = mask && project_6(ef23,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 e3 = p1 - p3;
+        vec3 ef31 = cross(e3, f1);
+        mask = mask && project_6(ef31,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 ef32 = cross(e3, f2);
+        mask = mask && project_6(ef32,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 ef33 = cross(e3, f3);
+        mask = mask && project_6(ef33,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 g1 = cross(e1, n1);
+        mask = mask && project_6(g1,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 g2 = cross(e2, n1);
+        mask = mask && project_6(g2,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 g3 = cross(e3, n1);
+        mask = mask && project_6(g3,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 h1 = cross(f1, m1);
+        mask = mask && project_6(h1,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 h2 = cross(f2, m1);
+        mask = mask && project_6(h2,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        vec3 h3 = cross(f3, m1);
+        mask = mask && project_6(h3,p1,p2,p3,q1,q2,q3);
+        if (!mask){
+            return false;
+        }
+
+        return true;
+    }
+
+
+    std::tuple<float, vec3, vec3> triangle_triangle(vec3 a, vec3 b, vec3 c, vec3 d, vec3 e, vec3 f){
+        std::tuple<Edge, Edge, Edge> tri1_edges = {
+            {b, a},
+            {c, b},
+            {a, c}
+        };
+        std::tuple<Edge, Edge, Edge> tri2_edges = {
+            {e, d},
+            {f, e},
+            {d, f}
+        };
+        float min_dist = 0;
+        bool solution = false;
+        vec3 tri1_point;
+        vec3 tri2_point;
+        tie(min_dist, solution, tri1_point, tri2_point) = edge_to_edge(
+            {b, a},
+            {c, b},
+            {a, c},
+            {e, d},
+            f
+        );
+        if (solution) return std::make_tuple(min_dist, tri1_point, tri2_point);
+        float temp_min_dist = 0;
+        vec3 tri1vec;
+        vec3 tri2vec;
+        tie(temp_min_dist, solution, tri1vec, tri2vec) = edge_to_edge(
+            {b, a},
+            {c, b},
+            {a, c},
+            {f, e},
+            d
+        );
+        if (temp_min_dist < min_dist){
+            min_dist = temp_min_dist;
+            tri1_point = tri1vec;
+            tri2_point = tri2vec;
+        }
+        if (solution) return std::make_tuple(min_dist, tri1_point, tri2_point);
+        tie(temp_min_dist, solution, tri1vec, tri2vec) = edge_to_edge(
+            {b, a},
+            {c, b},
+            {a, c},
+            {d, f},
+            e
+        );
+        if (temp_min_dist < min_dist){
+            min_dist = temp_min_dist;
+            tri1_point = tri1vec;
+            tri2_point = tri2vec;
+        }
+
+        tie(temp_min_dist, tri1vec, tri2vec) = closest_vect_to_tri({a, b, c}, {d, e, f});
+        if (temp_min_dist < min_dist){
+            min_dist = temp_min_dist;
+            tri1_point = tri1vec;
+            tri2_point = tri2vec;
+        }
+
+        tie(temp_min_dist, tri1vec, tri2vec) = closest_vect_to_tri({d, e, f}, {a, b, c});
+        if (temp_min_dist < min_dist){
+            min_dist = temp_min_dist;
+            tri1_point = tri1vec;
+            tri2_point = tri2vec;
+        }
+
+        if (tri_contact({a, b, c}, {d, e, f})){ // todo: pick some point???!!!
+            min_dist = 0;
+            tri1_point;
+            tri2_point;
+        }
+        return std::make_tuple(min_dist, tri1_point, tri2_point);
+    }
 
     bool on_same_side(vec2 a, vec2 b, vec2 center, vec2 point){
         float A = a.y - b.y;
@@ -676,7 +1117,6 @@ class PhysicsSolver{
         }
         return std::make_tuple(vec4(pA, 0), vec4(pB, 0));
     }
-
 
     bool on_same_side_and_line(vec2 a, vec2 b, vec2 center, vec2 point){
         vec2 AB = a - b;
@@ -885,10 +1325,11 @@ class PhysicsSolver{
             first.position += first.velocity * delta;
 
             //dereferenced[a] = first;
-            draw_line(first.position, first.position + first.velocity, {1, 0, 0});
+            //draw_line(first.position, first.position + first.velocity, {1, 0, 0});
             //first.position += first.velocity;
+
             //* intersection between rigids
-            for (int b=0;b<objects.size();b++){
+            /*for (int b=0;b<objects.size();b++){
                 if (a==b) continue; // dont intersect self.
                 PhysicsPrimitive* second = objects[b];
                 //if (!intersects(first, second)) continue; // todo: check AABBs
@@ -931,16 +1372,22 @@ class PhysicsSolver{
                     //cout << &first << " " << collision_normal.x << " " << collision_normal.y << endl;
                     dereferenced[a] = first; // write changes
                 }               
-            }
+            }*/
+
             //dereferenced[a] = first;
 
-            //* intersection between lines
+            //* intersection between lines / triangles
+
             vec4 local_starting_point = starting_point;
             float distance_to_travel = length(starting_point - first.position);
             PhysicsPrimitive* previous = nullptr;
+
+            game->debugger.update_line("dbg", "false");
+
             for (int ccd_step = 0; ccd_step < ccd_steps; ccd_step += 1){
                 vec4 start = local_starting_point;
                 vec4 end = first.position;
+
                 float radius = first.rounding;
                 float height = first.a.x;
                 float half_height = height*0.5f;
@@ -949,9 +1396,10 @@ class PhysicsSolver{
                 for (int b=0;b<objects.size();b++){ // check is intersection on the way
                     if (a==b) continue;
                     PhysicsPrimitive* second = objects[b];
+                    if (second->shape != SHAPE_LINE && !aabb_intersects(&first, second)) {continue;}
+                    if (dot(start-end, second->normal) < 0){continue;}
                     if (second->shape == SHAPE_LINE){
                         // todo: check aabbs?
-                        if (dot(start-end, second->normal) < 0){continue;}
                         if (length_squared(start - closest_point_on_capped_line(start, second->position+second->a, second->position+second->b)) < radius_squared){continue;} // if start point intersects
                         InspectionResult res = closest_capsulecast_vs_line(half_height, start, end, second->position+second->a, second->position+second->b);
                         if (length_squared(res.point - res.line_point) < radius_squared){
@@ -959,32 +1407,74 @@ class PhysicsSolver{
                             break;
                         }
                     }
+                    if (second->shape == SHAPE_TRIANGLE){
+                        float dist;
+                        vec3 pa, pb;
+                        tie(dist, pa, pb) = triangle_triangle(start+vec4(0,half_height,0,0), start, start-vec4(0,half_height,0,0), second->position+second->a, second->position+second->b, second->position+second->c);
+                
+                        if ( dist < radius_squared ){continue;} // if start point intersects
+                        
+                        float d1;
+                        float d2;
+                        vec3 pa1, pb1;
+                        vec3 pa2, pb2;
+
+                        tie(d1, pa1, pb1) = triangle_triangle(start+vec4(0,half_height,0,0), start-vec4(0,half_height,0,0), end+vec4(0,half_height,0,0), second->position+second->a, second->position+second->b, second->position+second->c);
+                        tie(d2, pa2, pb2) = triangle_triangle(end+vec4(0,half_height,0,0), end-vec4(0,half_height,0,0), start-vec4(0,half_height,0,0), second->position+second->a, second->position+second->b, second->position+second->c);
+
+                        if ((d1 < radius_squared) || (d2 < radius_squared)){
+                            has_intersection = true;
+                            break;
+                        }
+                    }
                 }
                 if (!has_intersection) {continue;} // no intersections on our way! no reason to use binsearch
-
-                draw_line(start, end, {0, 1, 0});
-
+                //draw_line(start, end, {0, 1, 0});
                 vec4 left = start;
                 vec4 right = end;
                 vec4 latest_uncollide = start;
                 vec4 collision_normal = vec4(0);
                 PhysicsPrimitive* last = nullptr;
-                for (int i = 0; i < 256; i++){
+                for (int i = 0; i < 32; i++){
                     vec4 center = (left + right) / 2.0f;
                     bool intersects = false;
                     for (int b=0;b<objects.size();b++){
                         if (a==b) continue;
                         PhysicsPrimitive* second = objects[b];
+                        if (second->shape != SHAPE_LINE && !aabb_intersects(&first, second)) {continue;}
+                        if (dot(left-center, second->normal) < 0){continue;}
                         if (second->shape == SHAPE_LINE){
-                            if (dot(left-center, second->normal) < 0){continue;}
-                            if (length_squared(start - closest_point_on_capped_line(start, second->position+second->a, second->position+second->b)) < radius_squared){continue;} // starting point MUST be outside line
-                            InspectionResult res = closest_capsulecast_vs_line(half_height, left, center, second->position+second->a, second->position+second->b);
+                            vec4 vertex1 = second->position+second->a;
+                            vec4 vertex2 = second->position+second->b;
+                            if (length_squared(start - closest_point_on_capped_line(start, vertex1, vertex2)) < radius_squared){continue;} // starting point MUST be outside line
+                            InspectionResult res = closest_capsulecast_vs_line(half_height, left, center, vertex1, vertex2);
                             if ((length_squared(res.point - res.line_point) < radius_squared) && (previous != second)){
                                 vec4 translation_point, line_point;
-                                tie(translation_point, line_point) = closest_points_between_line_segments_3d(center+vec4(0, half_height, 0, 0), center-vec4(0, half_height, 0, 0), second->position+second->a, second->position+second->b);
-                                draw_line(translation_point, line_point, {1, 0, 0});
+                                tie(translation_point, line_point) = closest_points_between_line_segments_3d(center+vec4(0, half_height, 0, 0), center-vec4(0, half_height, 0, 0), vertex1, vertex2);
+                                //draw_line(translation_point, line_point, {1, 0, 0});
                                 collision_normal = (line_point - translation_point);
                                 if (dot(collision_normal, second->normal) < 0)collision_normal = -collision_normal;
+                                intersects = true;
+                                last = second;
+                                break;
+                            }
+                        }
+                        if (second->shape == SHAPE_TRIANGLE){
+                            float dist;
+                            vec3 pa, pb;
+                            tie(dist, pa, pb) = triangle_triangle(start+vec4(0,half_height,0,0), start, start-vec4(0,half_height,0,0), second->position+second->a, second->position+second->b, second->position+second->c);
+                            if ( dist < radius_squared ){continue;} // starting point MUST be outside line
+                            float d1;
+                            float d2;
+                            vec3 pa1, pb1;
+                            vec3 pa2, pb2;
+                            tie(d1, pa1, pb1) = triangle_triangle(start+vec4(0,half_height,0,0), start-vec4(0,half_height,0,0), end+vec4(0,half_height,0,0), second->position+second->a, second->position+second->b, second->position+second->c);
+                            tie(d2, pa2, pb2) = triangle_triangle(end+vec4(0,half_height,0,0), end-vec4(0,half_height,0,0), start-vec4(0,half_height,0,0), second->position+second->a, second->position+second->b, second->position+second->c);
+                            if (((d1 < radius_squared) || (d2 < radius_squared)) && (previous != second)){
+                                tie(dist, pa, pb) = triangle_triangle(center+vec4(0,half_height,0,0), center, center-vec4(0,half_height,0,0), second->position+second->a, second->position+second->b, second->position+second->c);
+                                //draw_line(translation_point, line_point, {1, 0, 0});
+                                vec3 collision_normal = (pa - pb);
+                                if (dot(collision_normal, vec3(second->normal)) < 0)collision_normal = -collision_normal;
                                 intersects = true;
                                 last = second;
                                 break;
@@ -995,12 +1485,11 @@ class PhysicsSolver{
                         right = center;
                     } else {
                         latest_uncollide = center;
-                        if (length_squared(center - right) < 1e-16) {break;}
+                        if (length_squared(center - right) < 1e-8) {break;}
                         left = center;
                     }
                 }
                 previous = last;
-                
                 first.position = latest_uncollide;
 
 
@@ -1008,14 +1497,13 @@ class PhysicsSolver{
                 distance_to_travel -= traveled_distance;
                 if (distance_to_travel<=0){ccd_step=ccd_steps;continue;}
                 local_starting_point = latest_uncollide;
-                draw_line(first.position, local_starting_point, {1, 0, 0});
-                draw_line(first.position, local_starting_point, {1, 0, 0});
+                //draw_line(first.position, local_starting_point, {1, 0, 0});
+                //draw_line(first.position, local_starting_point, {1, 0, 0});
                 if (collision_normal ==  vec4(0)){ccd_step=ccd_steps;continue;}
                 collision_normal = normalize(collision_normal);
-
-                draw_line(latest_uncollide, latest_uncollide + collision_normal * 20.0f, {1, 1, 0});
-                draw_capsule(latest_uncollide, {first.rounding, first.a.x}, {1, 0, 1});
-                
+                game->debugger.update_line("dbg", "true");
+                //draw_line(latest_uncollide, latest_uncollide + collision_normal * 20.0f, {1, 1, 0});
+                //draw_capsule(latest_uncollide, {first.rounding, first.a.x}, {1, 0, 1});
                 if (collision_normal != vec4(0.) && first.velocity != vec4(0.)){
                     vec4 vel = first.velocity;
                     vec4 vel_norm = normalize(vel);
@@ -1081,13 +1569,9 @@ class PhysicsSolver{
         dereferenced.clear();
     }
 
-    void init_map(){
-        vector<vector<vector<int>>> map_data;
-    }
-
     // physics logic
     private:
-    vec4 gravity = vec4(0., -9.8, 0., 0.);
+    vec4 gravity = vec4(0., -9.8, 0., 0.) * 5.0f;
     vector<PhysicsPrimitive*> objects;
 
 };

@@ -193,8 +193,8 @@ vec4 SampleScene(vec3 point){
   return vec4(colors[scene.operations-1], distances[scene.operations-1]);
 }
 
-const float near_z = 15.;
-const float far_z = -15.;
+const float near_z = 12.;
+const float far_z = -12.;
 const float max_depth = 2.;
 const float min_depth = -2.;
 const float min_dist = 0.01;
@@ -330,8 +330,7 @@ void main() {
   )*vec4(0., 0., -1., 0.)).xyz;
 
 
-  //scene.operations = 0;
-  //scene.size = 0;
+
   //scene.primitives[0].transform[3] = vec4(0, 2, 0, 1);
   //scene.primitives[2].position.y = 4;
   //cene.primitives[2].transform[3] = vec4(0, -2, 0, 1);
@@ -354,8 +353,8 @@ void main() {
 
 
   vec2 relative_uv;
-  relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x) + (0.5 / texture_size.x);
-  relative_uv.y = (depth_texture_rect.y) * -1 + uv_pos.y * (depth_texture_rect.w - depth_texture_rect.y) + (0.5 / texture_size.y);
+  relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x) + (0.25 / texture_size.x);
+  relative_uv.y = (depth_texture_rect.y) * -1 + uv_pos.y * (depth_texture_rect.w - depth_texture_rect.y) + (0.25 / texture_size.y);
   float texture_depth = texture(map_depth, relative_uv).r;
   for (int i=0;i<steps;i++) {
     vec4 r = SampleScene(point);
@@ -380,7 +379,6 @@ void main() {
         pixel_color.rgb = result_color * 0.5;
         pixel_color.a = ((int(sin(pixel_pos.x * (cos(time) * 0.5 + 1)) + pixel_pos.y + pixel_pos.x * -0.25 + time * 30) % 8) < 6)?0.5:0;
       }
-      //pixel_color.rgb = nor;
       break;
     }
     point += direction * dist;
@@ -389,6 +387,8 @@ void main() {
     //pixel_color.a = 1;
     //pixel_color.rgb = vec3(texture_depth);
   }
+  //pixel_color.a = 1;
+  //pixel_color.rgb = vec3(texture_depth);
   //pixel_color.rgb = vec3(0.5);
   //pixel_color.r = (((int(pixel_pos.x + pixel_pos.y) % 2) == 0)?0.2:0);
   //pixel_color = vec4(1, 0, 0, 1);
