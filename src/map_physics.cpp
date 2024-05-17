@@ -77,8 +77,6 @@ int main(int argc, char ** argv)
     };
 
     PhysicsSolver solver("");
-
-    
         
 
     // x z y
@@ -103,68 +101,16 @@ int main(int argc, char ** argv)
         for (int z = 0; z < map_size.z; z++){
             for (int x = map_size.x - 1; x >= 0; x--){
                 int tile = map_data[y][z][x];
-                //int n = map.get_tile_neighbors_state({x, y, z});
-                if (tile == 1){
-
+                int n = map.get_tile_neighbors_state({x, y, z});
+                if (tile != 0){
+                    
                     //*     Y
                     //*     |
                     //*     * -- X
                     //*      \
                     //*        Z
 
-                    vec3 pos = vec3(x, y, z);
-                    vec3 half_size = vec3(0.25, 0.25, 0.25);
-                    vec3 right_up_near =   half_size * vec3( 1,  1,  1);
-                    vec3 right_up_far =    half_size * vec3( 1,  1, -1);
-                    vec3 right_down_near = half_size * vec3( 1, -1,  1);
-                    vec3 right_down_far =  half_size * vec3( 1, -1, -1);
-                    vec3 left_up_near =    half_size * vec3(-1,  1,  1);
-                    vec3 left_up_far =     half_size * vec3(-1,  1, -1);
-                    vec3 left_down_near =  half_size * vec3(-1, -1,  1);
-                    vec3 left_down_far =   half_size * vec3(-1, -1, -1);
-
-
-                    PhysicsPrimitive *up1 = new PhysicsPrimitive;
-                    *up1 = solver.triangle(pos, right_up_near, right_up_far, left_up_near);
-                    solver.push(up1);
-                    PhysicsPrimitive *up2 = new PhysicsPrimitive;
-                    *up2 = solver.triangle(pos, left_up_far, left_up_near, right_up_far);
-                    solver.push(up2);
-
-                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
-                    *down1 = solver.triangle(pos, right_down_near, left_down_near, right_down_far);
-                    solver.push(down1);
-                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
-                    *down2 = solver.triangle(pos, left_down_far, right_down_far, left_down_near);
-                    solver.push(down2);
-
-                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
-                    *front1 = solver.triangle(pos, right_up_near, left_up_near, right_down_near);
-                    solver.push(front1);
-                    PhysicsPrimitive *front2 = new PhysicsPrimitive;
-                    *front2 = solver.triangle(pos, left_down_near, right_down_near, left_up_near);
-                    solver.push(front2);
-
-                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
-                    *back1 = solver.triangle(pos, right_up_far, right_down_far, left_up_far);
-                    solver.push(back1);
-                    PhysicsPrimitive *back2 = new PhysicsPrimitive;
-                    *back2 = solver.triangle(pos, left_down_far, left_up_far, right_down_far);
-                    solver.push(back2);
-
-                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
-                    *left1 = solver.triangle(pos, left_down_near, left_up_near, left_down_far);
-                    solver.push(left1);
-                    PhysicsPrimitive *left2 = new PhysicsPrimitive;
-                    *left2 = solver.triangle(pos, left_up_far, left_down_far, left_up_near);
-                    solver.push(left2);
-
-                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
-                    *right1 = solver.triangle(pos, right_down_near, right_down_far, right_up_near);
-                    solver.push(right1);
-                    PhysicsPrimitive *right2 = new PhysicsPrimitive;
-                    *right2 = solver.triangle(pos, right_up_far, right_up_near, right_down_far);
-                    solver.push(right2);
+                    solver.add_tile({x,y,z}, tile, n);
 
                 }
             }

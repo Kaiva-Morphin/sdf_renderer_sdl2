@@ -344,7 +344,7 @@ void main() {
 
 
   vec2 relative_uv;
-  relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x) + (0.25 / texture_size.x);
+  relative_uv.x = depth_texture_rect.x + uv_pos.x * (depth_texture_rect.z - depth_texture_rect.x) + (0.1 / texture_size.x);
   relative_uv.y = 1 - (depth_texture_rect.y + (1-uv_pos.y) * (depth_texture_rect.w - depth_texture_rect.y) - (0.25 / texture_size.y));
   float texture_depth = texture(map_depth, relative_uv).r;
   for (int i=0;i<steps;i++) {
@@ -375,15 +375,14 @@ void main() {
         pixel_color.a = ((int(sin(pixel_pos.x * (cos(time) * 0.5 + 1)) + pixel_pos.y + pixel_pos.x * -0.25 + time * 30) % 8) < 6)?0.5:0;
       }
       pixel_color.rgb = vec3(depth);
-      
       break;
     }
     point += direction * dist;
   }
   //pixel_color.a = 1;
   if (pixel_color.a == 0){
-    //pixel_color.a = 1;
-    //pixel_color.rgb = vec3(texture_depth);
+    pixel_color.a = 1;
+    pixel_color.rgb = vec3(texture_depth);
   }
   //pixel_color.rgb = vec3(texture_depth);
   //pixel_color.a = 1;

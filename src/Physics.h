@@ -1672,7 +1672,439 @@ class PhysicsSolver{
         }
         dereferenced.clear();
     }
-    
+
+    void add_tile(vec3 pos, int shape, int neighbors){
+        /*
+        1   -X
+        2   -Y
+        4   -Z
+        8   +X
+        16  +Y
+        32  +Z
+        */ 
+
+        //*     Y
+        //*     |
+        //*     * -- X
+        //*      \
+        //*        Z
+
+       bool left =   !((neighbors >> 0) & 1);
+       bool bottom = !((neighbors >> 1) & 1);
+       bool far =    !((neighbors >> 2) & 1);
+       bool right =  !((neighbors >> 3) & 1);
+       bool upper =  !((neighbors >> 4) & 1);
+       bool near =   !((neighbors >> 5) & 1);
+
+        vec3 half_size = vec3(0.25, 0.25, 0.25);
+        vec3 right_up_near =   half_size * vec3( 1,  1,  1);
+        vec3 right_up_far =    half_size * vec3( 1,  1, -1);
+        vec3 right_down_near = half_size * vec3( 1, -1,  1);
+        vec3 right_down_far =  half_size * vec3( 1, -1, -1);
+        vec3 left_up_near =    half_size * vec3(-1,  1,  1);
+        vec3 left_up_far =     half_size * vec3(-1,  1, -1);
+        vec3 left_down_near =  half_size * vec3(-1, -1,  1);
+        vec3 left_down_far =   half_size * vec3(-1, -1, -1);
+
+        switch (shape){ // todo: caching and copying? // todo: check normals
+            case TILE_SHAPE_CUBE:{
+                if (upper){
+                    PhysicsPrimitive *up1 = new PhysicsPrimitive;
+                    *up1 = this->triangle(pos, right_up_near, right_up_far, left_up_near);
+                    this->push(up1);
+                    PhysicsPrimitive *up2 = new PhysicsPrimitive;
+                    *up2 = this->triangle(pos, left_up_far, left_up_near, right_up_far);
+                    this->push(up2);
+                }
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (near){
+                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+                    *front1 = this->triangle(pos, right_up_near, left_up_near, right_down_near);
+                    this->push(front1);
+                    PhysicsPrimitive *front2 = new PhysicsPrimitive;
+                    *front2 = this->triangle(pos, left_down_near, right_down_near, left_up_near);
+                    this->push(front2);
+                }
+                if (far){
+                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+                    *back1 = this->triangle(pos, right_up_far, right_down_far, left_up_far);
+                    this->push(back1);
+                    PhysicsPrimitive *back2 = new PhysicsPrimitive;
+                    *back2 = this->triangle(pos, left_down_far, left_up_far, right_down_far);
+                    this->push(back2);
+                }
+                if (left){
+                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+                    *left1 = this->triangle(pos, left_down_near, left_up_near, left_down_far);
+                    this->push(left1);
+                    PhysicsPrimitive *left2 = new PhysicsPrimitive;
+                    *left2 = this->triangle(pos, left_up_far, left_down_far, left_up_near);
+                    this->push(left2);
+                }
+                if (right){
+                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+                    *right1 = this->triangle(pos, right_down_near, right_down_far, right_up_near);
+                    this->push(right1);
+                    PhysicsPrimitive *right2 = new PhysicsPrimitive;
+                    *right2 = this->triangle(pos, right_up_far, right_up_near, right_down_far);
+                    this->push(right2);
+                }
+                break; 
+            }// ihatec++ inf crosses initialization errors
+            case TILE_SHAPE_RAMP_L:{
+                PhysicsPrimitive *ramp1 = new PhysicsPrimitive;
+                *ramp1 = this->triangle(pos, left_down_near, right_up_near, right_up_far);
+                this->push(ramp1);
+                PhysicsPrimitive *ramp2 = new PhysicsPrimitive;
+                *ramp2 = this->triangle(pos, left_down_near, right_up_far, left_down_far);
+                this->push(ramp2);
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (near){
+                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+                    *front1 = this->triangle(pos, left_down_near, right_down_near, right_up_near);
+                    this->push(front1);
+                }
+                if (far){
+                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+                    *back1 = this->triangle(pos, right_up_far, right_down_far, left_down_far);
+                    this->push(back1);
+                }
+                if (right){
+                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+                    *right1 = this->triangle(pos, right_down_near, right_down_far, right_up_near);
+                    this->push(right1);
+                    PhysicsPrimitive *right2 = new PhysicsPrimitive;
+                    *right2 = this->triangle(pos, right_up_far, right_up_near, right_down_far);
+                    this->push(right2);
+                }
+                break;
+            }
+            case TILE_SHAPE_RAMP_N:{
+                PhysicsPrimitive *ramp1 = new PhysicsPrimitive;
+                *ramp1 = this->triangle(pos, left_down_near, right_up_far, left_up_far);
+                this->push(ramp1);
+                PhysicsPrimitive *ramp2 = new PhysicsPrimitive;
+                *ramp2 = this->triangle(pos, left_down_near, right_up_near, right_up_far);
+                this->push(ramp2);
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (far){
+                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+                    *back1 = this->triangle(pos, right_up_far, right_down_far, left_up_far);
+                    this->push(back1);
+                    PhysicsPrimitive *back2 = new PhysicsPrimitive;
+                    *back2 = this->triangle(pos, left_down_far, left_up_far, right_down_far);
+                    this->push(back2);
+                }
+                if (left){
+                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+                    *left1 = this->triangle(pos, left_down_near, left_up_far, left_down_far);
+                    this->push(left1);
+                }
+                if (right){
+                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+                    *right1 = this->triangle(pos, right_down_near, right_down_far, right_up_far);
+                    this->push(right1);
+                }
+                break;
+            }
+            case TILE_SHAPE_RAMP_R:{
+                PhysicsPrimitive *ramp1 = new PhysicsPrimitive;
+                *ramp1 = this->triangle(pos, left_up_near, right_down_near, right_down_far);
+                this->push(ramp1);
+                PhysicsPrimitive *ramp2 = new PhysicsPrimitive;
+                *ramp2 = this->triangle(pos, left_up_near, right_down_far, left_up_far);
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (near){
+                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+                    *front1 = this->triangle(pos, left_down_near, right_down_near, left_up_near);
+                    this->push(front1);
+                }
+                if (far){
+                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+                    *back1 = this->triangle(pos, left_up_far, right_down_far, left_down_far);
+                    this->push(back1);
+                }
+                if (left){
+                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+                    *left1 = this->triangle(pos, left_down_near, left_up_near, left_down_far);
+                    this->push(left1);
+                    PhysicsPrimitive *left2 = new PhysicsPrimitive;
+                    *left2 = this->triangle(pos, left_up_far, left_down_far, left_up_near);
+                    this->push(left2);
+                }
+                break;
+            }
+            case TILE_SHAPE_RAMP_F:{
+                PhysicsPrimitive *ramp1 = new PhysicsPrimitive;
+                *ramp1 = this->triangle(pos, left_up_near, right_down_far, left_down_far);
+                this->push(ramp1);
+                PhysicsPrimitive *ramp2 = new PhysicsPrimitive;
+                *ramp2 = this->triangle(pos, left_up_near, right_up_near, right_down_far);
+                this->push(ramp2);
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (near){
+                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+                    *front1 = this->triangle(pos, right_up_near, left_up_near, right_down_near);
+                    this->push(front1);
+                    PhysicsPrimitive *front2 = new PhysicsPrimitive;
+                    *front2 = this->triangle(pos, left_down_near, right_down_near, left_up_near);
+                    this->push(front2);
+                }
+                if (left){
+                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+                    *left1 = this->triangle(pos, left_down_near, left_up_near, left_down_far);
+                    this->push(left1);
+                }
+                if (right){
+                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+                    *right1 = this->triangle(pos, right_down_near, right_down_far, right_up_near);
+                    this->push(right1);
+                }
+                break;
+            }
+            case TILE_SHAPE_RAMP_LN:{ // undef, copy of cube
+                if (upper){
+                    PhysicsPrimitive *up1 = new PhysicsPrimitive;
+                    *up1 = this->triangle(pos, right_up_near, right_up_far, left_up_near);
+                    this->push(up1);
+                    PhysicsPrimitive *up2 = new PhysicsPrimitive;
+                    *up2 = this->triangle(pos, left_up_far, left_up_near, right_up_far);
+                    this->push(up2);
+                }
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (near){
+                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+                    *front1 = this->triangle(pos, right_up_near, left_up_near, right_down_near);
+                    this->push(front1);
+                    PhysicsPrimitive *front2 = new PhysicsPrimitive;
+                    *front2 = this->triangle(pos, left_down_near, right_down_near, left_up_near);
+                    this->push(front2);
+                }
+                if (far){
+                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+                    *back1 = this->triangle(pos, right_up_far, right_down_far, left_up_far);
+                    this->push(back1);
+                    PhysicsPrimitive *back2 = new PhysicsPrimitive;
+                    *back2 = this->triangle(pos, left_down_far, left_up_far, right_down_far);
+                    this->push(back2);
+                }
+                if (left){
+                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+                    *left1 = this->triangle(pos, left_down_near, left_up_near, left_down_far);
+                    this->push(left1);
+                    PhysicsPrimitive *left2 = new PhysicsPrimitive;
+                    *left2 = this->triangle(pos, left_up_far, left_down_far, left_up_near);
+                    this->push(left2);
+                }
+                if (right){
+                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+                    *right1 = this->triangle(pos, right_down_near, right_down_far, right_up_near);
+                    this->push(right1);
+                    PhysicsPrimitive *right2 = new PhysicsPrimitive;
+                    *right2 = this->triangle(pos, right_up_far, right_up_near, right_down_far);
+                    this->push(right2);
+                }
+                break;
+            }
+            case TILE_SHAPE_RAMP_NR:{ // undef, copy of cube
+                if (upper){
+                    PhysicsPrimitive *up1 = new PhysicsPrimitive;
+                    *up1 = this->triangle(pos, right_up_near, right_up_far, left_up_near);
+                    this->push(up1);
+                    PhysicsPrimitive *up2 = new PhysicsPrimitive;
+                    *up2 = this->triangle(pos, left_up_far, left_up_near, right_up_far);
+                    this->push(up2);
+                }
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (near){
+                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+                    *front1 = this->triangle(pos, right_up_near, left_up_near, right_down_near);
+                    this->push(front1);
+                    PhysicsPrimitive *front2 = new PhysicsPrimitive;
+                    *front2 = this->triangle(pos, left_down_near, right_down_near, left_up_near);
+                    this->push(front2);
+                }
+                if (far){
+                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+                    *back1 = this->triangle(pos, right_up_far, right_down_far, left_up_far);
+                    this->push(back1);
+                    PhysicsPrimitive *back2 = new PhysicsPrimitive;
+                    *back2 = this->triangle(pos, left_down_far, left_up_far, right_down_far);
+                    this->push(back2);
+                }
+                if (left){
+                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+                    *left1 = this->triangle(pos, left_down_near, left_up_near, left_down_far);
+                    this->push(left1);
+                    PhysicsPrimitive *left2 = new PhysicsPrimitive;
+                    *left2 = this->triangle(pos, left_up_far, left_down_far, left_up_near);
+                    this->push(left2);
+                }
+                if (right){
+                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+                    *right1 = this->triangle(pos, right_down_near, right_down_far, right_up_near);
+                    this->push(right1);
+                    PhysicsPrimitive *right2 = new PhysicsPrimitive;
+                    *right2 = this->triangle(pos, right_up_far, right_up_near, right_down_far);
+                    this->push(right2);
+                }
+                break;
+            }
+            case TILE_SHAPE_RAMP_RF:{ // undef, copy of cube
+                if (upper){
+                    PhysicsPrimitive *up1 = new PhysicsPrimitive;
+                    *up1 = this->triangle(pos, right_up_near, right_up_far, left_up_near);
+                    this->push(up1);
+                    PhysicsPrimitive *up2 = new PhysicsPrimitive;
+                    *up2 = this->triangle(pos, left_up_far, left_up_near, right_up_far);
+                    this->push(up2);
+                }
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (near){
+                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+                    *front1 = this->triangle(pos, right_up_near, left_up_near, right_down_near);
+                    this->push(front1);
+                    PhysicsPrimitive *front2 = new PhysicsPrimitive;
+                    *front2 = this->triangle(pos, left_down_near, right_down_near, left_up_near);
+                    this->push(front2);
+                }
+                if (far){
+                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+                    *back1 = this->triangle(pos, right_up_far, right_down_far, left_up_far);
+                    this->push(back1);
+                    PhysicsPrimitive *back2 = new PhysicsPrimitive;
+                    *back2 = this->triangle(pos, left_down_far, left_up_far, right_down_far);
+                    this->push(back2);
+                }
+                if (left){
+                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+                    *left1 = this->triangle(pos, left_down_near, left_up_near, left_down_far);
+                    this->push(left1);
+                    PhysicsPrimitive *left2 = new PhysicsPrimitive;
+                    *left2 = this->triangle(pos, left_up_far, left_down_far, left_up_near);
+                    this->push(left2);
+                }
+                if (right){
+                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+                    *right1 = this->triangle(pos, right_down_near, right_down_far, right_up_near);
+                    this->push(right1);
+                    PhysicsPrimitive *right2 = new PhysicsPrimitive;
+                    *right2 = this->triangle(pos, right_up_far, right_up_near, right_down_far);
+                    this->push(right2);
+                }
+                break;
+            }
+            case TILE_SHAPE_RAMP_FL:{ // undef, copy of cube
+                if (upper){
+                    PhysicsPrimitive *up1 = new PhysicsPrimitive;
+                    *up1 = this->triangle(pos, right_up_near, right_up_far, left_up_near);
+                    this->push(up1);
+                    PhysicsPrimitive *up2 = new PhysicsPrimitive;
+                    *up2 = this->triangle(pos, left_up_far, left_up_near, right_up_far);
+                    this->push(up2);
+                }
+                if (bottom){
+                    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+                    *down1 = this->triangle(pos, right_down_near, left_down_near, right_down_far);
+                    this->push(down1);
+                    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+                    *down2 = this->triangle(pos, left_down_far, right_down_far, left_down_near);
+                    this->push(down2);
+                }
+                if (near){
+                    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+                    *front1 = this->triangle(pos, right_up_near, left_up_near, right_down_near);
+                    this->push(front1);
+                    PhysicsPrimitive *front2 = new PhysicsPrimitive;
+                    *front2 = this->triangle(pos, left_down_near, right_down_near, left_up_near);
+                    this->push(front2);
+                }
+                if (far){
+                    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+                    *back1 = this->triangle(pos, right_up_far, right_down_far, left_up_far);
+                    this->push(back1);
+                    PhysicsPrimitive *back2 = new PhysicsPrimitive;
+                    *back2 = this->triangle(pos, left_down_far, left_up_far, right_down_far);
+                    this->push(back2);
+                }
+                if (left){
+                    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+                    *left1 = this->triangle(pos, left_down_near, left_up_near, left_down_far);
+                    this->push(left1);
+                    PhysicsPrimitive *left2 = new PhysicsPrimitive;
+                    *left2 = this->triangle(pos, left_up_far, left_down_far, left_up_near);
+                    this->push(left2);
+                }
+                if (right){
+                    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+                    *right1 = this->triangle(pos, right_down_near, right_down_far, right_up_near);
+                    this->push(right1);
+                    PhysicsPrimitive *right2 = new PhysicsPrimitive;
+                    *right2 = this->triangle(pos, right_up_far, right_up_near, right_down_far);
+                    this->push(right2);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
     
     private:
     vec4 gravity = vec4(0., -9.8, 0., 0.) * 0.0f;
