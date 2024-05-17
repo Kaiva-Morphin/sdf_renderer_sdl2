@@ -309,26 +309,23 @@ float remap(float value, float fromLow, float fromHigh, float toLow, float toHig
 out vec4 frag_color;
 in vec2 fragTexCoord;
 
+mat4 view_mat = mat4x4( 
+    1., 0., 0., 0.,
+    0., 1., 0., 0.,
+    0.241, 0.241, 0.5, 0.,
+    0., 0., 0, 1.
+  );
 
 void main() {
+  //view_mat = mat4( 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+  //view_mat = eulerXYZ(0, sin(time * 2) * 160, 0);
   vec2 pixel_pos = fragTexCoord.xy * texture_size; // pixel pos
   vec2 uv_pos = 1 - fragTexCoord;
   vec4 pixel_color = vec4(0.0863, 0.1765, 0.2549, 0.0);
   vec3 sun = normalize(vec3(0, 1, 0.5)); // sun direction
-  vec3 start = (mat4x4( 
-    1., 0., 0., 0.,
-    0., 1., 0., 0.,
-    0.241, 0.241, 0.5, 0.,
-    0., 0., 0, 1.
-  )*vec4((pixel_pos.x - (texture_size.x * 0.5)) * scale_factor, (pixel_pos.y - (texture_size.y * 0.5)) * -scale_factor, near_z, 0)).xyz;
+  vec3 start = (view_mat*vec4((pixel_pos.x - (texture_size.x * 0.5)) * scale_factor, (pixel_pos.y - (texture_size.y * 0.5)) * -scale_factor, near_z, 0)).xyz;
   vec3 point = start;
-  vec3 direction = (mat4x4( 
-    1., 0., 0., 0.,
-    0., 1., 0., 0.,
-    0.241, 0.241, 0.5, 0.,
-    0., 0., 0, 1.
-  )*vec4(0., 0., -1., 0.)).xyz;
-
+  vec3 direction = (view_mat*vec4(0., 0., -1., 0.)).xyz;
 
 
   //scene.primitives[0].transform[3] = vec4(0, 2, 0, 1);

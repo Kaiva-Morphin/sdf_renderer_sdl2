@@ -2,15 +2,11 @@
 #include <string>
 #include <unordered_map>
 #include "sdf_primitives.h"
+#include "Pose.h"
 
 
 using namespace std;
 
-
-struct BoneTransformBundle{
-    mat4 transform = EYE4;
-    vec4 position = vec4(0, 0, 0, 1);
-};
 
 struct Bone{
     string name;
@@ -55,6 +51,21 @@ class Character{
                 p->transform = result_transform.transform;
             }
         }
+    }
+
+    void apply_pose(Pose pose){
+        bones["torso"].transform_bundle = pose.torso;
+        bones["torso_"].transform_bundle.transform = EulerZYX(pose.torso_bend, 0, 0);
+        bones["head"].transform_bundle = pose.head;
+        //bones["head_"].transform_bundle.transform = EulerZYX(0, pose.torso_bend, 0);
+        bones["larm"].transform_bundle = pose.left_arm;
+        bones["larm_"].transform_bundle.transform = EulerZYX(pose.left_arm_bend, 0, 0);
+        bones["rarm"].transform_bundle = pose.right_arm;
+        bones["rarm_"].transform_bundle.transform = EulerZYX(pose.right_arm_bend, 0, 0);
+        bones["lleg"].transform_bundle = pose.left_leg;
+        bones["lleg_"].transform_bundle.transform = EulerZYX(pose.left_leg_bend, 0, 0);
+        bones["rleg"].transform_bundle = pose.right_leg;
+        bones["rleg_"].transform_bundle.transform = EulerZYX(pose.right_leg_bend, 0, 0);
     }
 };
 

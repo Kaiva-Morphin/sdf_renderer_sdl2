@@ -1,6 +1,8 @@
 #include "Game.h"
 #include "textre_drawer.h"
 #include "Skeleton.h"
+#include "Functions.h"
+#include "Animation.h"
 
 #define PI 3.14159
 #define HALF_PI PI / 2.
@@ -13,57 +15,6 @@ SDL_Event event;
 mat4 with_offset(mat4 mat, vec3 offset){
     mat[3] = vec4(offset, mat[3][3]);
     return mat;
-}
-
-
-mat4x4 EulerXYZ(float anglex, float angley, float anglez){
-    anglex = anglex / 180. * 3.1415;
-    angley = angley / 180. * 3.1415;
-    anglez = anglez / 180. * 3.1415;
-    mat4x4 rotmatx = mat4x4(
-           vec4(1., 0., 0., 0.),
-           vec4(0., cos(anglex), -sin(anglex), 0.),
-           vec4(0., sin(anglex), cos(anglex), 0.),
-           vec4(0., 0., 0., 1.)
-    );
-    mat4x4 rotmaty = mat4x4(
-            vec4(cos(angley), 0., sin(angley), 0.),
-            vec4(0., 1., 0., 0.),
-            vec4(-sin(angley), 0., cos(angley), 0.),
-            vec4(0., 0., 0., 1.)
-    );
-    mat4x4 rotmatz = mat4x4(
-            vec4(cos(anglez), -sin(anglez), 0., 0.),
-            vec4(sin(anglez), cos(anglez), 0., 0.),
-            vec4(0., 0., 1., 0.),
-            vec4(0., 0., 0., 1.)
-    );
-    return rotmatx * rotmaty * rotmatz;
-}
-
-mat4x4 EulerZYX(float anglex, float angley, float anglez){
-    anglex = anglex / 180. * 3.1415;
-    angley = angley / 180. * 3.1415;
-    anglez = anglez / 180. * 3.1415;
-    mat4x4 rotmatx = mat4x4(
-           vec4(1., 0., 0., 0.),
-           vec4(0., cos(anglex), -sin(anglex), 0.),
-           vec4(0., sin(anglex), cos(anglex), 0.),
-           vec4(0., 0., 0., 1.)
-    );
-    mat4x4 rotmaty = mat4x4(
-            vec4(cos(angley), 0., sin(angley), 0.),
-            vec4(0., 1., 0., 0.),
-            vec4(-sin(angley), 0., cos(angley), 0.),
-            vec4(0., 0., 0., 1.)
-    );
-    mat4x4 rotmatz = mat4x4(
-            vec4(cos(anglez), -sin(anglez), 0., 0.),
-            vec4(sin(anglez), cos(anglez), 0., 0.),
-            vec4(0., 0., 1., 0.),
-            vec4(0., 0., 0., 1.)
-    );
-    return rotmatz * rotmaty * rotmatx;
 }
 
 int main(int argc, char ** argv)
@@ -98,9 +49,135 @@ int main(int argc, char ** argv)
     ObjectScene scene; 
     PrimitiveScene primitive_scene;
 
-    int size = 6;
 
-    for (int i = 0; i < size; i++){
+    
+
+    Character character;
+
+    Primitive* torso = &primitive_scene.primitives[0];
+    *torso = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["torso"] = Bone{
+        "torso",
+        nullptr,
+        {},
+        {torso},
+        with_offset(EYE4, {0, -0.5, 0}),
+        vec4(0., 1., 0., 1.)
+    };
+
+    Primitive* torso_ = &primitive_scene.primitives[1];
+    *torso_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["torso_"] = Bone{
+        "torso_",
+        &character.bones["torso"],
+        {},
+        {torso_},
+        with_offset(EYE4, {0, -0.5, 0}),
+        vec4(0., 1., 0., 1.)
+    };
+
+    Primitive* head = &primitive_scene.primitives[2];
+    *head = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["head"] = Bone{
+        "head",
+        &character.bones["torso_"],
+        {},
+        {head},
+        with_offset(EYE4, {0, -0.5, 0}),
+        vec4(0., 1., 0., 1.)
+    };
+
+    Primitive* larm = &primitive_scene.primitives[3];
+    *larm = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["larm"] = Bone{
+        "larm",
+        &character.bones["torso_"],
+        {},
+        {larm},
+        with_offset(EYE4, {0, 0.5, 0}),
+        vec4(-1., 1., 0., 1.)
+    };
+
+    Primitive* larm_ = &primitive_scene.primitives[4];
+    *larm_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["larm_"] = Bone{
+        "larm_",
+        &character.bones["larm"],
+        {},
+        {larm_},
+        with_offset(EYE4, {0, 0.5, 0}),
+        vec4(0., -1., 0., 1.)
+    };
+
+    Primitive* rarm = &primitive_scene.primitives[5];
+    *rarm = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["rarm"] = Bone{
+        "rarm",
+        &character.bones["torso_"],
+        {},
+        {rarm},
+        with_offset(EYE4, {0, 0.5, 0}),
+        vec4(1., 1., 0., 1.)
+    };
+
+    Primitive* rarm_ = &primitive_scene.primitives[6];
+    *rarm_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["rarm_"] = Bone{
+        "rarm_",
+        &character.bones["rarm"],
+        {},
+        {rarm_},
+        with_offset(EYE4, {0, 0.5, 0}),
+        vec4(0., -1., 0., 1.)
+    };
+
+    Primitive* lleg = &primitive_scene.primitives[7];
+    *lleg = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["lleg"] = Bone{
+        "lleg",
+        &character.bones["torso"],
+        {},
+        {lleg},
+        with_offset(EYE4, {0, 0.5, 0}),
+        vec4(-0.5, 0., 0., 1.)
+    };
+
+    Primitive* lleg_ = &primitive_scene.primitives[8];
+    *lleg_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["lleg_"] = Bone{
+        "lleg_",
+        &character.bones["lleg"],
+        {},
+        {lleg_},
+        with_offset(EYE4, {0, 0.5, 0}),
+        vec4(0, -1, 0., 1.)
+    };
+
+    Primitive* rleg = &primitive_scene.primitives[9];
+    *rleg = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["rleg"] = Bone{
+        "rleg",
+        &character.bones["torso"],
+        {},
+        {rleg},
+        with_offset(EYE4, {0, 0.5, 0}),
+        vec4(0.5, 0., 0., 1.)
+    };
+
+    Primitive* rleg_ = &primitive_scene.primitives[10];
+    *rleg_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    character.bones["rleg_"] = Bone{
+        "rleg_",
+        &character.bones["rleg"],
+        {},
+        {rleg_},
+        with_offset(EYE4, {0, 0.5, 0}),
+        vec4(0, -1, 0., 1.)
+    };
+    
+
+
+    for (int i = 0; i < character.bones.size(); i++){
         primitive_scene.ordered_operations[i] =
             PrimitiveOperation{
                 OPERATION_UNION,
@@ -110,67 +187,39 @@ int main(int argc, char ** argv)
                 0.
             };
     }
-    primitive_scene.operations = size;
-    primitive_scene.size = size;
+    primitive_scene.operations = character.bones.size();
+    primitive_scene.size = character.bones.size();
     
 
-    Character character;
-
-    Primitive* root = &primitive_scene.primitives[0];
-    *root = (SphereObject(vec3(0., 0., 0.), 1)).as_primitive();
-    character.bones["0"] = Bone{
-        "0",
+    /*Primitive* torso = &primitive_scene.primitives[0];
+    *torso = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
+    character.bones["torso"] = Bone{
+        "torso",
         nullptr,
         {},
-        {root},
-        with_offset(EYE4, {0, -1, 0}),
-        vec4(0., 0., 0., 1.)
-    };
-
-    for (int i = 1; i < size; i++){
-        Primitive* p = &primitive_scene.primitives[i];
-        *p = (SphereObject(vec3(0., 0., 0.), 1)).as_primitive();
-        character.bones[to_string(i)] = Bone{
-            to_string(i),
-            &character.bones[to_string(i-1)],
-            {},
-            {p},
-            with_offset(EYE4, {0, -1, 0}),
-            vec4(0., 2., 0., 1.)
-        };
-    }
-    
-    
-
-    /*Primitive* chest = &primitive_scene.primitives[0];
-    *chest = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
-    character.bones["chest"] = Bone{
-        "chest",
-        nullptr,
-        {},
-        {chest},
+        {torso},
         EYE4,
         vec4(0., 0., 0., 1.)
     };
-    character.bones["chest"].init_transform[3] = vec4(0, -0.6, 0, 1);
+    character.bones["torso"].init_transform[3] = vec4(0, -0.6, 0, 1);
 
-    Primitive* chest_upper = &primitive_scene.primitives[1];
-    *chest_upper = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
-    character.bones["chest_upper"] = Bone{
-        "chest_upper",
-        &character.bones["chest"],
+    Primitive* torso_ = &primitive_scene.primitives[1];
+    *torso_ = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
+    character.bones["torso_"] = Bone{
+        "torso_",
+        &character.bones["torso"],
         {},
-        {chest_upper},
+        {torso_},
         EYE4,
         vec4(0., 0.8, 0., 1.)
     };
-    character.bones["chest_upper"].init_transform[3] = vec4(0, -0.4, 0, 1);
+    character.bones["torso_"].init_transform[3] = vec4(0, -0.4, 0, 1);
 
     Primitive* head = &primitive_scene.primitives[2];
     *head = (BoxObject(vec3(0., 0, 0.), vec3(0.8, 0.8, 0.8))).as_primitive();
     character.bones["head"] = Bone{
         "head",
-        &character.bones["chest_upper"],
+        &character.bones["torso_"],
         {},
         {head},
         EYE4,
@@ -182,18 +231,18 @@ int main(int argc, char ** argv)
     *left_arm = (BoxObject(vec3(0., 0., 0.), vec3(0.4, 0.8, 0.4))).as_primitive();
     character.bones["left_arm"] = Bone{
         "left_arm",
-        &character.bones["chest_upper"],
+        &character.bones["torso_"],
         {},
         {left_arm},
         EulerXYZ(0, 0, 0),
         vec4(1.2, 1.4, 0., 1.),
     };*/
 
-    /*BoxObject* chest_upper = new BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.8, 0.4));
-    chest_upper->position.y = 0;
-    scene.objects.push_back(chest_upper);
+    /*BoxObject* torso_ = new BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.8, 0.4));
+    torso_->position.y = 0;
+    scene.objects.push_back(torso_);
 
-    character.bones["chest"] = Bone{
+    character.bones["torso"] = Bone{
 
     };*/
 
@@ -297,6 +346,14 @@ int main(int argc, char ** argv)
     
     glEnable(GL_BLEND);
 
+    Animation sit("./assets/animations/bend_sit.json");
+    game->start_timer();
+    Animation anim(".\\assets\\animations\\SPE_Tverk.json");
+    cout << "parsing time: ";
+    game->print_timer_end();
+    float anim_tick = 0;
+    bool playing = true;
+    bool forced_loop = true;
     while (game->is_running())
     {
         float time = game->time();
@@ -317,18 +374,54 @@ int main(int argc, char ** argv)
 
         //game->end_main();
 
-        //character.bones["chest"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
-        //character.bones["chest_upper"].transform_bundle.transform = EulerXYZ(sin(time*3)*45, 0, 0);
+        //character.bones["torso_"].transform_bundle.transform = EulerXYZ(sin(time*3)*45, 0, 0);
         //character.bones["head"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
-        //chest->transform = EulerXYZ(sin(time*2)*45, 0, 0);
-        for (int i = 0; i < 10; i++){
+        //torso->transform = EulerXYZ(sin(time*2)*45, 0, 0);
+        /*for (int i = 0; i < 10; i++){
             character.bones[to_string(i)].transform_bundle.transform = EulerZYX(0, 0, cos(time*2)*60);
-        }
+        }*/
+        //character.bones["torso"].transform_bundle.transform = EulerZYX(0, 0, cos(time)*60);
+        //character.bones["torso_"].transform_bundle.transform = EulerZYX(0, 0, cos(time*2)*30);
 
+
+        //character.bones["rarm"].transform_bundle.transform = EulerZYX(0, 0, -90+cos(time*2)*60);
+        //character.bones["larm"].transform_bundle.transform = EulerZYX(0, 0, 90+cos(time*2)*60);
+        
 
         //game->begin_main();
-        
-        
+
+        /*std::ifstream file("file.txt");
+        if (file.is_open()) {
+            string str;
+            getline(file, str);
+            anim = Animation(str);
+            file >> playing;
+            game->debugger.register_line("iwannadie2", "playing: ", to_string(playing));
+            file >> forced_loop;
+            if (!forced_loop) forced_loop = anim.looped;
+            if (!playing) file >> anim_tick;
+            file.close();
+        }*/
+        if (playing){
+            anim_tick += game->delta() * 20;
+            if (forced_loop){
+                if (anim_tick > anim.end_tick)
+                    anim_tick = anim.return_tick; 
+            } else {
+                anim_tick = glm::clamp((float)anim_tick, (float)anim.start_tick, (float)anim.end_tick);
+            }
+        }
+
+        //character.bones["torso"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
+        game->debugger.register_line("iwannadie0", "anim_tick: ", to_string(anim_tick));
+        game->start_timer();
+        Pose pose = compute_pose(anim.get_pose(anim_tick));
+        game->debugger.register_line("iwannadie1", "Pose get and compute: ", to_string(game->timer_end()));
+
+        game->start_timer();
+        character.apply_pose(pose); 
+        game->debugger.register_line("iwannadie2", "Apply pose: ", to_string(game->timer_end()));
+
         shader.check_file_updates();
         shader.use();
         // x+
@@ -339,7 +432,6 @@ int main(int argc, char ** argv)
         character.update_scene(&primitive_scene);
         shader.set_scene(&primitive_scene);
 
-
         //shader.set_position({cos(time) * 4, sin(time * 2) * 2, sin(time) * 4 + 4});
 
         shader.set_position({0, 0, 0});
@@ -348,8 +440,7 @@ int main(int argc, char ** argv)
         shader.draw(game->screen_pixel_size);
 
         glUseProgram(0);
-        //game->debugger.update_basic();
-        //game->debugger.draw(game->screen_pixel_size);
+        
 
         game->end_main();
 
@@ -357,6 +448,8 @@ int main(int argc, char ** argv)
         glClear(GL_COLOR_BUFFER_BIT);
         game->draw_main();
 
+        game->debugger.update_basic();
+        game->debugger.draw(vec2(game->screen_rect.z, game->screen_rect.w));
         /*glBindTexture(GL_TEXTURE_2D, font_atlas.get_texture());
         vec2 src = font_atlas.get_glyph_size() * 8.0f / font_atlas.get_atlas_size();
         glBegin(GL_QUADS);
