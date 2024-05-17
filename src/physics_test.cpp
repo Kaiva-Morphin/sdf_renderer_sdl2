@@ -100,7 +100,7 @@ int main(int argc, char ** argv)
     line2.position.y = -60;*/
 
 
-    PhysicsPrimitive line3 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
+    /*PhysicsPrimitive line3 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
     physics.push(&line3);
     line3.position.x = 125;
     line3.position.y = -75;
@@ -108,9 +108,9 @@ int main(int argc, char ** argv)
     PhysicsPrimitive line4 = physics.line(vec3(25., 25., 0.), vec3(-25., -25., 0.));
     physics.push(&line4);
     line4.position.x = 125;
-    line4.position.y = -75;
+    line4.position.y = -75;*/
 
-    for (int side = 0; side < 4; side++) {
+    /*for (int side = 0; side < 4; side++) {
         PhysicsPrimitive p;
         switch (side)
         {
@@ -147,21 +147,92 @@ int main(int argc, char ** argv)
                 physics.push(temp);
             }
         }
-    }
+    }*/
 
 
     PhysicsPrimitive player = physics.capsule(40., 20.);
     player.type = TYPE_RIGID;
-    player.bounciness = 0.;
+    player.bounciness = 0.5;
     player.mass = 1.;
     player.position.x = 100;
-    player.friction = 0.001;
+    player.friction = 0.5;
     physics.push(&player);
 
-    bool key_a, key_d, key_w;
+
+    vec3 pos = vec3(0, 0, 0);
+    vec3 half_size = vec3(0.5, 0.5, 0.5);
+    vec3 right_up_near =   half_size * vec3( 1,  1,  1);
+    vec3 right_up_far =    half_size * vec3( 1,  1, -1);
+    vec3 right_down_near = half_size * vec3( 1, -1,  1);
+    vec3 right_down_far =  half_size * vec3( 1, -1, -1);
+    vec3 left_up_near =    half_size * vec3(-1,  1,  1);
+    vec3 left_up_far =     half_size * vec3(-1,  1, -1);
+    vec3 left_down_near =  half_size * vec3(-1, -1,  1);
+    vec3 left_down_far =   half_size * vec3(-1, -1, -1);
+
+
+    PhysicsPrimitive *up1 = new PhysicsPrimitive;
+    *up1 = physics.triangle(pos, right_up_near, right_up_far, left_up_near);
+    physics.push(up1);
+    PhysicsPrimitive *up2 = new PhysicsPrimitive;
+    *up2 = physics.triangle(pos, left_up_far, left_up_near, right_up_far);
+    physics.push(up2);
+
+    PhysicsPrimitive *down1 = new PhysicsPrimitive;
+    *down1 = physics.triangle(pos, right_down_near, left_down_near, right_down_far);
+    physics.push(down1);
+    PhysicsPrimitive *down2 = new PhysicsPrimitive;
+    *down2 = physics.triangle(pos, left_down_far, right_down_far, left_down_near);
+    physics.push(down2);
+
+    PhysicsPrimitive *front1 = new PhysicsPrimitive;
+    *front1 = physics.triangle(pos, right_up_near, left_up_near, right_down_near);
+    physics.push(front1);
+    PhysicsPrimitive *front2 = new PhysicsPrimitive;
+    *front2 = physics.triangle(pos, left_down_near, right_down_near, left_up_near);
+    physics.push(front2);
+
+    PhysicsPrimitive *back1 = new PhysicsPrimitive;
+    *back1 = physics.triangle(pos, right_up_far, right_down_far, left_up_far);
+    physics.push(back1);
+    PhysicsPrimitive *back2 = new PhysicsPrimitive;
+    *back2 = physics.triangle(pos, left_down_far, left_up_far, right_down_far);
+    physics.push(back2);
+
+    PhysicsPrimitive *left1 = new PhysicsPrimitive;
+    *left1 = physics.triangle(pos, left_down_near, left_up_near, left_down_far);
+    physics.push(left1);
+    PhysicsPrimitive *left2 = new PhysicsPrimitive;
+    *left2 = physics.triangle(pos, left_up_far, left_down_far, left_up_near);
+    physics.push(left2);
+
+    PhysicsPrimitive *right1 = new PhysicsPrimitive;
+    *right1 = physics.triangle(pos, right_down_near, right_down_far, right_up_near);
+    physics.push(right1);
+    PhysicsPrimitive *right2 = new PhysicsPrimitive;
+    *right2 = physics.triangle(pos, right_up_far, right_up_near, right_down_far);
+    physics.push(right2);
+
+    bool key_a, key_d, key_w, key_s, key_space, key_shift;
     key_a = false;
     key_d = false;
     key_w = false;
+    key_s = false;
+    key_space = false;
+    key_shift = false;
+
+    PhysicsPrimitive *t1 = new PhysicsPrimitive;
+    *t1 = physics.triangle(pos, vec3(rand()%80, rand()%80, 0), vec3(rand()%80, rand()%80, 0), vec3(rand()%80, rand()%80, 0));
+    t1->a = vec4(0, 0, 0, 0);
+    t1->b = vec4(30, 0, 0, 0);
+    t1->c = vec4(0, 30, 0, 0);
+    physics.push(t1);
+    PhysicsPrimitive *t2 = new PhysicsPrimitive;
+    *t2 = physics.triangle(pos, vec3(rand()%80, rand()%80, 0), vec3(rand()%80, rand()%80, 0), vec3(rand()%80, rand()%80, 0));
+    t2->a = vec4(0, 0, 0, 0);
+    t2->b = vec4(30, 0, 0, 0);
+    t2->c = vec4(0, 30, 0, 0);
+    physics.push(t2);
 
     int xMouse, yMouse;
     while (game->is_running())
@@ -179,10 +250,14 @@ int main(int argc, char ** argv)
             cursor.type = TYPE_RIGID;
             cursor.shape = SHAPE_CAPSULE;
             cursor.velocity = (vec4(target, 0, 0) - cursor.position);// * 100.0f;
+            player.position = vec4(target, 0, 0);
         } else {
             //cursor.type = MOVING;
             cursor.position = vec4(target, 0, 0);
         }
+
+
+
 
         float time = game->time();
         while (SDL_PollEvent(&event)) {
@@ -198,14 +273,14 @@ int main(int argc, char ** argv)
                     case SDLK_w:
                         key_w = true;
                         break;
-                    case SDLK_c:
-                        player.velocity = vec4(0);
-                        break;
-                    case SDLK_z:
-                        break;
-                    case SDLK_x:
+                    case SDLK_s:
+                        key_s = true;
                         break;
                     case SDLK_SPACE:
+                        key_space = true;
+                        break;
+                    case SDLK_LSHIFT:
+                        key_shift = true;
                         break;
                 }
             }
@@ -220,7 +295,15 @@ int main(int argc, char ** argv)
                     case SDLK_w:
                         key_w = false;
                         break;
-                    
+                    case SDLK_s:
+                        key_s = false;
+                        break;
+                    case SDLK_SPACE:
+                        key_space = false;
+                        break;
+                    case SDLK_LSHIFT:
+                        key_shift = false;
+                        break;
                 }
             }
         }
@@ -271,16 +354,40 @@ int main(int argc, char ** argv)
 
         //physics.draw_box(vec2(0.), vec2(10.), game->screen_pixel_size, vec3(1., 0., 0.));
         //physics.draw_capsule(vec2(0., 0.), vec2(6., 30.), game->screen_pixel_size, vec3(1., 0., 0.));
+        key_w = false;
+        key_s = false;
+        vec2 target_vel = vec2(key_d - key_a,  key_s - key_w) * 16.0f;
+        player.velocity.z = target_vel.y;
+        player.velocity.x = target_vel.x;
+        player.velocity.y = (key_space - key_shift) * 16.0f;
         
-        if (key_d || key_a) player.acceleration.x = ((key_d?1:0) - (key_a?1:0) )* 10.;
-        else player.acceleration.x = 0;
-        if (key_w)
-        player.acceleration.y = 100;
-        else 
-        player.acceleration.y =0 ;
+        
 
-        physics.step(game->wrapped_delta(), &font_atlas);
+        game->debugger.register_line("phys", "collide:  ", "");
+        game->debugger.register_line("phys0", "normal:  ", "");
+        game->debugger.register_line("phys1", "phys:  ", "");
+        game->debugger.register_line("phys2", "phys:  ", "");
+
+        physics.step(game->wrapped_delta() * 10, &font_atlas);
+
+
+        t1->position.x = sin(time*5)*100;
+        t2->position.y = sin(time*2.5)*100;
+
         physics.draw();
+
+        float d;
+        vec3 a;
+        vec3 b;
+        //t2->position = vec4(100, 100, 0, 0);
+        tie(d, a, b) = physics.triangle_triangle(t1->position+t1->a, t1->position+t1->b, t1->position+t1->c, t2->position+t2->a, t2->position+t2->b, t2->position+t2->c);
+        game->debugger.update_line("phys1", "A: " + to_string(a));
+        game->debugger.update_line("phys2", "B: " + to_string(a));
+        physics.draw_line(a, b, {1, 1, 0});
+
+
+
+
         game->debugger.update_basic();
         game->debugger.draw(game->screen_pixel_size);
         game->end_main();

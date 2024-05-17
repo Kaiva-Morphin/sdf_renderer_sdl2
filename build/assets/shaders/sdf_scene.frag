@@ -195,8 +195,8 @@ vec4 SampleScene(vec3 point){
 
 const float near_z = 12.;
 const float far_z = -12.;
-const float max_depth = 2.;
-const float min_depth = -2.;
+const float max_depth = 1; // local minmaxes
+const float min_depth = -1; // local minmaxes
 const float min_dist = 0.01;
 const float max_dist = abs(near_z) + abs(far_z) + 1;
 const int steps = 128;
@@ -309,27 +309,18 @@ mat4 view_mat = mat4x4(
 
 void main() {
   //view_mat = mat4( 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-  //view_mat = eulerXYZ(0, sin(time * 2) * 160, 0);
+  //view_mat = eulerXYZ(0, sin(time) * 90, 0);
   vec2 pixel_pos = fragTexCoord.xy * texture_size; // pixel pos
   vec2 uv_pos = 1 - fragTexCoord;
-  vec4 pixel_color = vec4(0.0863, 0.1765, 0.2549, 0.0);
+  vec3 bg_color = vec3(0.0863, 0.1765, 0.2549);
+  vec3 light_color =vec3(1.00,0.9,0.80);
+  vec4 pixel_color = vec4(bg_color, 0.0);
   vec3 sun = normalize(vec3(0, 1, 0.5)); // sun direction
   vec3 start = (view_mat*vec4((pixel_pos.x - (texture_size.x * 0.5)) * scale_factor, (pixel_pos.y - (texture_size.y * 0.5)) * -scale_factor, near_z, 0)).xyz;
   vec3 point = start;
   vec3 direction = (view_mat*vec4(0., 0., -1., 0.)).xyz;
 
-  scene.operations = 1;
-  scene.size = 1;
-  scene.primitives[0].primitive_type = 1;
-  scene.primitives[0].rounding = 1;
-  scene.ordered_operations[0] = PrimitiveOperation(
-    0,
-    -1,
-    1,
-    1,
-    0
-  );
-  scene.primitives[0].position = vec4(0);
+  //scene.primitives[0].position = vec4(0, 0, sin(time), 0);
 
   //scene.primitives[0].transform[3] = vec4(0, 2, 0, 1);
   //scene.primitives[2].position.y = 4;
@@ -368,29 +359,34 @@ void main() {
       vec3 nor = calcNormal(pos);
       vec3 lig = normalize(sun);
       float dif = clamp(dot(nor,lig),0.0,1.0);
-      float sha = 1.;//calcSoftshadow( pos, lig, min_dist, max_dist, 16.0 );
+      float sha = calcSoftshadow( pos, lig, min_dist, max_dist, 16.0 );
       float amb = 0.9 + 0.1 * nor.y;
       float depth = remap((near_z - start.z - pos.z) * -1, min_depth, max_depth, self_depth_range.x, self_depth_range.y);
-      vec3 result_color = vec3(0.2078, 0.2549, 0.298)*amb*color + vec3(1.00,0.9,0.80)*dif*sha*color;
-      pixel_color.rgb = vec3(depth);  // color with shadows
-
-      /*if (depth > texture_depth || texture_depth==0){
+      depth = remap(pos.z, min_depth, max_depth, self_depth_range.x, self_depth_range.y);
+      vec3 result_color = bg_color*amb*color + light_color*dif*sha*color;
+      //pixel_color.rgb   // color with shadows
+      //result_color = vec3(depth);
+      if (depth > texture_depth || texture_depth==0){
         pixel_color.rgb = result_color;  // color with shadows
         pixel_color.a = 1;
       } else {
         pixel_color.rgb = result_color * 0.5;
+        //pixel_color.a = 0;
         pixel_color.a = ((int(sin(pixel_pos.x * (cos(time) * 0.5 + 1)) + pixel_pos.y + pixel_pos.x * -0.25 + time * 30) % 8) < 6)?0.5:0;
-      }*/
+      }
+      pixel_color.rgb = vec3(depth);
+      
       break;
     }
     point += direction * dist;
   }
-  pixel_color.a = 1;
+  //pixel_color.a = 1;
   if (pixel_color.a == 0){
     //pixel_color.a = 1;
     //pixel_color.rgb = vec3(texture_depth);
   }
-  //pixel_color.a = 0.5;
+  //pixel_color.rgb = vec3(texture_depth);
+  //pixel_color.a = 1;
   //pixel_color.rgb = vec3(relative_uv.x, relative_uv.y, 0) * texture_depth;
 
   
