@@ -3,6 +3,7 @@
 #include "Skeleton.h"
 #include "Functions.h"
 #include "Animation.h"
+#include "Characters.h"
 
 #define PI 3.14159
 #define HALF_PI PI / 2.
@@ -12,10 +13,7 @@ const int CENTERY = TARGET_HEIGHT / 2;
 
 SDL_Event event;
 
-mat4 with_offset(mat4 mat, vec3 offset){
-    mat[3] = vec4(offset, mat[3][3]);
-    return mat;
-}
+
 
 int main(int argc, char ** argv)
 {
@@ -33,7 +31,8 @@ int main(int argc, char ** argv)
     drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
     GLubyte* character_texture_data = drawer.get_data();
 
-    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag", &game->debugger);
+    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag");
+    BoxBot boxbot;
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
 
@@ -52,124 +51,114 @@ int main(int argc, char ** argv)
 
     
 
-    Character character;
+    Skeleton character;
 
     Primitive* torso = &primitive_scene.primitives[0];
-    *torso = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *torso = (BoxObject(vec3(0.3))).as_primitive();
     character.bones["torso"] = Bone{
         "torso",
         nullptr,
-        {},
         {torso},
         with_offset(EYE4, {0, -0.5, 0}),
         vec4(0., 1., 0., 1.)
     };
 
     Primitive* torso_ = &primitive_scene.primitives[1];
-    *torso_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *torso_ = (BoxObject(vec3(0.4))).as_primitive();
     character.bones["torso_"] = Bone{
         "torso_",
         &character.bones["torso"],
-        {},
         {torso_},
         with_offset(EYE4, {0, -0.5, 0}),
         vec4(0., 1., 0., 1.)
     };
 
     Primitive* head = &primitive_scene.primitives[2];
-    *head = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    //*head = (SphereObject( 0.5)).as_primitive();
+    *head = (BoxObject(vec3(0.6, 0.5, 0.5))).as_primitive();
     character.bones["head"] = Bone{
         "head",
         &character.bones["torso_"],
-        {},
         {head},
         with_offset(EYE4, {0, -0.5, 0}),
         vec4(0., 1., 0., 1.)
     };
 
     Primitive* larm = &primitive_scene.primitives[3];
-    *larm = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *larm = (SphereObject(0.5)).as_primitive();
     character.bones["larm"] = Bone{
         "larm",
         &character.bones["torso_"],
-        {},
         {larm},
         with_offset(EYE4, {0, 0.5, 0}),
         vec4(-1., 1., 0., 1.)
     };
 
     Primitive* larm_ = &primitive_scene.primitives[4];
-    *larm_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *larm_ = (SphereObject(0.5)).as_primitive();
     character.bones["larm_"] = Bone{
         "larm_",
         &character.bones["larm"],
-        {},
         {larm_},
         with_offset(EYE4, {0, 0.5, 0}),
         vec4(0., -1., 0., 1.)
     };
 
     Primitive* rarm = &primitive_scene.primitives[5];
-    *rarm = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *rarm = (SphereObject(0.5)).as_primitive();
     character.bones["rarm"] = Bone{
         "rarm",
         &character.bones["torso_"],
-        {},
         {rarm},
         with_offset(EYE4, {0, 0.5, 0}),
         vec4(1., 1., 0., 1.)
     };
 
     Primitive* rarm_ = &primitive_scene.primitives[6];
-    *rarm_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *rarm_ = (SphereObject(0.5)).as_primitive();
     character.bones["rarm_"] = Bone{
         "rarm_",
         &character.bones["rarm"],
-        {},
         {rarm_},
         with_offset(EYE4, {0, 0.5, 0}),
         vec4(0., -1., 0., 1.)
     };
 
     Primitive* lleg = &primitive_scene.primitives[7];
-    *lleg = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *lleg = (SphereObject(0.5)).as_primitive();
     character.bones["lleg"] = Bone{
         "lleg",
         &character.bones["torso"],
-        {},
         {lleg},
         with_offset(EYE4, {0, 0.5, 0}),
         vec4(-0.5, 0., 0., 1.)
     };
 
     Primitive* lleg_ = &primitive_scene.primitives[8];
-    *lleg_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *lleg_ = (SphereObject( 0.5)).as_primitive();
     character.bones["lleg_"] = Bone{
         "lleg_",
         &character.bones["lleg"],
-        {},
         {lleg_},
         with_offset(EYE4, {0, 0.5, 0}),
         vec4(0, -1, 0., 1.)
     };
 
     Primitive* rleg = &primitive_scene.primitives[9];
-    *rleg = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *rleg = (SphereObject(0.5)).as_primitive();
     character.bones["rleg"] = Bone{
         "rleg",
         &character.bones["torso"],
-        {},
         {rleg},
         with_offset(EYE4, {0, 0.5, 0}),
         vec4(0.5, 0., 0., 1.)
     };
 
     Primitive* rleg_ = &primitive_scene.primitives[10];
-    *rleg_ = (SphereObject(vec3(0., 0., 0.), 0.5)).as_primitive();
+    *rleg_ = (SphereObject(0.5)).as_primitive();
     character.bones["rleg_"] = Bone{
         "rleg_",
         &character.bones["rleg"],
-        {},
         {rleg_},
         with_offset(EYE4, {0, 0.5, 0}),
         vec4(0, -1, 0., 1.)
@@ -189,100 +178,6 @@ int main(int argc, char ** argv)
     }
     primitive_scene.operations = character.bones.size();
     primitive_scene.size = character.bones.size();
-    
-
-    /*Primitive* torso = &primitive_scene.primitives[0];
-    *torso = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
-    character.bones["torso"] = Bone{
-        "torso",
-        nullptr,
-        {},
-        {torso},
-        EYE4,
-        vec4(0., 0., 0., 1.)
-    };
-    character.bones["torso"].init_transform[3] = vec4(0, -0.6, 0, 1);
-
-    Primitive* torso_ = &primitive_scene.primitives[1];
-    *torso_ = (BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.6, 0.4))).as_primitive();
-    character.bones["torso_"] = Bone{
-        "torso_",
-        &character.bones["torso"],
-        {},
-        {torso_},
-        EYE4,
-        vec4(0., 0.8, 0., 1.)
-    };
-    character.bones["torso_"].init_transform[3] = vec4(0, -0.4, 0, 1);
-
-    Primitive* head = &primitive_scene.primitives[2];
-    *head = (BoxObject(vec3(0., 0, 0.), vec3(0.8, 0.8, 0.8))).as_primitive();
-    character.bones["head"] = Bone{
-        "head",
-        &character.bones["torso_"],
-        {},
-        {head},
-        EYE4,
-        vec4(0., 1.8, 0., 1.),
-    };
-    character.bones["head"].init_transform[3] = vec4(0, -0.8, 0, 1);
-
-    Primitive* left_arm = &primitive_scene.primitives[3];
-    *left_arm = (BoxObject(vec3(0., 0., 0.), vec3(0.4, 0.8, 0.4))).as_primitive();
-    character.bones["left_arm"] = Bone{
-        "left_arm",
-        &character.bones["torso_"],
-        {},
-        {left_arm},
-        EulerXYZ(0, 0, 0),
-        vec4(1.2, 1.4, 0., 1.),
-    };*/
-
-    /*BoxObject* torso_ = new BoxObject(vec3(0., 0., 0.), vec3(0.8, 0.8, 0.4));
-    torso_->position.y = 0;
-    scene.objects.push_back(torso_);
-
-    character.bones["torso"] = Bone{
-
-    };*/
-
-    /*BoxObject* head = new BoxObject(vec3(0., 0., 0.), vec3(5., 5., 0.2));
-    head->position.y = 0;
-    scene.objects.push_back(head);*/
-
-    /*
-    scene.primitives[0].a.xyz = vec3(0.8);
-    scene.primitives[0].position.xyz = vec3(0, 1.6+0.8, 0);
-
-    scene.primitives[1].a.xyz = vec3(0.8, 1.6, 0.4);
-    scene.primitives[1].position.xyz = vec3(0, 0, 0);
-
-    scene.primitives[2].a.xyz = vec3(0.4, 0.8, 0.4);
-    scene.primitives[2].position.xyz = vec3(1.4, 0.8, 0);
-    
-    scene.primitives[3].a.xyz = vec3(0.4, 0.8, 0.4);
-    scene.primitives[3].position.xyz = vec3(1.4, -0.8, 0);
-
-    scene.primitives[4].a.xyz = vec3(0.4, 0.8, 0.4);
-    scene.primitives[4].position.xyz = vec3(-1.4, 0.8, 0);
-
-    scene.primitives[5].a.xyz = vec3(0.4, 0.8, 0.4);
-    scene.primitives[5].position.xyz = vec3(-1.4, -0.8, 0);
-
-    scene.primitives[6].a.xyz = vec3(0.4, 0.8, 0.4);
-    scene.primitives[6].position.xyz = vec3(-0.4, -2.4, 0);
-
-    scene.primitives[7].a.xyz = vec3(0.4, 0.8, 0.4);
-    scene.primitives[7].position.xyz = vec3(-0.4, -4, 0);
-
-    scene.primitives[8].a.xyz = vec3(0.4, 0.8, 0.4);
-    scene.primitives[8].position.xyz = vec3(0.4, -2.4, 0);
-
-    scene.primitives[9].a.xyz = vec3(0.4, 0.8, 0.4);
-    scene.primitives[9].position.xyz = vec3(0.4, -4, 0);
-    */
-
-    //scene.update_primitive_scene(&primitive_scene);
 
     const char* fragmentShaderSource = R"(
         #version 330 core
@@ -348,7 +243,7 @@ int main(int argc, char ** argv)
 
     Animation sit("./assets/animations/bend_sit.json");
     game->start_timer();
-    Animation anim(".\\assets\\animations\\SPE_Tverk.json");
+    Animation anim(".\\assets\\animations\\tpose.json");
     cout << "parsing time: ";
     game->print_timer_end();
     float anim_tick = 0;
@@ -390,7 +285,7 @@ int main(int argc, char ** argv)
 
         //game->begin_main();
 
-        /*std::ifstream file("file.txt");
+        std::ifstream file("file.txt");
         if (file.is_open()) {
             string str;
             getline(file, str);
@@ -401,7 +296,7 @@ int main(int argc, char ** argv)
             if (!forced_loop) forced_loop = anim.looped;
             if (!playing) file >> anim_tick;
             file.close();
-        }*/
+        }
         if (playing){
             anim_tick += game->delta() * 20;
             if (forced_loop){

@@ -84,7 +84,7 @@ class Object{
 
 class SphereObject : public Object {
     public:
-    SphereObject(vec3 position, float radius, mat4x4 transform = EYE4){
+    SphereObject(float radius, vec3 position = vec3(0), mat4x4 transform = EYE4){
         this->position = position;
         this->rounding = radius;
         this->transform = transform;
@@ -108,7 +108,7 @@ class SphereObject : public Object {
 class BoxObject : public Object {
     vec3 size;
     public:
-    BoxObject(vec3 position, vec3 size, mat4x4 transform = EYE4){
+    BoxObject(vec3 size, vec3 position = vec3(0), mat4x4 transform = EYE4){
         this->transform = transform;
         this->position = position;
         this->size = size;
@@ -131,7 +131,7 @@ class LineObject : public Object{
     vec3 p1;
     vec3 p2;
     public:
-    LineObject(vec3 position, vec3 p1, vec3 p2, float radius, mat4x4 transform = EYE4){
+    LineObject(vec3 p1, vec3 p2, float radius, vec3 position = vec3(0), mat4x4 transform = EYE4){
         this->transform = transform;
         this->position = position;
         this->p1 = p1;
@@ -156,7 +156,7 @@ class CylinderObject : public Object{
     vec3 p1;
     vec3 p2;
     public:
-    CylinderObject(vec3 position, vec3 p1, vec3 p2, float radius, mat4x4 transform = EYE4){
+    CylinderObject(vec3 p1, vec3 p2, float radius, vec3 position = vec3(0), mat4x4 transform = EYE4){
         this->transform = transform;
         this->position = position;
         this->p1 = p1;
@@ -182,7 +182,7 @@ class TriangleObject : public Object{
     vec3 p2;
     vec3 p3;
     public:
-    TriangleObject(vec3 position, vec3 p1, vec3 p2, vec3 p3, float radius, mat4x4 transform = EYE4){
+    TriangleObject(vec3 p1, vec3 p2, vec3 p3, float radius, vec3 position = vec3(0), mat4x4 transform = EYE4){
         this->transform = transform;
         this->position = position;
         this->p1 = p1;

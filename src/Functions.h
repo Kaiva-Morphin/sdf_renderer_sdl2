@@ -65,6 +65,11 @@ vec2 remap_vec2(vec2 value, vec2 fromLow, vec2 fromHigh, vec2 toLow, vec2 toHigh
     return toLow + normalized * (toHigh - toLow);
 }
 
+mat4 with_offset(mat4 mat, vec3 offset){
+    mat[3] = vec4(offset, mat[3][3]);
+    return mat;
+}
+
 class Game;
 Game* game = nullptr;
 

@@ -286,15 +286,6 @@ mat4x4 eulerZYX(float anglex, float angley, float anglez){
     return rotmatz * rotmaty * rotmatx;
 }
 
-mat4x4 roll_pitch_yaw_mat(float roll, float pitch, float yaw){
-    return mat4x4(
-        cos(roll) * cos(pitch),                           -cos(pitch)*cos(roll),                                  sin(pitch),          0,
-        cos(yaw)*sin(roll)+cos(roll)*sin(pitch)*sin(yaw),  cos(roll) * cos(yaw) - sin(roll)*sin(pitch)*sin(yaw), -cos(pitch)*sin(yaw), 0,
-        -cos(roll)*cos(yaw)*sin(pitch)+sin(roll)*sin(yaw), cos(yaw)*sin(roll)*sin(pitch)+cos(roll)*sin(yaw),      cos(pitch)*cos(yaw), 0,
-        0, 0, 0, 1
-    );
-}
-
 uniform sampler2D map_depth;
 uniform vec2 self_depth_range;
 uniform vec4 depth_texture_rect;

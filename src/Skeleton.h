@@ -11,19 +11,19 @@ using namespace std;
 struct Bone{
     string name;
     Bone* parent = nullptr;
-    vector<Bone*> childs;
     vector<Primitive*> meshes;
 
-    mat4 init_transform; // *consts*
-    vec4 offset; // *consts*
-
+    mat4 init_transform;
+    vec4 offset;
+    
     BoneTransformBundle transform_bundle;
 };
 
-class Character{
+class Skeleton{
     public:
     unordered_map<string, Bone> bones;
 
+    void add_bone(){}
 
 
     void update_scene(PrimitiveScene* scene){
@@ -66,6 +66,10 @@ class Character{
         bones["lleg_"].transform_bundle.transform = EulerZYX(pose.left_leg_bend, 0, 0);
         bones["rleg"].transform_bundle = pose.right_leg;
         bones["rleg_"].transform_bundle.transform = EulerZYX(pose.right_leg_bend, 0, 0);
+
+        bones["litem"].transform_bundle = pose.left_leg;
+        bones["ritem"].transform_bundle = pose.right_leg;
+        // todo : add spring bones and linebones/tribones (set vert to pos of other bone with offset)
     }
 };
 

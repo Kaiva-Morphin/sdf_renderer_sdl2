@@ -557,7 +557,6 @@ class SDF_Shader : public Shader{
 };
 
 class SDF_Frag_Shader : public Shader{
-    Debugger* debugger;
     GLuint scenebuffer;
     GLuint scene_texture;
     GLuint characterTexture;
@@ -571,14 +570,11 @@ class SDF_Frag_Shader : public Shader{
     vec3 position;
     public:
     
-    SDF_Frag_Shader(string frag_path, Debugger* debugger){
+    SDF_Frag_Shader(string frag_path="./assets/sdf_scene.frag"){
         filePath = frag_path;
-        this->debugger = debugger;
-        this->debugger->register_line("SDFshader","SDF shader status: ","NOT INITED!");
     }
     
     void init(int w, int h, ivec3 binded_texture_size, GLubyte* binded_texture_data){
-        this->debugger->register_line("SDFshader","SDF shader status: ","Initing...");
         width = w;
         height = h;
         current_src = read_shader();
@@ -604,7 +600,6 @@ class SDF_Frag_Shader : public Shader{
         glUniform1i(glGetUniformLocation(program, "character_texture"), 0);
     }
     void compile(){
-        this->debugger->register_line("SDFshader","SDF shader status: ","Compiling...");
         const GLchar* shaderSource = current_src.c_str();
         glShaderSource(frag_shader, 1, &shaderSource, NULL);
         glCompileShader(frag_shader);
@@ -614,7 +609,6 @@ class SDF_Frag_Shader : public Shader{
             GLchar infoLog[512];
             glGetShaderInfoLog(frag_shader, 512, NULL, infoLog);
             std::cerr << "Fragment shader compilation failed: " << infoLog << std::endl;
-            this->debugger->update_line("SDFshader", string("compilation failed! check console"));
             return;
         }
         
@@ -638,7 +632,6 @@ class SDF_Frag_Shader : public Shader{
             GLchar infoLog[512];
             glGetShaderInfoLog(vert_shader, 512, NULL, infoLog);
             std::cerr << "Vertex shader compilation failed: " << infoLog << std::endl;
-            this->debugger->update_line("SDFshader", string("compilation failed! check console"));
             return;
         }
         glAttachShader(program, vert_shader);
@@ -651,14 +644,12 @@ class SDF_Frag_Shader : public Shader{
             GLchar infoLog[512];
             glGetProgramInfoLog(program, 512, NULL, infoLog);
             std::cerr << "Shader program linking failed: " << infoLog << std::endl;
-            this->debugger->update_line("SDFshader", string("program linking failed! check console"));
             return;
         }
         glBindImageTexture(0, scene_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
         glGenBuffers(1, &scenebuffer);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, scenebuffer);
         cout << "Compiled!" << endl;
-        this->debugger->register_line("SDFshader","SDF shader status: ","Compiled!");
     }
     void destroy(){
         glDeleteTextures(1, &scene_texture);

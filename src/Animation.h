@@ -85,6 +85,8 @@ class Animation{
         if (lower_bone == "rightarm") return BONE_RIGHTARM;
         if (lower_bone == "leftleg") return BONE_LEFTLEG;
         if (lower_bone == "rightleg") return BONE_RIGHTLEG;
+        if (lower_bone == "leftitem") return BONE_LEFTITEM;
+        if (lower_bone == "rightitem") return BONE_RIGHTITEM;
         cerr << "Incorrect bone on read stage: " << lower_bone << " in " << name << " None applied" << endl;
         return BONE_NONE;
     }
@@ -324,13 +326,20 @@ class Animation{
                     bone_pos = &p.right_leg_pos;
                     bone_rot = &p.right_leg_rot;
                     break;
+                case BONE_RIGHTITEM:
+                    bone_pos = &p.right_item_pos;
+                    bone_rot = &p.right_item_rot;
+                    break;
+                case BONE_LEFTITEM:
+                    bone_pos = &p.left_item_pos;
+                    bone_rot = &p.left_item_rot;
+                    break;
                 default:
                     continue;
                     break;
             }
             *bone_bend = bend;
             *bone_pos = {x, y, z};
-            //             v      ?    ?
             *bone_rot = {pitch, yaw, roll};
         }
         return p;
@@ -374,6 +383,7 @@ class Animation{
                     int temp_tick;
                     int temp_easing;
                     float temp_value;
+                    // tick ordering are garanteed
                     for (auto property : bone_properties){
                         tie(temp_tick, temp_easing, temp_value) = property;
                         if (temp_tick >= start_tick && temp_tick <= tick){
