@@ -247,6 +247,23 @@ class Map{
         glEnd();
         glBindTexture(GL_TEXTURE_2D, 0);
     }
+    void draw_depth(vec2 dst_size){
+        vec4 dst = {offset.x, offset.y, offset.x + texture_size.x, offset.y + texture_size.y};
+        vec4 dst_uv = {
+            remap(dst.x, 0, dst_size.x, -1, 1),
+            remap(dst.y, 0, dst_size.y, -1, 1),
+            remap(dst.z, 0, dst_size.x, -1, 1),
+            remap(dst.w, 0, dst_size.y, -1, 1),
+        };
+        glBindTexture(GL_TEXTURE_2D, map_depth);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0, 0); glVertex2f(dst_uv.x, dst_uv.y);
+        glTexCoord2f(1, 0); glVertex2f(dst_uv.z, dst_uv.y);
+        glTexCoord2f(1, 1); glVertex2f(dst_uv.z, dst_uv.w);
+        glTexCoord2f(0, 1); glVertex2f(dst_uv.x, dst_uv.w);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 
     bool has_tile_wrapped(ivec3 pos){
         if (pos.x < 0 || pos.y < 0 || pos.z < 0) return false;
@@ -299,11 +316,11 @@ class Map{
         glUniform2f(glGetUniformLocation(tile_shader, "texture_size"), atlas->atlas_size.x, atlas->atlas_size.y);
         glUniform2f(glGetUniformLocation(tile_shader, "tile_size"), tile_rect_size.z, tile_rect_size.w);
 
-        float depth_step = 1. / (float)(map_size.z+1);
+        float depth_step = 1. / (float)(map_size.z+2);
 
         for (int y = 0; y < map_size.y; y++){
             for (int z = 0; z < map_size.z; z++){
-                float tile_depth = depth_step * z;
+                float tile_depth = depth_step * (z+1);
                 glUniform2f(glGetUniformLocation(tile_shader, "tile_depth_range"), tile_depth, tile_depth+depth_step);
                 for (int x = map_size.x - 1; x >= 0; x--){
                     int tile = data[y][z][x];
@@ -444,7 +461,7 @@ int main(int argc, char ** argv)
     for (int x = 0; x < TEX_SIZE; x++)
     drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
     GLubyte* character_texture_data = drawer.get_data();
-    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag", &game->debugger);
+    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag");
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
     shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
@@ -529,9 +546,9 @@ int main(int argc, char ** argv)
     player.type = TYPE_RIGID;
     player.bounciness = 0.;
     player.mass = 1.;
-    player.position.x = 7;
-    player.position.y = 4;
-    player.position.z = 7;
+    player.position.x = 0;
+    player.position.y = 2;
+    player.position.z = 0;
     player.friction = 0.001;
     solver.push(&player);
 
@@ -615,8 +632,8 @@ int main(int argc, char ** argv)
         map.offset = (game->screen_pixel_size - map.get_texture_size());
         map.offset /= 2;
         glEnable(GL_BLEND);
-        map.draw(game->screen_pixel_size);
         glDisable(GL_BLEND);
+        map.draw_depth(game->screen_pixel_size);
         game->end_main();
 
         game->begin_main();
@@ -627,12 +644,10 @@ int main(int argc, char ** argv)
         shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
         scene.update_primitive_scene(&primitive_scene);
         shader.set_scene(&primitive_scene);
-
-        solver.step(0.0001, nullptr);
-
+        //solver.step(game.wrapped_delta, nullptr);
         shader.set_position(player.position);
 
-        //shader.set_position({7, 0, 5});
+        shader.set_position({0, 0, 0});
 
         shader.update_map(map.get_depth(), map.get_texture_size(), map.get_map_size());
         

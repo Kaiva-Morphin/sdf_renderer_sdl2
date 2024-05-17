@@ -4,6 +4,8 @@
 #include "sdf_primitives.h"
 #include "Pose.h"
 
+#ifndef MY_SKELETON
+#define MY_SKELETON
 
 using namespace std;
 
@@ -76,3 +78,4 @@ class Skeleton{
 
 
 
+#endif

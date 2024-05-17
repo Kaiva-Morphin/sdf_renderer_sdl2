@@ -11,11 +11,19 @@ class Character{
     public:
     SDF_Frag_Shader shader;
     Character(){}
+    ~Character(){
+        shader.destroy();
+    }
 };
 
 
 class BoxBot : public Character{
     public:
+    void apply_pose(Pose pose){
+        skeleton.apply_pose(pose);
+        skeleton.update_scene(&mesh_scene);
+        shader.set_scene(&mesh_scene);
+    }
     BoxBot() : Character(){
         Primitive* torso = &mesh_scene.primitives[0];
         *torso = (BoxObject(vec3(0.3))).as_primitive();

@@ -570,7 +570,7 @@ class SDF_Frag_Shader : public Shader{
     vec3 position;
     public:
     
-    SDF_Frag_Shader(string frag_path="./assets/sdf_scene.frag"){
+    SDF_Frag_Shader(string frag_path="./assets/shaders/sdf_scene.frag"){
         filePath = frag_path;
     }
     
@@ -692,9 +692,9 @@ class SDF_Frag_Shader : public Shader{
         vec2 pos2d = vec2{1 + dest.x + dest.z, (1 + dest.z - dest.y)};
         glUniform4f(glGetUniformLocation(program, "depth_texture_rect"), 
             remap(pos2d.x-width * 0.5, 0, map_texture_size.x, 0, 1),
-            remap(pos2d.y-height * 0.5 + tile_size.x * 0.5 + tile_size.z * 0.25 /*10*/, 0, map_texture_size.y, 0, 1),   //idk why 10, inv centering y?
+            remap(pos2d.y-height * 0.5/*+ tile_size.x * 0.5 + tile_size.z * 0.25*/ /*10*/, 0, map_texture_size.y, 0, 1),   //idk why 10, inv centering y?
             remap(pos2d.x+width * 0.5, 0, map_texture_size.x, 0, 1),
-            remap(pos2d.y+height * 0.5 + tile_size.x * 0.5 + tile_size.z * 0.25 /*10*/, 0, map_texture_size.y, 0, 1)    //idk why 10, inv centering y?
+            remap(pos2d.y+height * 0.5/*+ tile_size.x * 0.5 + tile_size.z * 0.25*/ /*10*/, 0, map_texture_size.y, 0, 1)    //idk why 10, inv centering y?
         );
         pos2d.y = map_texture_size.y - pos2d.y;
         pos2d = -half_map_size + pos2d;

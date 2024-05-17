@@ -22,6 +22,9 @@ int main(int argc, char ** argv)
     game->init();
     
 
+    
+
+    BoxBot boxbot;
     int TEX_SIZE = 64;
     TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
     drawer.fill(DRAWER_WHITE);
@@ -30,11 +33,10 @@ int main(int argc, char ** argv)
     for (int x = 0; x < TEX_SIZE; x++)
     drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
     GLubyte* character_texture_data = drawer.get_data();
-
-    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag");
-    BoxBot boxbot;
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
+    
+    boxbot.shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
 
     /*SDL_Surface* surface = IMG_Load("assets/images/ivan.png");
 
@@ -42,142 +44,7 @@ int main(int argc, char ** argv)
 
     SDL_FreeSurface(surface);*/
 
-    shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
     drawer.destroy();
-
-    ObjectScene scene; 
-    PrimitiveScene primitive_scene;
-
-
-    
-
-    Skeleton character;
-
-    Primitive* torso = &primitive_scene.primitives[0];
-    *torso = (BoxObject(vec3(0.3))).as_primitive();
-    character.bones["torso"] = Bone{
-        "torso",
-        nullptr,
-        {torso},
-        with_offset(EYE4, {0, -0.5, 0}),
-        vec4(0., 1., 0., 1.)
-    };
-
-    Primitive* torso_ = &primitive_scene.primitives[1];
-    *torso_ = (BoxObject(vec3(0.4))).as_primitive();
-    character.bones["torso_"] = Bone{
-        "torso_",
-        &character.bones["torso"],
-        {torso_},
-        with_offset(EYE4, {0, -0.5, 0}),
-        vec4(0., 1., 0., 1.)
-    };
-
-    Primitive* head = &primitive_scene.primitives[2];
-    //*head = (SphereObject( 0.5)).as_primitive();
-    *head = (BoxObject(vec3(0.6, 0.5, 0.5))).as_primitive();
-    character.bones["head"] = Bone{
-        "head",
-        &character.bones["torso_"],
-        {head},
-        with_offset(EYE4, {0, -0.5, 0}),
-        vec4(0., 1., 0., 1.)
-    };
-
-    Primitive* larm = &primitive_scene.primitives[3];
-    *larm = (SphereObject(0.5)).as_primitive();
-    character.bones["larm"] = Bone{
-        "larm",
-        &character.bones["torso_"],
-        {larm},
-        with_offset(EYE4, {0, 0.5, 0}),
-        vec4(-1., 1., 0., 1.)
-    };
-
-    Primitive* larm_ = &primitive_scene.primitives[4];
-    *larm_ = (SphereObject(0.5)).as_primitive();
-    character.bones["larm_"] = Bone{
-        "larm_",
-        &character.bones["larm"],
-        {larm_},
-        with_offset(EYE4, {0, 0.5, 0}),
-        vec4(0., -1., 0., 1.)
-    };
-
-    Primitive* rarm = &primitive_scene.primitives[5];
-    *rarm = (SphereObject(0.5)).as_primitive();
-    character.bones["rarm"] = Bone{
-        "rarm",
-        &character.bones["torso_"],
-        {rarm},
-        with_offset(EYE4, {0, 0.5, 0}),
-        vec4(1., 1., 0., 1.)
-    };
-
-    Primitive* rarm_ = &primitive_scene.primitives[6];
-    *rarm_ = (SphereObject(0.5)).as_primitive();
-    character.bones["rarm_"] = Bone{
-        "rarm_",
-        &character.bones["rarm"],
-        {rarm_},
-        with_offset(EYE4, {0, 0.5, 0}),
-        vec4(0., -1., 0., 1.)
-    };
-
-    Primitive* lleg = &primitive_scene.primitives[7];
-    *lleg = (SphereObject(0.5)).as_primitive();
-    character.bones["lleg"] = Bone{
-        "lleg",
-        &character.bones["torso"],
-        {lleg},
-        with_offset(EYE4, {0, 0.5, 0}),
-        vec4(-0.5, 0., 0., 1.)
-    };
-
-    Primitive* lleg_ = &primitive_scene.primitives[8];
-    *lleg_ = (SphereObject( 0.5)).as_primitive();
-    character.bones["lleg_"] = Bone{
-        "lleg_",
-        &character.bones["lleg"],
-        {lleg_},
-        with_offset(EYE4, {0, 0.5, 0}),
-        vec4(0, -1, 0., 1.)
-    };
-
-    Primitive* rleg = &primitive_scene.primitives[9];
-    *rleg = (SphereObject(0.5)).as_primitive();
-    character.bones["rleg"] = Bone{
-        "rleg",
-        &character.bones["torso"],
-        {rleg},
-        with_offset(EYE4, {0, 0.5, 0}),
-        vec4(0.5, 0., 0., 1.)
-    };
-
-    Primitive* rleg_ = &primitive_scene.primitives[10];
-    *rleg_ = (SphereObject(0.5)).as_primitive();
-    character.bones["rleg_"] = Bone{
-        "rleg_",
-        &character.bones["rleg"],
-        {rleg_},
-        with_offset(EYE4, {0, 0.5, 0}),
-        vec4(0, -1, 0., 1.)
-    };
-    
-
-
-    for (int i = 0; i < character.bones.size(); i++){
-        primitive_scene.ordered_operations[i] =
-            PrimitiveOperation{
-                OPERATION_UNION,
-                i-1,
-                i,
-                i,
-                0.
-            };
-    }
-    primitive_scene.operations = character.bones.size();
-    primitive_scene.size = character.bones.size();
 
     const char* fragmentShaderSource = R"(
         #version 330 core
@@ -314,25 +181,23 @@ int main(int argc, char ** argv)
         game->debugger.register_line("iwannadie1", "Pose get and compute: ", to_string(game->timer_end()));
 
         game->start_timer();
-        character.apply_pose(pose); 
+        boxbot.apply_pose(pose); 
         game->debugger.register_line("iwannadie2", "Apply pose: ", to_string(game->timer_end()));
 
-        shader.check_file_updates();
-        shader.use();
+        boxbot.shader.check_file_updates();
+        boxbot.shader.use();
         // x+
-        shader.set_1f("time", time);
-        shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
+        boxbot.shader.set_1f("time", time);
+        boxbot.shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
 
 
-        character.update_scene(&primitive_scene);
-        shader.set_scene(&primitive_scene);
 
         //shader.set_position({cos(time) * 4, sin(time * 2) * 2, sin(time) * 4 + 4});
 
-        shader.set_position({0, 0, 0});
+        boxbot.shader.set_position({0, 0, 0});
 
-        shader.update_map(0, vec2(0), vec3(0));
-        shader.draw(game->screen_pixel_size);
+        boxbot.shader.update_map(0, vec2(0), vec3(0));
+        boxbot.shader.draw(game->screen_pixel_size);
 
         glUseProgram(0);
         
@@ -359,7 +224,7 @@ int main(int argc, char ** argv)
         SDL_GL_SwapWindow(window);
         // todo: alpha checks for depth buffer draw :D
     }
-    shader.destroy();
+    
     glDeleteProgram(shaderProgram);
     IMG_Quit();
     game->destroy();
