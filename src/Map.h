@@ -40,6 +40,7 @@ class Atlas{
         glGenTextures(1, &texture_atlas);
         glBindTexture(GL_TEXTURE_2D, texture_atlas);
         game->set_default_image_settings();
+        // throws error on high size
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
         atlas_size = {surface->w, surface->h};
         SDL_FreeSurface(surface);

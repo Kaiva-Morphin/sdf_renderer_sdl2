@@ -24,27 +24,38 @@ int main(int argc, char ** argv)
 
     
 
-    BoxBot boxbot;
-    int TEX_SIZE = 64;
+    BloodKnight knight;
+    /*int TEX_SIZE = 64;
     TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
     drawer.fill(DRAWER_WHITE);
     for (int z = 0; z < TEX_SIZE; z++)
     for (int y = 0; y < TEX_SIZE; y++)
     for (int x = 0; x < TEX_SIZE; x++)
-    drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
+    c
     GLubyte* character_texture_data = drawer.get_data();
     vec2 shader_texture_size = ivec2(48, 48);
     shader_texture_size = ivec2(128, 128);
-    
-    boxbot.shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
-
-    /*SDL_Surface* surface = IMG_Load("assets/images/ivan.png");
-
-    shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(64, 64, 1), (GLubyte*)surface->pixels);
-
-    SDL_FreeSurface(surface);*/
-
     drawer.destroy();
+    */
+
+  
+    vec2 shader_texture_size = ivec2(48, 48);
+    shader_texture_size = ivec2(128, 128);
+
+    SDL_Surface* surface = IMG_Load("./assets/images/test.png");
+    SDL_LockSurface(surface);
+
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load("./assets/images/knight.png", &width, &height, &nrChannels, 0);
+    if (!data) {
+        std::cerr << "Failed to load texture" << std::endl;
+        return -1;
+    }
+    ivec3 tex_size = ivec3(24, 24, 4);
+    knight.shader.init(shader_texture_size.x, shader_texture_size.y, tex_size, data);
+
+    SDL_FreeSurface(surface);
+
 
     const char* fragmentShaderSource = R"(
         #version 330 core
@@ -152,7 +163,7 @@ int main(int argc, char ** argv)
 
         //game->begin_main();
 
-        std::ifstream file("file.txt");
+        /*std::ifstream file("file.txt");
         if (file.is_open()) {
             string str;
             getline(file, str);
@@ -163,8 +174,8 @@ int main(int argc, char ** argv)
             if (!forced_loop) forced_loop = anim.looped;
             if (!playing) file >> anim_tick;
             file.close();
-        }
-        if (playing){
+        }*/
+        if (playing){ // todo: integrate to Animation class
             anim_tick += game->delta() * 20;
             if (forced_loop){
                 if (anim_tick > anim.end_tick)
@@ -181,26 +192,24 @@ int main(int argc, char ** argv)
         game->debugger.register_line("iwannadie1", "Pose get and compute: ", to_string(game->timer_end()));
 
         game->start_timer();
-        boxbot.apply_pose(pose); 
+        knight.apply_pose(pose); 
         game->debugger.register_line("iwannadie2", "Apply pose: ", to_string(game->timer_end()));
 
-        boxbot.shader.check_file_updates();
-        boxbot.shader.use();
+        knight.shader.check_file_updates();
+        knight.shader.use();
         // x+
-        boxbot.shader.set_1f("time", time);
-        boxbot.shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
-
+        knight.shader.set_1f("time", time);
+        knight.shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
+        
+        knight.time_step(game->wrapped_delta());
 
 
         //shader.set_position({cos(time) * 4, sin(time * 2) * 2, sin(time) * 4 + 4});
 
-        boxbot.shader.set_position({0, 0, 0});
+        knight.shader.set_position({0, 0, 0});
 
-        boxbot.shader.update_map(0, vec2(0), vec3(0));
-        boxbot.shader.draw(game->screen_pixel_size);
-
-        glUseProgram(0);
-        
+        knight.shader.update_map(0, vec2(0), vec3(0));
+        knight.shader.draw(game->screen_pixel_size);
 
         game->end_main();
 

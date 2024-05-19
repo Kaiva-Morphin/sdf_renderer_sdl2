@@ -7,6 +7,12 @@
 #ifndef MY_SKELETON
 #define MY_SKELETON
 
+
+#define BONETYPE_REGULAR 0
+#define BONETYPE_LINE_ATTACHED 1
+#define BONETYPE_TRIANGLE_ATTACHED 1
+#define BONETYPE_SPRING 2
+
 using namespace std;
 
 
@@ -15,10 +21,20 @@ struct Bone{
     Bone* parent = nullptr;
     vector<Primitive*> meshes;
 
-    mat4 init_transform;
-    vec4 offset;
+    mat4 init_transform = EYE4;
+    vec4 offset = vec4(0);
     
     BoneTransformBundle transform_bundle;
+
+    int bone_type = BONETYPE_REGULAR;
+    
+    // for LINE || TRIANGLE
+    Bone* a = nullptr;
+    vec4 a_offset = vec4(0);
+    Bone* b = nullptr;
+    vec4 b_offset = vec4(0);
+    Bone* c = nullptr;
+    vec4 c_offset = vec4(0);
 };
 
 class Skeleton{
@@ -28,30 +44,49 @@ class Skeleton{
     void add_bone(){}
 
 
-    void update_scene(PrimitiveScene* scene){
-        unordered_map<string, BoneTransformBundle> cached_transforms;
+    void update_scene(){
+        unordered_map<string, BoneTransformBundle> cached_transforms; // todo
         
         for (const auto& pair : bones){
+            if (pair.second.bone_type != BONETYPE_REGULAR){ // || pair.second.bone_type != BONETYPE_SPRING
+                continue;
+            }
             string bone_name = pair.first;
             BoneTransformBundle result_transform;
             Bone* bone = &bones[bone_name];
             Bone* parent = bone->parent;
             vector<Bone*> path;
             path.push_back(bone);
-            while (parent != nullptr){
+            while (parent != nullptr){ // go to root and make path
                 path.push_back(parent);
                 parent = parent->parent;
             }
-            for (auto it = path.rbegin(); it != path.rend(); ++it) {
+            for (auto it = path.rbegin(); it != path.rend(); ++it) { // collect transforms
                 Bone* b = *it;
                 result_transform.position += (b->offset + b->transform_bundle.position) * result_transform.transform;// +  * b->transform_bundle.transform * result_transform.position;//result_transform.position;
                 result_transform.transform = result_transform.transform * b->init_transform * b->transform_bundle.transform;
                 result_transform.transform[3] = b->init_transform[3] + b->transform_bundle.transform[3];
             }
-            for (Primitive* p : bones[bone_name].meshes){
+            for (Primitive* p : bones[bone_name].meshes){ // apply transforms to meshses
                 p->position = result_transform.position;
-                p->transform = result_transform.transform;
+                p->transform = result_transform.transform; // todo: for mesh init offsets and transforms
             }
+        }
+        for (const auto& pair : bones){
+            Bone bone = pair.second;
+            if (bone.bone_type == BONETYPE_REGULAR) continue; 
+            // after applying transforms we can get relative position of mesh
+            if (bone.bone_type == BONETYPE_LINE_ATTACHED){
+                for (Primitive* p : bone.meshes){
+                    
+                }
+            }
+            if (bone.bone_type == BONETYPE_TRIANGLE_ATTACHED){
+                for (Primitive* p : bone.meshes){
+                    
+                }
+            }
+
         }
     }
 

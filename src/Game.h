@@ -1,6 +1,8 @@
 #ifndef MY_GAME
 #define MY_GAME
 
+#define STB_IMAGE_IMPLEMENTATION
+
 //#include "header.h"
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
@@ -21,6 +23,7 @@
 
 #include <stdio.h>
 #include "BdfFont.h"
+#include "stb_image.h"
 
 
 
@@ -588,7 +591,7 @@ class SDF_Frag_Shader : public Shader{
 
         glGenTextures(1, &characterTexture);
         glBindTexture(GL_TEXTURE_3D, characterTexture);
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB8, binded_texture_size.x, binded_texture_size.y, binded_texture_size.z, 0, GL_RGB, GL_UNSIGNED_BYTE, binded_texture_data);
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA8, binded_texture_size.x, binded_texture_size.y, binded_texture_size.z, 0, GL_RGBA, GL_UNSIGNED_BYTE, binded_texture_data);
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);

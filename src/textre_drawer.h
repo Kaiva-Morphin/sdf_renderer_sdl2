@@ -60,16 +60,19 @@ class TextureDrawer{
     }
     
     void fill(int value){
-        std::fill(data, data + w * h * d * 3, value);
+        std::fill(data, data + (w * h * d * 3), value);
     }
     
     
 
     void set_pixel(int px, int py, int pz, int r, int g, int b){
-        if ((px >= 0) && (px < w) && (py >= 0) && (py < h) && (pz >=0) && (pz < d))
-        data[(pz * w * h + py * h + px) * 3] = r;
-        data[(pz * w * h + py * h + px) * 3 + 1] = g;
-        data[(pz * w * h + py * h + px) * 3 + 2] = b;
+        if ((px >= 0) && (px < w) && (py >= 0) && (py < h) && (pz >=0) && (pz < d)){
+            data[(pz * w * h + py * h + px) * 3] = r;
+            data[(pz * w * h + py * h + px) * 3 + 1] = g;
+            data[(pz * w * h + py * h + px) * 3 + 2] = b;
+        } else {
+            printf("error set pix: %i %i %i", px, py, pz);
+        }
     }
 
     void set_pixel(int px, int py, int pz){
