@@ -64,12 +64,11 @@ class Skeleton{
             for (auto it = path.rbegin(); it != path.rend(); ++it) { // collect transforms
                 Bone* b = *it;
                 result_transform.position += (b->offset + b->transform_bundle.position) * result_transform.transform;// +  * b->transform_bundle.transform * result_transform.position;//result_transform.position;
-                result_transform.transform = result_transform.transform * b->init_transform * b->transform_bundle.transform;
-                result_transform.transform[3] = b->init_transform[3] + b->transform_bundle.transform[3];
+                result_transform.transform = result_transform.transform * b->transform_bundle.transform;
             }
             for (Primitive* p : bones[bone_name].meshes){ // apply transforms to meshses
                 p->position = result_transform.position;
-                p->transform = result_transform.transform; // todo: for mesh init offsets and transforms
+                p->transform = bones[bone_name].init_transform * result_transform.transform; // todo: for mesh init offsets and transforms
             }
         }
         for (const auto& pair : bones){

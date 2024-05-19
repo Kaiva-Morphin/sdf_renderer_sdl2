@@ -121,7 +121,10 @@ int main(int argc, char ** argv)
 
     Animation sit("./assets/animations/bend_sit.json");
     game->start_timer();
-    Animation anim(".\\assets\\animations\\tpose.json");
+
+    Animation anim("C:\\Users\\morphin\\AppData\\Roaming\\ATLauncher\\instances\\emotetest\\emotes\\0.json");
+    //Animation anim(".\\assets\\animations\\SPE_Run.json");
+    //Animation anim(".\\assets\\animations\\tpose.json");
     cout << "parsing time: ";
     game->print_timer_end();
     float anim_tick = 0;
@@ -188,12 +191,15 @@ int main(int argc, char ** argv)
         //character.bones["torso"].transform_bundle.transform = EulerXYZ(sin(time*2)*45, 0, 0);
         game->debugger.register_line("iwannadie0", "anim_tick: ", to_string(anim_tick));
         game->start_timer();
-        Pose pose = compute_pose(anim.get_pose(anim_tick));
+        Pose pose = compute_pose(anim.get_pose(anim_tick), 0);
         game->debugger.register_line("iwannadie1", "Pose get and compute: ", to_string(game->timer_end()));
 
         game->start_timer();
         knight.apply_pose(pose); 
         game->debugger.register_line("iwannadie2", "Apply pose: ", to_string(game->timer_end()));
+
+        game->debugger.register_line("iwannadie3", "zxc: ", to_string(anim.get_value(BONE_RIGHTARM, PROPERTY_YAW, 20, false)));
+
 
         knight.shader.check_file_updates();
         knight.shader.use();
