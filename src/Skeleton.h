@@ -64,7 +64,7 @@ class Skeleton{
             for (auto it = path.rbegin(); it != path.rend(); ++it) { // collect transforms
                 Bone* b = *it;
                 result_transform.position += (b->offset + b->transform_bundle.position) * result_transform.transform;// +  * b->transform_bundle.transform * result_transform.position;//result_transform.position;
-                result_transform.transform = result_transform.transform * b->transform_bundle.transform;
+                result_transform.transform = b->transform_bundle.transform * result_transform.transform;
             }
             for (Primitive* p : bones[bone_name].meshes){ // apply transforms to meshses
                 p->position = result_transform.position;

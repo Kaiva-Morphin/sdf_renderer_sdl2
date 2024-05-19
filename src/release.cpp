@@ -307,7 +307,8 @@ int main(int argc, char ** argv)
     }
     ivec3 tex_size = ivec3(24, 24, 4);
     knight.shader.init(shader_texture_size.x, shader_texture_size.y, tex_size, data);
-
+    stbi_image_free(data);
+    
     map.render(&atlas);
     float anim_tick = 0;
     bool playing = true;
@@ -370,23 +371,22 @@ int main(int argc, char ** argv)
 
         solver.step(game->wrapped_delta(), nullptr);
         if (playing){ // todo: integrate to Animation class
-            anim_tick += game->delta() * 20;
+            anim_tick += (game->delta() * 20);
             if (forced_loop){
-                if (anim_tick > run.end_tick)
-                    anim_tick = run.return_tick; 
+                if (anim_tick > run.end_tick) anim_tick = run.return_tick + (int)anim_tick % (run.end_tick - run.return_tick);
             } else {
                 anim_tick = glm::clamp((float)anim_tick, (float)run.start_tick, (float)run.end_tick);
             }
         }
 
         RawPose p;
+        p = run.get_pose(anim_tick);
         if (target_vel != vec2(0)){
-            p = run.get_pose(anim_tick);
             last_dir = target_vel;
         }
         float angle = -atan2(last_dir.y, last_dir.x);
         p.torso_rot.y = angle * (180.0 / M_PI) + 90;
-        knight.apply_pose(compute_pose(p));
+        knight.apply_pose(compute_pose(p, 0));
 
         //cout << player.velocity.z << endl;
         player.velocity.z = target_vel.y;
@@ -396,6 +396,7 @@ int main(int argc, char ** argv)
 
         game->debugger.update_line("vel", to_string(player.velocity.x) + " " + to_string(player.velocity.y) + " " + to_string(player.velocity.z));
         game->debugger.update_line("inp", to_string(target_vel.x) + " " + to_string(target_vel.y));
+        game->debugger.register_line("anim_tick", "anim_tick", to_string(anim_tick));
         game->debugger.update_line("pos", to_string(player.position.x) + " " + to_string(player.position.y) + " " + to_string(player.position.z));
 
         game->begin_main();

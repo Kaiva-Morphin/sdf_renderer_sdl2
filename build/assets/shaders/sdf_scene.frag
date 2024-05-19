@@ -316,7 +316,7 @@ mat4 view_mat = mat4x4(
 void main() {
   //view_mat = mat4( 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
   //view_mat = eulerXYZ(0, 0, 0);
-  //view_mat = eulerXYZ(0, sin(time)*0 - 90, 0);
+  //view_mat = eulerXYZ(0, sin(time)*90 - 90, 0);
   vec2 pixel_pos = fragTexCoord.xy * texture_size; // pixel pos
   vec2 uv_pos = 1 - fragTexCoord;
   vec3 bg_color = vec3(0.0863, 0.1765, 0.2549);

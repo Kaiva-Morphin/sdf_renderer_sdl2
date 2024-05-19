@@ -53,6 +53,7 @@ int main(int argc, char ** argv)
     }
     ivec3 tex_size = ivec3(24, 24, 4);
     knight.shader.init(shader_texture_size.x, shader_texture_size.y, tex_size, data);
+    stbi_image_free(data);
 
     SDL_FreeSurface(surface);
 

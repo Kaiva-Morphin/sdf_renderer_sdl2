@@ -531,7 +531,7 @@ class BloodKnight : public Character{
 
 
         mesh_scene.ordered_operations[0] = PrimitiveOperation{1, 2, 3, 3, 0};
-        mesh_scene.ordered_operations[1] = PrimitiveOperation{0, 0, 1, 1, 0}; // 1
+        mesh_scene.ordered_operations[1] = PrimitiveOperation{0, 0, 1, 1, 1};
         mesh_scene.ordered_operations[2] = PrimitiveOperation{0, 3, 2, 2, 0.25};
         mesh_scene.ordered_operations[3] = PrimitiveOperation{0, 1, 2, 3, 0};
 
