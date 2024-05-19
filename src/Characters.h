@@ -391,7 +391,7 @@ class BloodKnight : public Character{
             "rleg_",
             &skeleton.bones["rleg"],
             {rleg_},
-            with_offset(EYE4, vec4(0, 0, 0, 0)),
+            with_offset(EYE4, vec4(0, 0, 0, 1)),
             vec4(0, -0.75, 0, 1.)
         };
 
@@ -407,7 +407,7 @@ class BloodKnight : public Character{
             "lleg",
             &skeleton.bones["torso"],
             {lleg},
-            with_offset(EYE4, vec4(0, 0, 0, 0)),
+            with_offset(EYE4, vec4(0, 0, 0, 1)),
             vec4(-0.25, 0.0, 0, 1.)
         };
 
@@ -423,7 +423,7 @@ class BloodKnight : public Character{
             "lleg_",
             &skeleton.bones["lleg"],
             {lleg_},
-            with_offset(EYE4, vec4(0, 0, 0, 0)),
+            with_offset(EYE4, vec4(0, 0, 0, 1)),
             vec4(0, -0.75, 0, 1.)
         };
 
@@ -448,7 +448,7 @@ class BloodKnight : public Character{
             "rarm",
             &skeleton.bones["torso_"],
             {rarm1},
-            with_offset(EYE4, vec4(0, 0, 0, 0)),
+            with_offset(EYE4, vec4(0, 0, 0, 1)),
             vec4(0.5, 0.5, 0.3, 1.)
         };
 
@@ -456,7 +456,7 @@ class BloodKnight : public Character{
             "rarm1",
             &skeleton.bones["rarm"],
             {rarm2},
-            with_offset(EYE4, vec4(0, 0, 0, 0)),
+            with_offset(EYE4, vec4(0, 0, 0, 1)),
             vec4(0, 0, 0, 1.)
         };
 

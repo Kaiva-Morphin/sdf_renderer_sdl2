@@ -122,8 +122,8 @@ int main(int argc, char ** argv)
     Animation sit("./assets/animations/bend_sit.json");
     game->start_timer();
 
-    Animation anim("C:\\Users\\morphin\\AppData\\Roaming\\ATLauncher\\instances\\emotetest\\emotes\\0.json");
-    //Animation anim(".\\assets\\animations\\SPE_Run.json");
+    //Animation anim("C:\\Users\\morphin\\AppData\\Roaming\\ATLauncher\\instances\\emotetest\\emotes\\0.json");
+    Animation anim(".\\assets\\animations\\SPE_Run.json");
     //Animation anim(".\\assets\\animations\\tpose.json");
     cout << "parsing time: ";
     game->print_timer_end();
@@ -195,11 +195,18 @@ int main(int argc, char ** argv)
         game->debugger.register_line("iwannadie1", "Pose get and compute: ", to_string(game->timer_end()));
 
         game->start_timer();
-        knight.apply_pose(pose); 
         game->debugger.register_line("iwannadie2", "Apply pose: ", to_string(game->timer_end()));
 
-        game->debugger.register_line("iwannadie3", "zxc: ", to_string(anim.get_value(BONE_RIGHTARM, PROPERTY_YAW, 20, false)));
+        game->debugger.register_line("iwannadie3", "", to_string(pose.right_arm.transform[0]) + to_string(pose.right_arm.transform[1]) + to_string(pose.right_arm.transform[2]));
+        //game->debugger.register_line("iwannadie4", "", to_string(EulerXYZ(0, 30, 0)[0]) + to_string(+[1]) + to_string(EulerXYZ(0, 30, 0)[2]));
 
+
+        knight.apply_pose(pose);
+        RawPose p;
+        p.right_arm_rot.x = 30;
+        p.right_arm_rot.y = 60;
+        p.right_arm_rot.z = 90;
+        //knight.apply_pose(compute_pose(p));
 
         knight.shader.check_file_updates();
         knight.shader.use();

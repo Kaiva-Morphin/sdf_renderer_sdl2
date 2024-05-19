@@ -224,7 +224,7 @@ float calcSoftshadow( in vec3 ro, in vec3 rd, float tmin, float tmax, const floa
     return clamp( res, 0.0, 1.0 );
 }
 
-const float scale_factor = 0.11 / 2;
+const float scale_factor = 0.11;// / 2;
 
 /*
 
@@ -314,8 +314,8 @@ mat4 view_mat = mat4x4(
   );
 
 void main() {
-  view_mat = mat4( 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-  view_mat = eulerXYZ(0, time*150, 0);
+  //view_mat = mat4( 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+  //view_mat = eulerXYZ(0, 0, 0);
   //view_mat = eulerXYZ(0, sin(time)*0 - 90, 0);
   vec2 pixel_pos = fragTexCoord.xy * texture_size; // pixel pos
   vec2 uv_pos = 1 - fragTexCoord;
@@ -328,7 +328,7 @@ void main() {
   vec3 direction = (view_mat*vec4(0., 0., -1., 0.)).xyz;
 
 
-
+  //scene.primitives[10].transform = eulerXYZ(0, 30, 0) * eulerXYZ(90, 0, 0);
   
   //scene.ordered_operations[0] = PrimitiveOperation(1, 2, 3, 0, 0);
   //scene.ordered_operations[0] = PrimitiveOperation(0, 2, 3, 0, 0);
