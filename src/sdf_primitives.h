@@ -10,35 +10,6 @@ using namespace std;
 #ifndef SDF_INITED
 #define SDF_INITED
 
-
-/*
-
-Scene -> "Bones" -> Primitives 
-Primitive hierarhy
-
-Scene is up to 64 primitives.
-
-Object.as_primitive();
-primitives: everything with rounding
-    sphere (dot)
-    capsule (line)
-    box
-    triangle
-    cyl
-
-every object contains colorspace
-
-Colorspace is up to 32 colored objects
-every object can be:
-    color;
-    gradient;
-    noise grad;
-    normal gradient;
-
-bloom?
-
-*/
-
 #define OPERATION_UNION 0
 #define OPERATION_SUBTRACTION 1
 #define OPERATION_INTERSECTION 2

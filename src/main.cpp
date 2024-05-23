@@ -1,8 +1,9 @@
 #include "Game.h"
 #include "BdfFont.h"
-#include "textre_drawer.h"
 #include "Physics.h"
 #include "Map.h"
+#include "Animation.h"
+#include "Characters.h"
 
 #define PI 3.14159
 #define HALF_PI PI / 2.
@@ -199,37 +200,6 @@ int main(int argc, char ** argv)
         }
     }
 
-    int TEX_SIZE = 64;
-    TextureDrawer drawer = TextureDrawer(TEX_SIZE, TEX_SIZE, TEX_SIZE);
-    drawer.fill(DRAWER_WHITE);
-    for (int z = 0; z < TEX_SIZE; z++)
-    for (int y = 0; y < TEX_SIZE; y++)
-    for (int x = 0; x < TEX_SIZE; x++)
-    drawer.set_pixel(x, y, z, x > TEX_SIZE * 0.5 ? 0. : 255., y > TEX_SIZE * 0.5 ? 0. : 255., z > TEX_SIZE * 0.5 ? 0. : 255.);
-    GLubyte* character_texture_data = drawer.get_data();
-    SDF_Frag_Shader shader = SDF_Frag_Shader("assets/shaders/sdf_scene.frag");
-    vec2 shader_texture_size = ivec2(48, 48);
-    shader_texture_size = ivec2(128, 128);
-    shader.init(shader_texture_size.x, shader_texture_size.y, ivec3(TEX_SIZE), character_texture_data);
-    drawer.destroy();
-    ObjectScene scene;
-    PrimitiveScene primitive_scene;
-
-    //BoxObject* box = new BoxObject(vec3(0., 0., 0.), vec3(1., 2., 1.));
-    SphereObject* sphere = new SphereObject(1);
-    scene.objects.push_back(sphere);
-    scene.ordered_operations.push_back(
-        PrimitiveOperation{
-            OPERATION_UNION,
-            -1,
-            0,
-            0,
-            1
-        }
-    );
-
-
-    scene.update_primitive_scene(&primitive_scene);
 
     const char* fragmentShaderSource = R"(
         #version 330 core
@@ -291,12 +261,12 @@ int main(int argc, char ** argv)
     BDFAtlas font_atlas = BDFAtlas("assets/fonts/orp/orp-italic.bdf", 1536);
     game->debugger.init(&font_atlas);
     
-    PhysicsPrimitive player = solver.capsule(0.001, sphere->rounding * 0.5);
+    PhysicsPrimitive player = solver.capsule(1.5, 0.5);
     player.type = TYPE_RIGID;
     player.bounciness = 0.00001;
     player.mass = 1.;
     player.position.x = 3;
-    player.position.y = 0;
+    player.position.y = 1;
     player.position.z = 3;
     player.friction = 0.5;
     solver.push(&player);
@@ -317,7 +287,32 @@ int main(int argc, char ** argv)
     game->debugger.register_line("phys1", "phys:  ", "");
     game->debugger.register_line("phys2", "phys:  ", "");
 
+    Animation run(".\\assets\\animations\\SPE_Run.json");
+    Animation idle(".\\assets\\animations\\F.json");
+
+    BloodKnight knight;
+
+    vec2 shader_texture_size = ivec2(48, 48);
+    //shader_texture_size = ivec2(128, 128);
+
+    SDL_Surface* surface = IMG_Load("./assets/images/test.png");
+    SDL_LockSurface(surface);
+
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load("./assets/images/knight.png", &width, &height, &nrChannels, 0);
+    if (!data) {
+        std::cerr << "Failed to load texture" << std::endl;
+        return -1;
+    }
+    ivec3 tex_size = ivec3(24, 24, 4);
+    knight.shader.init(shader_texture_size.x, shader_texture_size.y, tex_size, data);
+    stbi_image_free(data);
+    
     map.render(&atlas);
+    float anim_tick = 0;
+    bool playing = true;
+    bool forced_loop = true;
+    vec2 last_dir = vec2(0, 1);
     while (game->is_running())
     {
         float time = game->time();
@@ -369,17 +364,38 @@ int main(int argc, char ** argv)
             }
         }
 
+        float delta = game->wrapped_delta();
+        
+        vec2 target_vel = vec2(key_d - key_a,  key_s - key_w) * 6.0f;
 
+        if (playing){ // todo: integrate to Animation class
+            anim_tick += (delta * 20);
+            if (forced_loop){
+                if (anim_tick > run.end_tick) anim_tick = run.return_tick + (int)anim_tick % (run.end_tick - run.return_tick);
+            } else {
+                anim_tick = glm::clamp((float)anim_tick, (float)run.start_tick, (float)run.end_tick);
+            }
+        }
 
-        vec2 target_vel = vec2(key_d - key_a,  key_s - key_w) * 4.0f;
+        RawPose p;
+        if (target_vel != vec2(0)){
+            last_dir = target_vel;
+            p = run.get_pose(anim_tick);
+        }
+        float angle = -atan2(last_dir.y, last_dir.x);
+        p.torso_rot.y = angle * (180.0 / M_PI) + 90;
+        knight.apply_pose(compute_pose(p, 0));
+
         //cout << player.velocity.z << endl;
         player.velocity.z = target_vel.y;
         player.velocity.x = target_vel.x;
-        player.velocity.y = (key_space - key_shift) * 4.0f;
+        player.velocity.y = (key_space - key_shift) * 6.0f;
 
+        solver.step(delta, nullptr);
 
         game->debugger.update_line("vel", to_string(player.velocity.x) + " " + to_string(player.velocity.y) + " " + to_string(player.velocity.z));
         game->debugger.update_line("inp", to_string(target_vel.x) + " " + to_string(target_vel.y));
+        game->debugger.register_line("anim_tick", "anim_tick", to_string(anim_tick));
         game->debugger.update_line("pos", to_string(player.position.x) + " " + to_string(player.position.y) + " " + to_string(player.position.z));
 
         game->begin_main();
@@ -401,26 +417,29 @@ int main(int argc, char ** argv)
         game->end_main();
 
         game->begin_main();
-        shader.check_file_updates();
-        shader.use();
-        // x+
-        shader.set_1f("time", time);
-        shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
-        scene.update_primitive_scene(&primitive_scene);
-        shader.set_scene(&primitive_scene);
-        solver.step(game->wrapped_delta(), nullptr);
 
-        shader.set_position(player.position);
-
-        //shader.set_position({0, 0, 0});
-
-        shader.update_map(map.get_depth(), map.get_texture_size(), map.get_map_size());
         
+
+
+
+        knight.shader.check_file_updates();
+        knight.shader.use();
+        // x+
+        knight.shader.set_1f("time", time);
+        knight.shader.set_2f("texture_size", shader_texture_size.x, shader_texture_size.y);
+        
+        knight.time_step(delta);
+
+
+        //shader.set_position({cos(time) * 4, sin(time * 2) * 2, sin(time) * 4 + 4});
+
+        knight.shader.set_position(player.position);
+
+        knight.shader.update_map(map.get_depth(), map.get_texture_size(), map.get_map_size());
         glEnable(GL_BLEND);
-        shader.draw(game->screen_pixel_size);
+        knight.shader.draw(game->screen_pixel_size);
         glDisable(GL_BLEND);
 
-        solver.draw_ZY(30);
 
         game->debugger.update_basic();
         game->debugger.draw(game->screen_pixel_size);
@@ -434,7 +453,6 @@ int main(int argc, char ** argv)
         SDL_GL_SwapWindow(window);
         // todo: alpha checks for depth buffer draw :D
     }
-    shader.destroy();
     glDeleteProgram(shaderProgram);
     IMG_Quit();
     game->destroy();

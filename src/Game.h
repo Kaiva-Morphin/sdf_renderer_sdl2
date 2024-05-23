@@ -83,7 +83,6 @@ class Debugger{
     vec2 screen_size = {0, 0};
     void draw_line(int line, string text){
         font_atlas->draw_text(text, {0, screen_size.y - (line + 1) * font_atlas->get_glyph_size().y}, screen_size);
-        //font_atlas->draw_text(L"ZXC", {0, 0}, screen_size);
     }
     int startTime = SDL_GetTicks();
     int endTime = 0;
@@ -139,9 +138,6 @@ class Debugger{
     void update_line(string name, string data){
         get<1>(lines[name]) = data;
     }
-    void destroy_line(string name){
-        lines.erase(name);
-    }
     void draw(vec2 screen_size){
         this->screen_size = screen_size;
         if (!enabled){return;}
@@ -191,10 +187,10 @@ class Game{
         update_resolution();
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
+        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
         SDL_SetWindowResizable(window, SDL_bool::SDL_TRUE);
         SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SCALING, "1");
-        SDL_GL_SetSwapInterval(0);
+        //SDL_GL_SetSwapInterval(0);
 
         //TTF_Init();
         //font = TTF_OpenFont("assets/fonts/TinyUnicode.ttf", 16);

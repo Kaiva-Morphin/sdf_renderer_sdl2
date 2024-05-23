@@ -7,8 +7,6 @@ using namespace glm;
 
 #define EYE4 {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
-
-
 mat4x4 EulerXYZ(float anglex, float angley, float anglez){
     anglex = anglex / 180. * 3.1415;
     angley = angley / 180. * 3.1415;

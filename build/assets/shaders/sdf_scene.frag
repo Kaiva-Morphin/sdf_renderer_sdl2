@@ -327,9 +327,6 @@ void main() {
   vec3 point = start;
   vec3 direction = (view_mat*vec4(0., 0., -1., 0.)).xyz;
 
-
-  //scene.primitives[10].transform = eulerXYZ(0, 30, 0) * eulerXYZ(90, 0, 0);
-  
   //scene.ordered_operations[0] = PrimitiveOperation(1, 2, 3, 0, 0);
   //scene.ordered_operations[0] = PrimitiveOperation(0, 2, 3, 0, 0);
 
@@ -425,5 +422,8 @@ void main() {
   //pixel_color.rgb = vec3(0.5);
   //pixel_color.r = (((int(pixel_pos.x + pixel_pos.y) % 2) == 0)?0.2:0);
   //pixel_color = vec4(1, 0, 0, 1);
+
+
+  
   frag_color = pixel_color;
 }
